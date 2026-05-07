@@ -14,7 +14,9 @@ router.get('/', (req, res) => {
     WHERE c.tenant_id = ?
   `;
   const params: any[] = [req.user.tenant_id];
-  if (client_id) { q += ' AND c.agency_client_id = ?'; params.push(client_id); }
+  const forcedClientId = req.user.role === 'client' ? req.user.agency_client_id : null;
+  const effectiveClientId = forcedClientId ?? (client_id || null);
+  if (effectiveClientId) { q += ' AND c.agency_client_id = ?'; params.push(effectiveClientId); }
   if (status) { q += ' AND c.status = ?'; params.push(status); }
   if (platform) { q += ' AND c.platform = ?'; params.push(platform); }
   q += ' ORDER BY c.created_at DESC';

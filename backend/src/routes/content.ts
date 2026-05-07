@@ -16,7 +16,10 @@ router.get('/', (req, res) => {
     WHERE cp.tenant_id = ?`;
   const params: any[] = [tid];
 
-  if (client_id) { query += ' AND cp.agency_client_id = ?'; params.push(client_id); }
+  // client role can only see their own client's content
+  const forcedClientId = req.user.role === 'client' ? req.user.agency_client_id : null;
+  const effectiveClientId = forcedClientId ?? (client_id || null);
+  if (effectiveClientId) { query += ' AND cp.agency_client_id = ?'; params.push(effectiveClientId); }
   if (status && status !== 'all') { query += ' AND cp.status = ?'; params.push(status); }
   if (type && type !== 'all') { query += ' AND cp.type = ?'; params.push(type); }
 

@@ -20,21 +20,21 @@ router.post('/login', (req, res) => {
   const tenant = db.prepare('SELECT * FROM tenants WHERE id = ?').get(user.tenant_id) as any;
 
   const token = jwt.sign(
-    { id: user.id, tenant_id: user.tenant_id, email: user.email, name: user.name, role: user.role },
+    { id: user.id, tenant_id: user.tenant_id, email: user.email, name: user.name, role: user.role, agency_client_id: user.agency_client_id || null },
     JWT_SECRET,
     { expiresIn: '7d' }
   );
 
-  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, tenant: tenant?.name } });
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role, tenant: tenant?.name, client_id: user.agency_client_id || null } });
 });
 
 router.get('/me', authMiddleware, (req, res) => {
-  const user = db.prepare('SELECT id, name, email, role, avatar, tenant_id FROM users WHERE id = ?').get(req.user.id) as any;
+  const user = db.prepare('SELECT id, name, email, role, avatar, tenant_id, agency_client_id FROM users WHERE id = ?').get(req.user.id) as any;
   const tenant = db.prepare('SELECT name, slug FROM tenants WHERE id = ?').get(req.user.tenant_id) as any;
   const companyRows = db.prepare("SELECT key, value FROM settings WHERE tenant_id = ? AND key LIKE 'company_%'").all(req.user.tenant_id) as any[];
   const company: Record<string, string> = {};
   for (const row of companyRows) company[row.key.replace('company_', '')] = row.value;
-  res.json({ ...user, tenant: tenant?.name, company });
+  res.json({ ...user, tenant: tenant?.name, company, client_id: user.agency_client_id || null });
 });
 
 router.put('/profile', authMiddleware, (req, res) => {

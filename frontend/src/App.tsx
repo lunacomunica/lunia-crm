@@ -56,7 +56,9 @@ export default function App() {
 
 function DefaultRedirect() {
   const { user } = useAuth();
-  return <Navigate to={user?.role === 'team' ? '/marketing/clients' : '/dashboard'} replace />;
+  if (user?.role === 'client' && user.client_id) return <Navigate to={`/marketing/portal/${user.client_id}`} replace />;
+  if (user?.role === 'team') return <Navigate to="/marketing/clients" replace />;
+  return <Navigate to="/dashboard" replace />;
 }
 
 function LoginGuard() {

@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from 'react
 import axios from 'axios';
 
 interface Company { name?: string; cnpj?: string; phone?: string; website?: string; address?: string; }
-interface User { id: number; name: string; email: string; role: string; tenant: string; avatar?: string; company?: Company; }
+interface User { id: number; name: string; email: string; role: string; tenant: string; avatar?: string; company?: Company; client_id?: number | null; }
 interface AuthCtx { user: User | null; token: string | null; login: (email: string, password: string) => Promise<void>; logout: () => void; loading: boolean; refreshUser: () => Promise<void>; setUser: (u: User) => void; }
 
 const AuthContext = createContext<AuthCtx>(null!);

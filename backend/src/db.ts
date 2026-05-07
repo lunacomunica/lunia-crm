@@ -234,6 +234,7 @@ const migrations = [
   "ALTER TABLE instagram_leads ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
   "ALTER TABLE users ADD COLUMN avatar TEXT",
   "ALTER TABLE contacts ADD COLUMN referred_by_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL",
+  "ALTER TABLE users ADD COLUMN agency_client_id INTEGER REFERENCES agency_clients(id) ON DELETE SET NULL",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

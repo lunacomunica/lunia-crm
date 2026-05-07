@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2 } from 'lucide-react';
-import { settingsApi, usersApi, profileApi } from '../api/client';
+import { settingsApi, usersApi, profileApi, agencyClientsApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 function Field({ label, id, value, onChange, placeholder, type = 'text', hint, mono = false }: {
@@ -194,27 +194,28 @@ function ProfileTab() {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'Usuário', team: 'Time' };
-const ROLE_BADGE: Record<string, string> = { admin: 'badge-blue', user: 'badge-slate', team: 'badge-purple' };
+const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'Usuário', team: 'Time', client: 'Cliente' };
+const ROLE_BADGE: Record<string, string> = { admin: 'badge-blue', user: 'badge-slate', team: 'badge-purple', client: 'badge-amber' };
 
 function UsersTab() {
   const { user: me } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
+  const [agencyClients, setAgencyClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', agency_client_id: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   const load = () => { setLoading(true); usersApi.list().then(r => { setUsers(r.data); setLoading(false); }); };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); agencyClientsApi.list().then(r => setAgencyClients(r.data)); }, []);
 
   const handleCreate = async () => {
     if (!form.name || !form.email || !form.password) { setError('Preencha todos os campos'); return; }
     setSaving(true); setError('');
     try {
       await usersApi.create(form);
-      setModal(false); setForm({ name: '', email: '', password: '', role: 'user' }); load();
+      setModal(false); setForm({ name: '', email: '', password: '', role: 'user', agency_client_id: '' }); load();
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erro ao criar usuário');
     }
@@ -272,7 +273,10 @@ function UsersTab() {
                   </td>
                   <td className="td text-sm" style={{ color: 'rgba(148,163,184,0.7)' }}>{u.email}</td>
                   <td className="td">
-                    <span className={`badge ${ROLE_BADGE[u.role] || 'badge-slate'}`}>{ROLE_LABEL[u.role] || u.role}</span>
+                    <div className="flex flex-col gap-1">
+                      <span className={`badge ${ROLE_BADGE[u.role] || 'badge-slate'}`}>{ROLE_LABEL[u.role] || u.role}</span>
+                      {u.agency_client_name && <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{u.agency_client_name}</span>}
+                    </div>
                   </td>
                   <td className="td">
                     {u.id !== me?.id && (
@@ -307,12 +311,22 @@ function UsersTab() {
               <Field label="Senha" id="u-pass" value={form.password} onChange={v => setForm({ ...form, password: v })} placeholder="Mínimo 6 caracteres" type="password" />
               <div>
                 <label className="label-dark">Papel</label>
-                <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} className="input-dark" style={{ cursor: 'pointer' }}>
+                <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value, agency_client_id: '' })} className="input-dark" style={{ cursor: 'pointer' }}>
                   <option value="user">Usuário</option>
                   <option value="team">Time (só Marketing)</option>
                   <option value="admin">Admin</option>
+                  <option value="client">Cliente (portal externo)</option>
                 </select>
               </div>
+              {form.role === 'client' && (
+                <div>
+                  <label className="label-dark">Cliente vinculado *</label>
+                  <select value={form.agency_client_id} onChange={e => setForm({ ...form, agency_client_id: e.target.value })} className="input-dark" style={{ cursor: 'pointer' }}>
+                    <option value="">Selecione o cliente</option>
+                    {agencyClients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                  </select>
+                </div>
+              )}
               {error && (
                 <div className="flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl"
                   style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>

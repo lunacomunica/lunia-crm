@@ -33,7 +33,7 @@ export default function ClientPortal() {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isPreview = user?.role === 'admin' || user?.role === 'user';
+  const isPreview = user?.role === 'admin' || user?.role === 'user' || user?.role === 'team';
 
   const [client, setClient] = useState<AgencyClient | null>(null);
   const [pieces, setPieces] = useState<ContentPiece[]>([]);

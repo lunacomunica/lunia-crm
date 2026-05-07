@@ -7,6 +7,7 @@ export interface AuthUser {
   email: string;
   name: string;
   role: string;
+  agency_client_id?: number | null;
 }
 
 declare global {
