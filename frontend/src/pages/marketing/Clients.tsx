@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, Briefcase, Instagram, Clock, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Briefcase, Instagram, Clock, Eye } from 'lucide-react';
 import { agencyClientsApi } from '../../api/client';
 import { AgencyClient } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -91,8 +91,15 @@ export default function MarketingClients() {
                     {c.segment && <p className="text-xs" style={{ color: 'rgba(100,116,139,0.55)' }}>{c.segment}</p>}
                   </div>
                 </div>
-                {canEdit && (
+                {(
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => navigate(`/marketing/portal/${c.id}`)}
+                      className="p-1.5 rounded-lg transition-all" title="Visualizar como cliente"
+                      style={{ color: 'rgba(100,116,139,0.5)' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f59e0b'; (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.1)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                      <Eye size={13} />
+                    </button>
                     <button onClick={() => openEdit(c)} className="p-1.5 rounded-lg transition-all"
                       style={{ color: 'rgba(100,116,139,0.5)' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}

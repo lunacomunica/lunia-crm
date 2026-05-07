@@ -99,6 +99,17 @@ db.exec(`
     PRIMARY KEY (tenant_id, key)
   );
 
+  CREATE TABLE IF NOT EXISTS notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    body TEXT,
+    read INTEGER DEFAULT 0,
+    meta TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS agency_clients (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id INTEGER NOT NULL DEFAULT 1,

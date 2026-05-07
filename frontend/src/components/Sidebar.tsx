@@ -1,9 +1,13 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare, Instagram,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, CalendarDays
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, CalendarDays, Bell
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useEffect, useState, useRef } from 'react';
+import { notificationsApi } from '../api/client';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 const commercialItems = [
   { path: '/dashboard',     label: 'Dashboard',      icon: LayoutDashboard },
@@ -37,6 +41,81 @@ function NavItem({ path, label, icon: Icon }: { path: string; label: string; ico
       </span>
       {active && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#3b82f6', boxShadow: '0 0 6px rgba(59,130,246,0.9)' }} />}
     </Link>
+  );
+}
+
+function NotificationBell() {
+  const [unread, setUnread] = useState(0);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  const load = () => notificationsApi.list().then(r => { setUnread(r.data.unread); setNotifications(r.data.notifications); });
+
+  useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  const handleOpen = () => { setOpen(o => !o); if (!open && unread > 0) { notificationsApi.readAll().then(() => { setUnread(0); setNotifications(prev => prev.map(n => ({ ...n, read: 1 }))); }); } };
+
+  const TYPE_COLOR: Record<string, string> = { aprovado: '#34d399', ajuste_solicitado: '#f97316' };
+  const TYPE_LABEL: Record<string, string> = { aprovado: 'Aprovado', ajuste_solicitado: 'Ajuste solicitado' };
+
+  return (
+    <div ref={ref} className="relative">
+      <button onClick={handleOpen} className="relative p-2 rounded-lg transition-colors flex-shrink-0"
+        style={{ color: unread > 0 ? '#f59e0b' : 'rgba(100,116,139,0.5)' }}
+        onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
+        onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+        <Bell size={15} />
+        {unread > 0 && (
+          <span className="absolute -top-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold text-white"
+            style={{ background: '#f59e0b' }}>{unread > 9 ? '9+' : unread}</span>
+        )}
+      </button>
+      {open && (
+        <div className="absolute bottom-full right-0 mb-2 w-72 rounded-2xl overflow-hidden"
+          style={{ background: '#0d0d1f', border: '1px solid rgba(59,130,246,0.15)', boxShadow: '0 -8px 32px rgba(0,0,0,0.6)' }}>
+          <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
+            <span className="text-sm font-medium text-white">Notificações</span>
+            {notifications.some(n => !n.read) && (
+              <button onClick={() => notificationsApi.readAll().then(() => { setUnread(0); setNotifications(p => p.map(n => ({ ...n, read: 1 }))); })}
+                className="text-xs transition-colors" style={{ color: 'rgba(100,116,139,0.5)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#e2e8f0')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                Marcar tudo como lido
+              </button>
+            )}
+          </div>
+          <div className="max-h-72 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <p className="px-4 py-6 text-sm text-center" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma notificação</p>
+            ) : notifications.map(n => {
+              const meta = typeof n.meta === 'string' ? JSON.parse(n.meta) : n.meta;
+              return (
+                <button key={n.id} onClick={() => { setOpen(false); if (meta?.client_id) navigate(`/marketing/content?client=${meta.client_id}`); }}
+                  className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors"
+                  style={{ background: n.read ? 'transparent' : 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.07)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = n.read ? 'transparent' : 'rgba(59,130,246,0.04)')}>
+                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: TYPE_COLOR[n.type] || '#60a5fa' }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-white truncate">{n.title}</p>
+                    {n.body && <p className="text-[10px] mt-0.5 truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>{n.body}</p>}
+                    <p className="text-[10px] mt-1" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                      {format(new Date(n.created_at), "d MMM HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -113,12 +192,15 @@ export default function Sidebar() {
                 </p>
               </div>
             </div>
+            <div className="flex items-center gap-1 flex-shrink-0">
+            <NotificationBell />
             <button onClick={logout} title="Sair" className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
               style={{ color: 'rgba(100,116,139,0.5)' }}
               onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
               onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
               <LogOut size={13} />
             </button>
+            </div>
           </div>
         )}
       </div>

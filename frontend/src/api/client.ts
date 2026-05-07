@@ -57,6 +57,12 @@ export const metaApi = {
   deleteLead: (id: number) => api.delete(`/meta/instagram-leads/${id}`),
 };
 
+export const notificationsApi = {
+  list: () => api.get('/notifications'),
+  readAll: () => api.patch('/notifications/read-all'),
+  read: (id: number) => api.patch(`/notifications/${id}/read`),
+};
+
 export const agencyClientsApi = {
   list: () => api.get('/agency-clients'),
   get: (id: number) => api.get(`/agency-clients/${id}`),
@@ -70,7 +76,7 @@ export const contentApi = {
   get: (id: number) => api.get(`/content/${id}`),
   create: (data: any) => api.post('/content', data),
   update: (id: number, data: any) => api.put(`/content/${id}`, data),
-  updateStatus: (id: number, status: string) => api.patch(`/content/${id}/status`, { status }),
+  updateStatus: (id: number, status: string, comment?: string) => api.patch(`/content/${id}/status`, { status, comment }),
   addComment: (id: number, message: string) => api.post(`/content/${id}/comments`, { message }),
   delete: (id: number) => api.delete(`/content/${id}`),
 };

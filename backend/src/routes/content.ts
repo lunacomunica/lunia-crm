@@ -68,11 +68,30 @@ router.put('/:id', (req, res) => {
 });
 
 router.patch('/:id/status', (req, res) => {
-  const { status } = req.body;
+  const { status, comment } = req.body;
   if (!VALID_STATUSES.includes(status)) return res.status(400).json({ error: 'Status inválido' });
-  const existing = db.prepare('SELECT * FROM content_pieces WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id);
+  const existing = db.prepare(`SELECT cp.*, ac.name as client_name FROM content_pieces cp
+    LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id
+    WHERE cp.id = ? AND cp.tenant_id = ?`).get(req.params.id, req.user.tenant_id) as any;
   if (!existing) return res.status(404).json({ error: 'Conteúdo não encontrado' });
+
   db.prepare(`UPDATE content_pieces SET status=?, updated_at=datetime('now') WHERE id=?`).run(status, req.params.id);
+
+  if (comment?.trim()) {
+    db.prepare('INSERT INTO content_comments (content_piece_id, user_id, user_name, message) VALUES (?, ?, ?, ?)').run(req.params.id, req.user.id, req.user.name, comment.trim());
+  }
+
+  if (status === 'aprovado' || status === 'ajuste_solicitado') {
+    const label = status === 'aprovado' ? 'Aprovado' : 'Ajuste solicitado';
+    const body = status === 'ajuste_solicitado' && comment ? comment : existing.title;
+    db.prepare('INSERT INTO notifications (tenant_id, type, title, body, meta) VALUES (?, ?, ?, ?, ?)').run(
+      req.user.tenant_id, status,
+      `${label}: ${existing.client_name}`,
+      body,
+      JSON.stringify({ content_id: req.params.id, client_id: existing.agency_client_id, client_name: existing.client_name })
+    );
+  }
+
   res.json({ ok: true, status });
 });
 

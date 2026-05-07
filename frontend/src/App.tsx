@@ -11,6 +11,7 @@ import Settings from './pages/Settings';
 import MarketingClients from './pages/marketing/Clients';
 import MarketingContent from './pages/marketing/Content';
 import MarketingCalendar from './pages/marketing/Calendar';
+import ClientPortal from './pages/marketing/ClientPortal';
 import Login from './pages/Login';
 
 function PrivateRoutes() {
@@ -42,6 +43,7 @@ export default function App() {
             <Route path="marketing/clients" element={<MarketingClients />} />
             <Route path="marketing/content" element={<MarketingContent />} />
             <Route path="marketing/calendar" element={<MarketingCalendar />} />
+            <Route path="marketing/portal/:clientId" element={<ClientPortal />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
