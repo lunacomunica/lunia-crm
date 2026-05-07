@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import bcrypt from 'bcryptjs';
+
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(__dirname, '../../lunia.db');
@@ -132,7 +132,7 @@ if (tenantCount === 0) {
   const insertTenant = db.prepare(`INSERT INTO tenants (name, slug) VALUES (?, ?)`);
   insertTenant.run('Demo', 'demo');
 
-  const passwordHash = bcrypt.hashSync('admin123', 10);
+  const passwordHash = '$2b$10$mrWKuVQVqaO.2Z5dvX3zde9Ldc3R2KqSkEVaWCxTcqVc9RQRRJqOe';
   db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (1, 'Admin', 'admin@lunia.com', ?, 'admin')`).run(passwordHash);
 
   const insertContact = db.prepare(`
