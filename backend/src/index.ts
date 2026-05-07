@@ -28,6 +28,7 @@ app.use(express.json());
 
 // Public routes
 app.use('/api/auth', authRouter);
+app.use('/api/meta/webhook', metaRouter); // Meta webhook (no auth)
 
 // Protected routes
 app.use('/api/contacts', authMiddleware, contactsRouter);
