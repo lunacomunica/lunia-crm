@@ -31,7 +31,7 @@ export default function Login() {
           <img
             src="/logo.png"
             alt="lun.ia"
-            className="w-16 h-16 rounded-2xl object-cover mb-4"
+            className="w-16 h-16 rounded-full object-cover mb-4"
             style={{ boxShadow: '0 0 30px rgba(59,130,246,0.5)' }}
           />
           <h1 className="text-3xl font-extralight text-white tracking-tight"

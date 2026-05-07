@@ -33,7 +33,7 @@ export default function Sidebar() {
           <img
             src="/logo.png"
             alt="lun.ia"
-            className="w-9 h-9 rounded-xl flex-shrink-0 object-cover"
+            className="w-9 h-9 rounded-full flex-shrink-0 object-cover"
             style={{ boxShadow: '0 0 18px rgba(59,130,246,0.55)' }}
           />
           <div>
