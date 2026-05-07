@@ -5,7 +5,6 @@
   },
   "deploy": {
     "buildCommand": "npm run build",
-    "startCommand": "npm run start",
-    "healthcheckPath": "/"
+    "startCommand": "npm run start"
   }
 }
