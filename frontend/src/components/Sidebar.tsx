@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, MessageSquare, Instagram,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, CalendarDays, Bell, Megaphone
+  LayoutDashboard, Users, MessageSquare,
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
@@ -9,19 +9,21 @@ import { notificationsApi } from '../api/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-const commercialItems = [
-  { path: '/dashboard',     label: 'Dashboard',      icon: LayoutDashboard },
+const negocioItems = [
+  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { path: '/products',  label: 'Produtos',  icon: Package },
+];
+
+const comercialItems = [
   { path: '/contacts',      label: 'Contatos',        icon: Users },
   { path: '/conversations', label: 'Conversas',       icon: MessageSquare },
-  { path: '/instagram',     label: 'Instagram',       icon: Instagram },
   { path: '/funnel',        label: 'Funil de Vendas', icon: TrendingUp },
-  { path: '/products',      label: 'Produtos',        icon: Package },
 ];
 
 const marketingItems = [
-  { path: '/marketing/clients',  label: 'Clientes',       icon: Briefcase },
-  { path: '/marketing/content',  label: 'Conteúdos',      icon: FileImage },
-  { path: '/marketing/traffic',  label: 'Tráfego Pago',   icon: Megaphone },
+  { path: '/marketing/clients',  label: 'Clientes',     icon: Briefcase },
+  { path: '/marketing/content',  label: 'Conteúdos',    icon: FileImage },
+  { path: '/marketing/traffic',  label: 'Tráfego Pago', icon: Megaphone },
 ];
 
 function NavItem({ path, label, icon: Icon }: { path: string; label: string; icon: any }) {
@@ -119,9 +121,12 @@ function NotificationBell() {
   );
 }
 
+const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'Usuário', team: 'Time', client: 'Cliente' };
+
 export default function Sidebar() {
   const { user, logout } = useAuth();
-  const isTeam = user?.role === 'team';
+  const navigate = useNavigate();
+  const isInternal = user?.role !== 'team';
 
   return (
     <aside className="w-64 flex flex-col h-screen fixed left-0 top-0 z-40"
@@ -142,12 +147,22 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
+        {/* Negócio — hidden for team */}
+        {isInternal && (
+          <div>
+            <p className="section-label px-3 mb-2">Negócio</p>
+            <div className="space-y-0.5">
+              {negocioItems.map(item => <NavItem key={item.path} {...item} />)}
+            </div>
+          </div>
+        )}
+
         {/* Comercial — hidden for team */}
-        {!isTeam && (
+        {isInternal && (
           <div>
             <p className="section-label px-3 mb-2">Comercial</p>
             <div className="space-y-0.5">
-              {commercialItems.map(item => <NavItem key={item.path} {...item} />)}
+              {comercialItems.map(item => <NavItem key={item.path} {...item} />)}
             </div>
           </div>
         )}
@@ -159,19 +174,10 @@ export default function Sidebar() {
             {marketingItems.map(item => <NavItem key={item.path} {...item} />)}
           </div>
         </div>
-
-        {/* Config — hidden for team */}
-        {!isTeam && (
-          <div>
-            <div className="space-y-0.5">
-              <NavItem path="/settings" label="Configurações" icon={Settings} />
-            </div>
-          </div>
-        )}
       </nav>
 
       {/* User */}
-      <div className="p-3 space-y-2" style={{ borderTop: '1px solid rgba(59,130,246,0.07)' }}>
+      <div className="p-3" style={{ borderTop: '1px solid rgba(59,130,246,0.07)' }}>
         {user && (
           <div className="rounded-xl px-3 py-2.5 flex items-center justify-between"
             style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
@@ -188,18 +194,27 @@ export default function Sidebar() {
               <div className="min-w-0">
                 <p className="text-xs font-medium text-white truncate">{user.name}</p>
                 <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>
-                  {user.role === 'team' ? 'Time' : user.role === 'admin' ? 'Admin' : user.tenant}
+                  {ROLE_LABEL[user.role] || user.tenant}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1 flex-shrink-0">
-            <NotificationBell />
-            <button onClick={logout} title="Sair" className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
-              style={{ color: 'rgba(100,116,139,0.5)' }}
-              onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
-              <LogOut size={13} />
-            </button>
+            <div className="flex items-center gap-0.5 flex-shrink-0">
+              <NotificationBell />
+              {isInternal && (
+                <button onClick={() => navigate('/settings')} title="Configurações"
+                  className="p-1.5 rounded-lg transition-colors"
+                  style={{ color: 'rgba(100,116,139,0.5)' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#e2e8f0')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                  <Settings size={13} />
+                </button>
+              )}
+              <button onClick={logout} title="Sair" className="p-1.5 rounded-lg transition-colors"
+                style={{ color: 'rgba(100,116,139,0.5)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                <LogOut size={13} />
+              </button>
             </div>
           </div>
         )}
