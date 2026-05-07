@@ -85,6 +85,38 @@ app.use('/api/dashboard', authMiddleware, dashboardRouter);
 app.use('/api/meta', authMiddleware, metaRouter);
 app.use('/api/settings', authMiddleware, settingsRouter);
 
+app.get('/privacy', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Política de Privacidade — lun.ia CRM</title>
+<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:60px auto;padding:0 24px;color:#1e293b;line-height:1.7}h1{color:#3b82f6}h2{margin-top:2rem;color:#334155}a{color:#3b82f6}</style>
+</head>
+<body>
+<h1>Política de Privacidade</h1>
+<p><strong>lun.ia CRM</strong> — desenvolvido por <strong>@lunacomunica</strong><br>Última atualização: ${new Date().toLocaleDateString('pt-BR')}</p>
+
+<h2>1. Informações coletadas</h2>
+<p>O lun.ia CRM coleta dados de contatos e mensagens provenientes de integrações com o Instagram e WhatsApp Business via API da Meta, incluindo: nome, telefone, e-mail, mensagens trocadas e dados de leads gerados por anúncios.</p>
+
+<h2>2. Uso das informações</h2>
+<p>Os dados são utilizados exclusivamente para gestão de relacionamento com clientes (CRM), incluindo: organização de contatos, histórico de conversas, acompanhamento de funil de vendas e análise de performance de campanhas.</p>
+
+<h2>3. Compartilhamento de dados</h2>
+<p>Os dados <strong>não são compartilhados</strong> com terceiros, exceto para viabilizar as integrações com a plataforma Meta (Instagram/WhatsApp) conforme os Termos de Serviço da Meta.</p>
+
+<h2>4. Armazenamento e segurança</h2>
+<p>Os dados são armazenados em banco de dados seguro com acesso restrito por autenticação. Todo acesso à plataforma requer login com e-mail e senha.</p>
+
+<h2>5. Direitos do usuário</h2>
+<p>Os usuários podem solicitar a exclusão dos seus dados a qualquer momento entrando em contato pelo Instagram <a href="https://instagram.com/lunacomunica">@lunacomunica</a>.</p>
+
+<h2>6. Contato</h2>
+<p>Dúvidas sobre esta política: <a href="https://instagram.com/lunacomunica">@lunacomunica</a></p>
+</body></html>`);
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', app: 'lun.ia CRM', timestamp: new Date().toISOString() });
 });
