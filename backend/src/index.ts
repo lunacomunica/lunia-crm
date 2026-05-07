@@ -15,6 +15,7 @@ import metaRouter from './routes/meta.js';
 import settingsRouter from './routes/settings.js';
 import authRouter from './routes/auth.js';
 import { authMiddleware } from './middleware/auth.js';
+import db from './db.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -28,7 +29,53 @@ app.use(express.json());
 
 // Public routes
 app.use('/api/auth', authRouter);
-app.use('/api/meta/webhook', metaRouter); // Meta webhook (no auth)
+
+// Meta webhook public (no auth) — Meta calls this directly
+app.get('/api/meta/webhook', (req, res) => {
+  const verifyToken = process.env.META_VERIFY_TOKEN || 'lunia_webhook_token';
+  if (req.query['hub.mode'] === 'subscribe' && req.query['hub.verify_token'] === verifyToken) {
+    res.send(req.query['hub.challenge']);
+  } else {
+    res.status(403).json({ error: 'Verificação falhou' });
+  }
+});
+app.post('/api/meta/webhook', (req, res) => {
+  res.sendStatus(200);
+  const body = req.body;
+  if (!body?.object) return;
+  const tid = 1;
+  for (const entry of body.entry || []) {
+    for (const change of entry.changes || []) {
+      if (change.field === 'messages') {
+        const msgs = change.value?.messages || [];
+        const contacts_meta = change.value?.contacts || [];
+        for (const msg of msgs) {
+          const from = msg.from;
+          const name = contacts_meta.find((c: any) => c.wa_id === from)?.profile?.name || from;
+          let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND (external_id=? OR phone=?)').get(tid, from, `+${from}`) as any;
+          if (!contact) {
+            const r = db.prepare(`INSERT INTO contacts (tenant_id, name, phone, source, external_id) VALUES (?, ?, ?, 'whatsapp', ?)`).run(tid, name, `+${from}`, from);
+            contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
+          }
+          let conv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, from) as any;
+          if (!conv) {
+            const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id) VALUES (?, ?, 'whatsapp', ?)`).run(tid, contact.id, from);
+            conv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
+          }
+          const content = msg.text?.body || msg.caption || '[mídia]';
+          db.prepare(`INSERT INTO messages (conversation_id, content, direction, external_id) VALUES (?, ?, 'inbound', ?)`).run(conv.id, content, msg.id);
+          db.prepare("UPDATE conversations SET last_message_at=datetime('now'), unread_count=unread_count+1 WHERE id=?").run(conv.id);
+        }
+      }
+      if (change.field === 'leadgen') {
+        const { leadgen_id, form_id, ad_id } = change.value || {};
+        if (leadgen_id) {
+          try { db.prepare(`INSERT OR IGNORE INTO instagram_leads (tenant_id, form_id, lead_id, ad_id, data) VALUES (?, ?, ?, ?, '{}')`).run(1, form_id, leadgen_id, ad_id); } catch {}
+        }
+      }
+    }
+  }
+});
 
 // Protected routes
 app.use('/api/contacts', authMiddleware, contactsRouter);
