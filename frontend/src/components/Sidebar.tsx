@@ -107,9 +107,19 @@ export default function Sidebar() {
         {user && (
           <div className="rounded-xl px-3 py-2.5 flex items-center justify-between"
             style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-white truncate">{user.name}</p>
-              <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>{user.tenant}</p>
+            <div className="flex items-center gap-2.5 min-w-0">
+              {user.avatar ? (
+                <img src={user.avatar} alt={user.name} className="w-7 h-7 rounded-full object-cover flex-shrink-0" style={{ border: '1px solid rgba(59,130,246,0.3)' }} />
+              ) : (
+                <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-white truncate">{user.name}</p>
+                <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>{user.tenant}</p>
+              </div>
             </div>
             <button onClick={logout} title="Sair"
               className="p-1.5 rounded-lg flex-shrink-0 transition-colors"

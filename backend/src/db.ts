@@ -120,6 +120,7 @@ const migrations = [
   "ALTER TABLE conversations ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
   "ALTER TABLE activities ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
   "ALTER TABLE instagram_leads ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
+  "ALTER TABLE users ADD COLUMN avatar TEXT",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

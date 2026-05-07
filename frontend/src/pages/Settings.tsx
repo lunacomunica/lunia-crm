@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
-import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X } from 'lucide-react';
-import { settingsApi, usersApi } from '../api/client';
+import { useEffect, useState, useRef } from 'react';
+import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2 } from 'lucide-react';
+import { settingsApi, usersApi, profileApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 function Field({ label, id, value, onChange, placeholder, type = 'text', hint, mono = false }: {
@@ -48,6 +48,148 @@ function Section({ icon: Icon, title, iconStyle, children, testType, onTest, tes
         </div>
       </div>
       <div className="space-y-4">{children}</div>
+    </div>
+  );
+}
+
+function ProfileTab() {
+  const { user, refreshUser } = useAuth();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [avatar, setAvatar] = useState(user?.avatar || '');
+  const [name, setName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [company, setCompany] = useState({ name: user?.company?.name || '', cnpj: user?.company?.cnpj || '', phone: user?.company?.phone || '', website: user?.company?.website || '', address: user?.company?.address || '' });
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => setAvatar(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = async () => {
+    if (password && password !== confirmPassword) { setError('As senhas não coincidem'); return; }
+    if (password && password.length < 6) { setError('Senha deve ter pelo menos 6 caracteres'); return; }
+    setError(''); setSaving(true);
+    try {
+      await profileApi.update({ name, email, ...(password ? { password } : {}), avatar, company });
+      await refreshUser();
+      setSaved(true); setTimeout(() => setSaved(false), 3000);
+      setPassword(''); setConfirmPassword('');
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Erro ao salvar');
+    }
+    setSaving(false);
+  };
+
+  const initials = name.charAt(0).toUpperCase();
+
+  return (
+    <div className="max-w-2xl space-y-5">
+      {/* Avatar */}
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <User size={15} className="icon-blue" />
+          </div>
+          <h2 className="text-base font-light text-white">Foto de Perfil</h2>
+        </div>
+        <div className="flex items-center gap-6">
+          <div className="relative group cursor-pointer" onClick={() => fileRef.current?.click()}>
+            {avatar ? (
+              <img src={avatar} alt="avatar" className="w-20 h-20 rounded-full object-cover" style={{ border: '2px solid rgba(59,130,246,0.3)' }} />
+            ) : (
+              <div className="w-20 h-20 rounded-full flex items-center justify-center text-white text-2xl font-bold"
+                style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)', border: '2px solid rgba(59,130,246,0.3)' }}>
+                {initials}
+              </div>
+            )}
+            <div className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+              style={{ background: 'rgba(0,0,0,0.55)' }}>
+              <Camera size={18} className="text-white" />
+            </div>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleAvatar} />
+          <div>
+            <p className="text-sm text-white font-medium">Clique na foto para alterar</p>
+            <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.5)' }}>JPG, PNG ou GIF · Máx 2MB</p>
+            {avatar && (
+              <button onClick={() => setAvatar('')} className="text-xs mt-2 transition-colors"
+                style={{ color: 'rgba(239,68,68,0.6)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(239,68,68,0.6)')}>
+                Remover foto
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Dados pessoais */}
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <Key size={15} className="icon-blue" />
+          </div>
+          <h2 className="text-base font-light text-white">Dados Pessoais</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Nome" id="p-name" value={name} onChange={setName} placeholder="Seu nome" />
+            <Field label="E-mail" id="p-email" value={email} onChange={setEmail} placeholder="seu@email.com" type="email" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Nova Senha" id="p-pass" value={password} onChange={setPassword} placeholder="Deixe vazio para não alterar" type="password" />
+            <Field label="Confirmar Senha" id="p-pass2" value={confirmPassword} onChange={setConfirmPassword} placeholder="Repita a nova senha" type="password" />
+          </div>
+        </div>
+      </div>
+
+      {/* Dados da empresa */}
+      <div className="card p-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <Building2 size={15} className="icon-blue" />
+          </div>
+          <h2 className="text-base font-light text-white">Dados da Empresa</h2>
+        </div>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Razão Social / Nome" id="c-name" value={company.name} onChange={v => setCompany({ ...company, name: v })} placeholder="Luna Comunicação Ltda" />
+            <Field label="CNPJ" id="c-cnpj" value={company.cnpj} onChange={v => setCompany({ ...company, cnpj: v })} placeholder="00.000.000/0001-00" mono />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Telefone / WhatsApp" id="c-phone" value={company.phone} onChange={v => setCompany({ ...company, phone: v })} placeholder="+55 11 99999-9999" />
+            <Field label="Website" id="c-website" value={company.website} onChange={v => setCompany({ ...company, website: v })} placeholder="https://lunacomunica.com" />
+          </div>
+          <Field label="Endereço" id="c-address" value={company.address} onChange={v => setCompany({ ...company, address: v })} placeholder="Rua Exemplo, 123 — São Paulo, SP" />
+        </div>
+      </div>
+
+      {error && (
+        <div className="flex items-center gap-2 text-sm px-4 py-3 rounded-xl"
+          style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
+          <AlertCircle size={14} /> {error}
+        </div>
+      )}
+
+      <div className="flex items-center gap-4">
+        <button onClick={handleSave} disabled={saving} className="btn-primary px-8">
+          {saving ? <RefreshCw size={14} className="animate-spin" /> : <Key size={14} />}
+          {saving ? 'Salvando…' : 'Salvar Perfil'}
+        </button>
+        {saved && (
+          <span className="flex items-center gap-2 text-sm animate-fade-up" style={{ color: '#34d399' }}>
+            <CheckCircle2 size={15} /> Salvo com sucesso!
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -191,7 +333,7 @@ function UsersTab() {
 }
 
 export default function Settings() {
-  const [tab, setTab] = useState<'api' | 'users'>('api');
+  const [tab, setTab] = useState<'profile' | 'api' | 'users'>('profile');
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [webhookInfo, setWebhookInfo] = useState<{ webhookUrl: string; verifyToken: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -228,7 +370,7 @@ export default function Settings() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-8 w-fit rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-        {[{ id: 'api', label: 'Integrações API', icon: Zap }, { id: 'users', label: 'Usuários', icon: Users }].map(t => (
+        {[{ id: 'profile', label: 'Meu Perfil', icon: User }, { id: 'api', label: 'Integrações API', icon: Zap }, { id: 'users', label: 'Usuários', icon: Users }].map(t => (
           <button key={t.id} onClick={() => setTab(t.id as any)}
             className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all"
             style={tab === t.id
@@ -239,7 +381,7 @@ export default function Settings() {
         ))}
       </div>
 
-      {tab === 'users' ? <UsersTab /> : (
+      {tab === 'profile' ? <ProfileTab /> : tab === 'users' ? <UsersTab /> : (
         <>
           {/* Webhook Info */}
           <div className="card p-6 mb-5" style={{ borderColor: 'rgba(59,130,246,0.2)' }}>
