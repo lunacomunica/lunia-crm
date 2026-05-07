@@ -37,6 +37,8 @@ export default function Login() {
           <h1 className="text-3xl font-extralight text-white tracking-tight"
             style={{ textShadow: '0 0 30px rgba(59,130,246,0.3)' }}>lun.ia</h1>
           <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.65)' }}>CRM by @lunacomunica</p>
+          <p className="text-base font-medium mt-4 text-center" style={{ color: 'rgba(226,232,240,0.85)' }}>Escale com inteligência de negócio.</p>
+          <p className="text-xs mt-1 text-center tracking-widest uppercase" style={{ color: 'rgba(100,116,139,0.45)' }}>Marketing | Vendas | Performance</p>
         </div>
 
         {/* Form */}
