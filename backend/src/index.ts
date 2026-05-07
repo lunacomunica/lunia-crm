@@ -42,7 +42,7 @@ app.get('/health', (_req, res) => {
 });
 
 // Serve frontend in production
-const frontendDist = join(__dirname, '../../frontend/dist');
+const frontendDist = join(__dirname, 'public');
 if (IS_PROD && existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
   app.get('*', (_req, res) => res.sendFile(join(frontendDist, 'index.html')));
