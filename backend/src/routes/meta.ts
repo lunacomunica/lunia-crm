@@ -76,6 +76,14 @@ router.get('/instagram-leads', (req, res) => {
   res.json(leads.map(l => ({ ...l, data: JSON.parse(l.data || '{}') })));
 });
 
+router.delete('/instagram-leads/:id', (req, res) => {
+  const tid = req.user.tenant_id;
+  const lead = db.prepare('SELECT id FROM instagram_leads WHERE id=? AND tenant_id=?').get(req.params.id, tid);
+  if (!lead) return res.status(404).json({ error: 'Lead não encontrado' });
+  db.prepare('DELETE FROM instagram_leads WHERE id=? AND tenant_id=?').run(req.params.id, tid);
+  res.json({ ok: true });
+});
+
 router.post('/instagram-leads/:id/convert', (req, res) => {
   const tid = req.user.tenant_id;
   const lead = db.prepare('SELECT * FROM instagram_leads WHERE id=? AND tenant_id=?').get(req.params.id, tid) as any;

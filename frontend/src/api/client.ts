@@ -46,6 +46,7 @@ export const dashboardApi = {
 export const metaApi = {
   getInstagramLeads: () => api.get('/meta/instagram-leads'),
   convertLead: (id: number) => api.post(`/meta/instagram-leads/${id}/convert`),
+  deleteLead: (id: number) => api.delete(`/meta/instagram-leads/${id}`),
 };
 
 export const settingsApi = {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Instagram, RefreshCw, UserPlus, MessageSquare, CheckCircle2 } from 'lucide-react';
+import { Instagram, RefreshCw, UserPlus, MessageSquare, CheckCircle2, Trash2 } from 'lucide-react';
 import { metaApi, conversationsApi } from '../api/client';
 import { InstagramLead, Conversation } from '../types';
 import { formatDistanceToNow } from 'date-fns';
@@ -38,6 +38,11 @@ export default function InstagramPage() {
 
   const handleConvert = async (id: number) => {
     setConverting(id); await metaApi.convertLead(id); await load(); setConverting(null);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Apagar este lead?')) return;
+    await metaApi.deleteLead(id); await load();
   };
 
   const converted = leads.filter(l => l.contact_id !== null).length;
@@ -158,14 +163,23 @@ export default function InstagramPage() {
                       : <span className="badge badge-amber">Pendente</span>}
                   </td>
                   <td className="td text-right">
-                    {!lead.contact_id && (
-                      <button onClick={() => handleConvert(lead.id)} disabled={converting === lead.id}
-                        className="btn-ghost text-xs px-3 py-1.5"
-                        style={{ color: '#93c5fd', borderColor: 'rgba(59,130,246,0.2)' }}>
-                        <UserPlus size={12} />
-                        {converting === lead.id ? 'Criando…' : 'Criar Contato'}
+                    <div className="flex items-center justify-end gap-2">
+                      {!lead.contact_id && (
+                        <button onClick={() => handleConvert(lead.id)} disabled={converting === lead.id}
+                          className="btn-ghost text-xs px-3 py-1.5"
+                          style={{ color: '#93c5fd', borderColor: 'rgba(59,130,246,0.2)' }}>
+                          <UserPlus size={12} />
+                          {converting === lead.id ? 'Criando…' : 'Criar Contato'}
+                        </button>
+                      )}
+                      <button onClick={() => handleDelete(lead.id)}
+                        className="btn-ghost text-xs px-2 py-1.5"
+                        style={{ color: 'rgba(239,68,68,0.6)', borderColor: 'rgba(239,68,68,0.15)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(239,68,68,0.6)')}>
+                        <Trash2 size={12} />
                       </button>
-                    )}
+                    </div>
                   </td>
                 </tr>
               ))}
