@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "concurrently -n \"API,APP\" -c \"cyan,magenta\" \"npm run dev -w backend\" \"npm run dev -w frontend\"",
     "build": "npm run build -w frontend && npm run build -w backend",
-    "start": "serve -s dist -l $PORT"
+    "start": "NODE_ENV=production node backend/dist/index.js"
   },
   "engines": {
     "node": ">=22"
