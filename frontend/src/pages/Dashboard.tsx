@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid,
-  Tooltip, ResponsiveContainer, PieChart, Pie, Cell, defs
+  Tooltip, ResponsiveContainer, PieChart, Pie, Cell
 } from 'recharts';
 import {
   Users, TrendingUp, DollarSign, MessageSquare,
