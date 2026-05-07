@@ -301,6 +301,82 @@ if (tenantCount === 0) {
   insertAct.run(ids[8], 6, 'meeting', 'Reunião confirmada para quinta-feira', '-3');
   insertAct.run(ids[1], 2, 'instagram', 'Novo DM no Instagram — pediu call', '-0.5');
   insertAct.run(ids[6], 5, 'stage_change', 'Renovação confirmada — movido para Fechamento', '-1');
+
+}
+
+// Seed marketing demo data independently (runs even on existing DBs)
+const agencyCount = (db.prepare('SELECT COUNT(*) as count FROM agency_clients').get() as any).count;
+if (agencyCount === 0) {
+  const insertClient = db.prepare(`
+    INSERT INTO agency_clients (tenant_id, name, segment, instagram_handle, contact_name, contact_email, active)
+    VALUES (1, ?, ?, ?, ?, ?, 1)
+  `);
+  const client1Id = Number(insertClient.run('Studio Z', 'Moda & Lifestyle', 'studioz', 'Bia Torres', 'bia@studioz.com').lastInsertRowid);
+  const client2Id = Number(insertClient.run('Café Boreal', 'Gastronomia', 'cafeboreal', 'Rafael Nunes', 'rafael@cafeboreal.com').lastInsertRowid);
+
+  const insertContent = db.prepare(`
+    INSERT INTO content_pieces (tenant_id, agency_client_id, title, type, status, caption, objective, scheduled_date, media_url, created_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ? || ' days'))
+  `);
+
+  // Studio Z — mix de status com imagens placeholder (picsum)
+  insertContent.run(client1Id, 'Nova Coleção Verão', 'post', 'aprovado',
+    'Chegou a coleção que você esperava ☀️ Peças leves, elegantes e com muito estilo. Link na bio!',
+    'Apresentar nova coleção e gerar tráfego pro site',
+    '2026-05-10', 'https://picsum.photos/seed/c1/600/600', '-5');
+
+  insertContent.run(client1Id, 'Behind the scenes — Ensaio', 'reels', 'aprovado',
+    'De dentro do estúdio para o seu feed 🎬 Veja como foi o making of do nosso último ensaio.',
+    'Humanizar a marca e aumentar engajamento',
+    '2026-05-12', 'https://picsum.photos/seed/c2/600/600', '-4');
+
+  insertContent.run(client1Id, 'Promoção Dia das Mães', 'carrossel', 'aguardando_aprovacao',
+    'Presente especial para quem você ama 💛 Até 30% OFF em peças selecionadas. Só até domingo!',
+    'Converter vendas no feriado',
+    '2026-05-11', 'https://picsum.photos/seed/c3/600/600', '-2');
+
+  insertContent.run(client1Id, 'Look do Dia — Azul Marinho', 'post', 'aguardando_aprovacao',
+    'O azul marinho nunca sai de moda 💙 Combine com tudo e esteja sempre pronta.',
+    'Inspirar o público com looks do dia',
+    '2026-05-14', 'https://picsum.photos/seed/c4/600/600', '-1');
+
+  insertContent.run(client1Id, 'Story — Flash Sale 24h', 'story', 'ajuste_solicitado',
+    'FLASH SALE ⚡ 24h apenas! Não perde!',
+    'Urgência para converter seguidores',
+    '2026-05-08', 'https://picsum.photos/seed/c5/600/600', '-3');
+
+  insertContent.run(client1Id, 'Reels Tendências Outono', 'reels', 'em_revisao',
+    null, 'Antecipar tendências da nova estação', '2026-05-18',
+    'https://picsum.photos/seed/c6/600/600', '-1');
+
+  insertContent.run(client1Id, 'Post Institucional — Valores', 'post', 'em_criacao',
+    null, 'Fortalecer identidade de marca', '2026-05-22',
+    null, '0');
+
+  insertContent.run(client1Id, 'Coleção Inverno — Teaser', 'post', 'agendado',
+    'O frio chegou com tudo 🧥 Prepare-se para a nova coleção.',
+    'Gerar antecipação para o lançamento de inverno',
+    '2026-05-20', 'https://picsum.photos/seed/c8/600/600', '-6');
+
+  insertContent.run(client1Id, 'Post Publicado — Março', 'post', 'publicado',
+    'Março chegou com muita novidade! Fique de olho no nosso feed 👀',
+    'Engajamento geral da marca',
+    '2026-03-01', 'https://picsum.photos/seed/c9/600/600', '-30');
+
+  // Café Boreal — conteúdos de gastronomia
+  insertContent.run(client2Id, 'Novo Cardápio de Inverno', 'carrossel', 'aguardando_aprovacao',
+    'Novidades quentinhas esperando por você ☕ Conheça nosso cardápio de inverno.',
+    'Apresentar novos itens e atrair clientes',
+    '2026-05-15', 'https://picsum.photos/seed/cb1/600/600', '-1');
+
+  insertContent.run(client2Id, 'Drink da Semana', 'post', 'aprovado',
+    'Drink da semana: Espresso Tônica 🍋 Refrescante e cheio de personalidade.',
+    'Destacar bebida especial e gerar pedidos',
+    '2026-05-09', 'https://picsum.photos/seed/cb2/600/600', '-3');
+
+  insertContent.run(client2Id, 'Story — Ambiente do Café', 'story', 'em_criacao',
+    null, 'Mostrar o ambiente aconchegante', '2026-05-16',
+    null, '0');
 }
 
 export default db;
