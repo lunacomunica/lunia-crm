@@ -44,7 +44,7 @@ export default function Sidebar() {
               lun.ia
             </p>
             <p className="text-[10px] mt-0.5" style={{ color: 'rgba(59,130,246,0.45)' }}>
-              CRM by @lunacomunica
+              ERP by @lunacomunica
             </p>
           </div>
         </div>
