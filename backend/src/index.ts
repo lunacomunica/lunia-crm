@@ -42,6 +42,7 @@ app.get('/api/meta/webhook', (req, res) => {
 app.post('/api/meta/webhook', (req, res) => {
   res.sendStatus(200);
   const body = req.body;
+  console.log('[webhook] evento recebido:', JSON.stringify(body));
   if (!body?.object) return;
   const tid = 1;
   for (const entry of body.entry || []) {
