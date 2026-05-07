@@ -23,32 +23,40 @@ router.get('/:id', (req, res) => {
   const deal = db.prepare(`
     SELECT d.*, c.name as contact_name FROM deals d
     LEFT JOIN contacts c ON d.contact_id = c.id WHERE d.id = ? AND d.tenant_id = ?
-  `).get(req.params.id, req.user.tenant_id);
+  `).get(req.params.id, req.user.tenant_id) as any;
   if (!deal) return res.status(404).json({ error: 'Deal não encontrado' });
+  deal.products = db.prepare(`
+    SELECT dp.quantity, dp.unit_price, p.id as product_id, p.name, p.unit, p.category
+    FROM deal_products dp JOIN products p ON dp.product_id = p.id WHERE dp.deal_id = ?
+  `).all(req.params.id);
   res.json(deal);
 });
 
 router.post('/', (req, res) => {
   const tid = req.user.tenant_id;
-  const { contact_id, title, value = 0, stage = 'prospecting', probability = 20, expected_close_date, notes = '' } = req.body;
+  const { contact_id, title, value = 0, stage = 'prospecting', probability = 20, expected_close_date, notes = '', products = [] } = req.body;
   const result = db.prepare(`
     INSERT INTO deals (tenant_id, contact_id, title, value, stage, probability, expected_close_date, notes)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
   `).run(tid, contact_id, title, value, stage, probability, expected_close_date || null, notes);
 
+  const dealId = result.lastInsertRowid;
+  const insertProd = db.prepare('INSERT OR REPLACE INTO deal_products (deal_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)');
+  db.transaction(() => { for (const p of products) insertProd.run(dealId, p.product_id, p.quantity, p.unit_price); })();
+
   db.prepare('INSERT INTO activities (tenant_id, contact_id, deal_id, type, description) VALUES (?, ?, ?, ?, ?)').run(
-    tid, contact_id, result.lastInsertRowid, 'note', `Deal criado: ${title}`
+    tid, contact_id, dealId, 'note', `Deal criado: ${title}`
   );
 
   res.status(201).json(db.prepare(`
     SELECT d.*, c.name as contact_name FROM deals d
     LEFT JOIN contacts c ON d.contact_id = c.id WHERE d.id = ?
-  `).get(result.lastInsertRowid));
+  `).get(dealId));
 });
 
 router.put('/:id', (req, res) => {
   const tid = req.user.tenant_id;
-  const { contact_id, title, value, stage, probability, expected_close_date, notes } = req.body;
+  const { contact_id, title, value, stage, probability, expected_close_date, notes, products } = req.body;
   const existing = db.prepare('SELECT stage, contact_id FROM deals WHERE id = ? AND tenant_id = ?').get(req.params.id, tid) as any;
   if (!existing) return res.status(404).json({ error: 'Deal não encontrado' });
 
@@ -61,6 +69,12 @@ router.put('/:id', (req, res) => {
     db.prepare('INSERT INTO activities (tenant_id, contact_id, deal_id, type, description) VALUES (?, ?, ?, ?, ?)').run(
       tid, existing.contact_id, req.params.id, 'stage_change', `Deal movido para ${stage}`
     );
+  }
+
+  if (Array.isArray(products)) {
+    db.prepare('DELETE FROM deal_products WHERE deal_id = ?').run(req.params.id);
+    const insertProd = db.prepare('INSERT INTO deal_products (deal_id, product_id, quantity, unit_price) VALUES (?, ?, ?, ?)');
+    db.transaction(() => { for (const p of products) insertProd.run(req.params.id, p.product_id, p.quantity, p.unit_price); })();
   }
 
   res.json(db.prepare(`

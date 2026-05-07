@@ -1,17 +1,18 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare, Instagram,
-  TrendingUp, Settings, LogOut
+  TrendingUp, Settings, LogOut, Package
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 const navItems = [
-  { path: '/dashboard',     label: 'Dashboard',      icon: LayoutDashboard },
-  { path: '/contacts',      label: 'Contatos',        icon: Users },
-  { path: '/conversations', label: 'Conversas',       icon: MessageSquare },
-  { path: '/instagram',     label: 'Instagram',       icon: Instagram },
-  { path: '/funnel',        label: 'Funil de Vendas', icon: TrendingUp },
-  { path: '/settings',      label: 'Configurações',   icon: Settings },
+  { path: '/dashboard',     label: 'Dashboard',       icon: LayoutDashboard },
+  { path: '/contacts',      label: 'Contatos',         icon: Users },
+  { path: '/conversations', label: 'Conversas',        icon: MessageSquare },
+  { path: '/instagram',     label: 'Instagram',        icon: Instagram },
+  { path: '/funnel',        label: 'Funil de Vendas',  icon: TrendingUp },
+  { path: '/products',      label: 'Produtos',         icon: Package },
+  { path: '/settings',      label: 'Configurações',    icon: Settings },
 ];
 
 export default function Sidebar() {

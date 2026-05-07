@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Plus, X, ChevronRight, ChevronLeft, Trash2, Target, Layers } from 'lucide-react';
-import { dealsApi, contactsApi } from '../api/client';
-import { Deal, Contact } from '../types';
+import { Plus, X, ChevronRight, ChevronLeft, Trash2, Target, Package, Search } from 'lucide-react';
+import { dealsApi, contactsApi, productsApi } from '../api/client';
+import { Deal, Contact, Product, DealProduct } from '../types';
 
 const STAGES = [
   { id: 'prospecting', label: 'Prospecção', color: '#6366f1', glow: 'rgba(99,102,241,0.35)' },
@@ -82,6 +82,16 @@ function DealCard({ deal, stage, onStageChange, onEdit, onDelete }: {
         </div>
       )}
 
+      {/* Products count */}
+      {deal.products && deal.products.length > 0 && (
+        <div className="flex items-center gap-1 mb-2">
+          <Package size={10} style={{ color: 'rgba(96,165,250,0.6)' }} />
+          <span className="text-[10px]" style={{ color: 'rgba(96,165,250,0.6)' }}>
+            {deal.products.length} produto{deal.products.length > 1 ? 's' : ''}
+          </span>
+        </div>
+      )}
+
       {/* Value + probability */}
       <div className="flex items-center justify-between mb-3">
         <span className="text-sm font-semibold" style={{ color: stage.color, textShadow: `0 0 12px ${stage.glow}` }}>
@@ -126,13 +136,100 @@ function DealCard({ deal, stage, onStageChange, onEdit, onDelete }: {
 
 const emptyDeal = { contact_id: '' as any, title: '', value: '', stage: 'prospecting', probability: '20', expected_close_date: '', notes: '' };
 
+function ProductSelector({ items, onChange, allProducts }: {
+  items: DealProduct[]; onChange: (items: DealProduct[]) => void; allProducts: Product[];
+}) {
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+
+  const active = allProducts.filter(p => p.active);
+  const filtered = active.filter(p =>
+    !items.find(i => i.product_id === p.id) &&
+    (p.name.toLowerCase().includes(search.toLowerCase()) || (p.category || '').toLowerCase().includes(search.toLowerCase()))
+  ).slice(0, 6);
+
+  const add = (p: Product) => {
+    onChange([...items, { product_id: p.id, name: p.name, unit: p.unit, category: p.category, quantity: 1, unit_price: p.price }]);
+    setSearch(''); setOpen(false);
+  };
+  const remove = (pid: number) => onChange(items.filter(i => i.product_id !== pid));
+  const updateQty = (pid: number, qty: number) => onChange(items.map(i => i.product_id === pid ? { ...i, quantity: qty } : i));
+  const updatePrice = (pid: number, price: number) => onChange(items.map(i => i.product_id === pid ? { ...i, unit_price: price } : i));
+
+  return (
+    <div>
+      {items.length > 0 && (
+        <div className="space-y-2 mb-3">
+          {items.map(item => (
+            <div key={item.product_id} className="flex items-center gap-2 rounded-xl px-3 py-2"
+              style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.12)' }}>
+              <Package size={12} style={{ color: '#60a5fa', flexShrink: 0 }} />
+              <span className="text-sm text-white flex-1 truncate">{item.name}</span>
+              <span className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{item.unit}</span>
+              <input type="number" min="0.01" step="0.01" value={item.quantity}
+                onChange={e => updateQty(item.product_id, parseFloat(e.target.value) || 1)}
+                className="w-16 text-center rounded-lg px-2 py-1 text-xs"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#e2e8f0' }} />
+              <span className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>×</span>
+              <input type="number" min="0" step="0.01" value={item.unit_price}
+                onChange={e => updatePrice(item.product_id, parseFloat(e.target.value) || 0)}
+                className="w-24 text-right rounded-lg px-2 py-1 text-xs"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)', color: '#34d399' }} />
+              <button onClick={() => remove(item.product_id)} style={{ color: 'rgba(100,116,139,0.5)', flexShrink: 0 }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                <X size={12} />
+              </button>
+            </div>
+          ))}
+          <div className="flex justify-between items-center px-3 pt-1">
+            <span className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>Total calculado</span>
+            <span className="text-sm font-semibold" style={{ color: '#34d399' }}>
+              {fmt(items.reduce((s, i) => s + i.quantity * i.unit_price, 0))}
+            </span>
+          </div>
+        </div>
+      )}
+      <div className="relative">
+        <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(59,130,246,0.4)' }} />
+        <input value={search} onChange={e => { setSearch(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 150)}
+          placeholder="Buscar e adicionar produto…" className="input-dark pl-8 text-sm" />
+        {open && (filtered.length > 0 || search) && (
+          <div className="absolute z-50 w-full mt-1 rounded-xl overflow-hidden"
+            style={{ background: '#0d0d1f', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+            {filtered.length === 0
+              ? <p className="px-4 py-3 text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum produto encontrado</p>
+              : filtered.map(p => (
+                <button key={p.id} onMouseDown={() => add(p)}
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-left transition-colors"
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <div className="flex items-center gap-2">
+                    <Package size={12} style={{ color: '#60a5fa' }} />
+                    <span className="text-sm text-white">{p.name}</span>
+                    {p.category && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(148,163,184,0.5)' }}>{p.category}</span>}
+                  </div>
+                  <span className="text-xs font-medium" style={{ color: '#34d399' }}>{fmt(p.price)}/{p.unit}</span>
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function Funnel() {
   const [deals, setDeals] = useState<Deal[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<Deal | null>(null);
   const [form, setForm] = useState(emptyDeal);
+  const [dealProducts, setDealProducts] = useState<DealProduct[]>([]);
+  const [valueOverride, setValueOverride] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
 
@@ -140,23 +237,45 @@ export default function Funnel() {
   useEffect(() => {
     load();
     contactsApi.list({ limit: '200' }).then(r => setContacts(r.data.contacts));
+    productsApi.list().then(r => setAllProducts(r.data));
   }, []);
 
-  const openCreate = (stage = 'prospecting') => { setEditing(null); setForm({ ...emptyDeal, stage }); setModal(true); };
-  const openEdit = (d: Deal) => {
+  const calcTotal = (items: DealProduct[]) => items.reduce((s, i) => s + i.quantity * i.unit_price, 0);
+
+  const openCreate = (stage = 'prospecting') => {
+    setEditing(null); setDealProducts([]); setValueOverride(false);
+    setForm({ ...emptyDeal, stage }); setModal(true);
+  };
+  const openEdit = async (d: Deal) => {
     setEditing(d);
     setForm({
       contact_id: d.contact_id || '',
       title: d.title, value: String(d.value), stage: d.stage,
       probability: String(d.probability), expected_close_date: d.expected_close_date || '', notes: d.notes || '',
     });
+    const full = await dealsApi.get(d.id);
+    const prods: DealProduct[] = full.data.products || [];
+    setDealProducts(prods);
+    setValueOverride(prods.length === 0 || Math.abs(d.value - calcTotal(prods)) > 0.01);
     setModal(true);
+  };
+
+  const handleProductsChange = (items: DealProduct[]) => {
+    setDealProducts(items);
+    if (!valueOverride) setForm(f => ({ ...f, value: String(calcTotal(items)) }));
   };
 
   const handleSave = async () => {
     if (!form.title.trim()) return;
     setSaving(true);
-    const payload = { ...form, contact_id: form.contact_id ? Number(form.contact_id) : null, value: parseFloat(form.value) || 0, probability: parseInt(form.probability) || 0 };
+    const finalValue = valueOverride ? parseFloat(form.value) || 0 : calcTotal(dealProducts);
+    const payload = {
+      ...form,
+      contact_id: form.contact_id ? Number(form.contact_id) : null,
+      value: finalValue,
+      probability: parseInt(form.probability) || 0,
+      products: dealProducts.map(p => ({ product_id: p.product_id, quantity: p.quantity, unit_price: p.unit_price })),
+    };
     if (editing) await dealsApi.update(editing.id, payload);
     else await dealsApi.create(payload);
     setSaving(false); setModal(false); load();
@@ -279,7 +398,7 @@ export default function Funnel() {
               <button onClick={() => setModal(false)} className="p-1.5 rounded-lg transition-colors"
                 style={{ color: 'rgba(100,116,139,0.6)' }}><X size={18} /></button>
             </div>
-            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
               <div>
                 <label className="label-dark">Título *</label>
                 <input value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} className="input-dark" />
@@ -291,14 +410,43 @@ export default function Funnel() {
                   {contacts.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label-dark">Valor (R$)</label>
-                  <input type="number" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} className="input-dark" />
+
+              {/* Products */}
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <Package size={13} style={{ color: '#60a5fa' }} />
+                  <label className="label-dark mb-0">Produtos / Serviços</label>
                 </div>
+                <ProductSelector items={dealProducts} onChange={handleProductsChange} allProducts={allProducts} />
+              </div>
+
+              {/* Value */}
+              <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.12)' }}>
+                <div className="flex items-center justify-between">
+                  <label className="label-dark mb-0">Valor do Deal (R$)</label>
+                  {dealProducts.length > 0 && (
+                    <button onClick={() => { setValueOverride(v => !v); if (valueOverride) setForm(f => ({ ...f, value: String(calcTotal(dealProducts)) })); }}
+                      className="text-xs transition-colors"
+                      style={{ color: valueOverride ? 'rgba(100,116,139,0.5)' : '#34d399' }}>
+                      {valueOverride ? 'Usar total dos produtos' : 'Editar manualmente'}
+                    </button>
+                  )}
+                </div>
+                <input type="number" value={form.value}
+                  onChange={e => { setValueOverride(true); setForm({ ...form, value: e.target.value }); }}
+                  readOnly={!valueOverride && dealProducts.length > 0}
+                  className="input-dark"
+                  style={!valueOverride && dealProducts.length > 0 ? { opacity: 0.6, cursor: 'default' } : {}} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label-dark">Probabilidade (%)</label>
                   <input type="number" min="0" max="100" value={form.probability} onChange={e => setForm({ ...form, probability: e.target.value })} className="input-dark" />
+                </div>
+                <div>
+                  <label className="label-dark">Previsão de Fechamento</label>
+                  <input type="date" value={form.expected_close_date} onChange={e => setForm({ ...form, expected_close_date: e.target.value })} className="input-dark" />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
@@ -308,14 +456,10 @@ export default function Funnel() {
                     {STAGES.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
                   </select>
                 </div>
-                <div>
-                  <label className="label-dark">Previsão de Fechamento</label>
-                  <input type="date" value={form.expected_close_date} onChange={e => setForm({ ...form, expected_close_date: e.target.value })} className="input-dark" />
-                </div>
               </div>
               <div>
                 <label className="label-dark">Observações</label>
-                <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={3} className="input-dark resize-none" />
+                <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} rows={2} className="input-dark resize-none" />
               </div>
             </div>
             <div className="flex gap-3 px-6 pb-6">

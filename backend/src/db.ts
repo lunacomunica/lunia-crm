@@ -99,6 +99,27 @@ db.exec(`
     PRIMARY KEY (tenant_id, key)
   );
 
+  CREATE TABLE IF NOT EXISTS products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    name TEXT NOT NULL,
+    description TEXT,
+    price REAL DEFAULT 0,
+    unit TEXT DEFAULT 'un',
+    category TEXT,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS deal_products (
+    deal_id INTEGER NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
+    product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    quantity REAL DEFAULT 1,
+    unit_price REAL NOT NULL,
+    PRIMARY KEY (deal_id, product_id)
+  );
+
   CREATE TABLE IF NOT EXISTS instagram_leads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id INTEGER NOT NULL DEFAULT 1,

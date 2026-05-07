@@ -57,6 +57,13 @@ export const metaApi = {
   deleteLead: (id: number) => api.delete(`/meta/instagram-leads/${id}`),
 };
 
+export const productsApi = {
+  list: () => api.get('/products'),
+  create: (data: any) => api.post('/products', data),
+  update: (id: number, data: any) => api.put(`/products/${id}`, data),
+  delete: (id: number) => api.delete(`/products/${id}`),
+};
+
 export const profileApi = {
   update: (data: any) => api.put('/auth/profile', data),
 };

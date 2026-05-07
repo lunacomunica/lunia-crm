@@ -15,6 +15,27 @@ export interface Contact {
   updated_at: string;
 }
 
+export interface Product {
+  id: number;
+  name: string;
+  description: string | null;
+  price: number;
+  unit: string;
+  category: string | null;
+  active: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DealProduct {
+  product_id: number;
+  name: string;
+  unit: string;
+  category: string | null;
+  quantity: number;
+  unit_price: number;
+}
+
 export interface Deal {
   id: number;
   contact_id: number | null;
@@ -26,6 +47,7 @@ export interface Deal {
   probability: number;
   expected_close_date: string | null;
   notes: string | null;
+  products?: DealProduct[];
   created_at: string;
   updated_at: string;
 }
