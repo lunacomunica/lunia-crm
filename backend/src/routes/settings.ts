@@ -22,16 +22,11 @@ router.put('/', (req, res) => {
   const { settings } = req.body as { settings: Record<string, string> };
   const upsert = db.prepare('INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)');
 
-  db.exec('BEGIN');
-  try {
+  db.transaction(() => {
     for (const [key, value] of Object.entries(settings)) {
       if (value && !value.includes('••••')) upsert.run(key, value);
     }
-    db.exec('COMMIT');
-  } catch (e) {
-    db.exec('ROLLBACK');
-    throw e;
-  }
+  })();
 
   res.json({ success: true, message: 'Configurações salvas com sucesso' });
 });
