@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield } from 'lucide-react';
-import { settingsApi } from '../api/client';
+import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X } from 'lucide-react';
+import { settingsApi, usersApi } from '../api/client';
+import { useAuth } from '../context/AuthContext';
 
 function Field({ label, id, value, onChange, placeholder, type = 'text', hint, mono = false }: {
   label: string; id: string; value: string; onChange: (v: string) => void;
@@ -9,12 +10,8 @@ function Field({ label, id, value, onChange, placeholder, type = 'text', hint, m
   return (
     <div>
       <label htmlFor={id} className="label-dark">{label}</label>
-      <input
-        id={id} type={type} value={value}
-        onChange={e => onChange(e.target.value)}
-        placeholder={placeholder}
-        className={`input-dark ${mono ? 'input-mono' : ''}`}
-      />
+      <input id={id} type={type} value={value} onChange={e => onChange(e.target.value)}
+        placeholder={placeholder} className={`input-dark ${mono ? 'input-mono' : ''}`} />
       {hint && <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.5)' }}>{hint}</p>}
     </div>
   );
@@ -25,10 +22,7 @@ function Section({ icon: Icon, title, iconStyle, children, testType, onTest, tes
   testType?: string; onTest?: (t: string) => void; testResult?: { success: boolean; message: string };
 }) {
   const [testing, setTesting] = useState(false);
-  const handleTest = async () => {
-    if (!onTest || !testType) return;
-    setTesting(true); await onTest(testType); setTesting(false);
-  };
+  const handleTest = async () => { if (!onTest || !testType) return; setTesting(true); await onTest(testType); setTesting(false); };
   return (
     <div className="card p-6 mb-5">
       <div className="flex items-center justify-between mb-6">
@@ -47,11 +41,8 @@ function Section({ icon: Icon, title, iconStyle, children, testType, onTest, tes
             </span>
           )}
           {testType && (
-            <button onClick={handleTest} disabled={testing}
-              className="btn-ghost px-3 py-1.5 text-xs"
-              style={{ fontSize: '0.7rem' }}>
-              <RefreshCw size={10} className={testing ? 'animate-spin' : ''} />
-              Testar conexão
+            <button onClick={handleTest} disabled={testing} className="btn-ghost px-3 py-1.5 text-xs" style={{ fontSize: '0.7rem' }}>
+              <RefreshCw size={10} className={testing ? 'animate-spin' : ''} /> Testar conexão
             </button>
           )}
         </div>
@@ -61,7 +52,146 @@ function Section({ icon: Icon, title, iconStyle, children, testType, onTest, tes
   );
 }
 
+const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'Usuário' };
+const ROLE_BADGE: Record<string, string> = { admin: 'badge-blue', user: 'badge-slate' };
+
+function UsersTab() {
+  const { user: me } = useAuth();
+  const [users, setUsers] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [modal, setModal] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user' });
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const load = () => { setLoading(true); usersApi.list().then(r => { setUsers(r.data); setLoading(false); }); };
+  useEffect(() => { load(); }, []);
+
+  const handleCreate = async () => {
+    if (!form.name || !form.email || !form.password) { setError('Preencha todos os campos'); return; }
+    setSaving(true); setError('');
+    try {
+      await usersApi.create(form);
+      setModal(false); setForm({ name: '', email: '', password: '', role: 'user' }); load();
+    } catch (e: any) {
+      setError(e.response?.data?.error || 'Erro ao criar usuário');
+    }
+    setSaving(false);
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm('Remover acesso deste usuário?')) return;
+    await usersApi.delete(id); load();
+  };
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <p className="section-label mb-1">Equipe</p>
+          <h2 className="text-xl font-light text-white">Usuários com acesso</h2>
+          <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>Gerencie quem pode acessar o lun.ia</p>
+        </div>
+        <button onClick={() => setModal(true)} className="btn-primary">
+          <Plus size={14} /> Novo Usuário
+        </button>
+      </div>
+
+      <div className="card overflow-hidden">
+        {loading ? (
+          <div className="py-16 flex justify-center">
+            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
+              style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+          </div>
+        ) : (
+          <table className="w-full">
+            <thead>
+              <tr>
+                <th className="th">Usuário</th>
+                <th className="th">E-mail</th>
+                <th className="th">Papel</th>
+                <th className="th w-12" />
+              </tr>
+            </thead>
+            <tbody>
+              {users.map(u => (
+                <tr key={u.id} className="tr group">
+                  <td className="td">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                        style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                        {u.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-white">{u.name}</p>
+                        {u.id === me?.id && <p className="text-[10px]" style={{ color: 'rgba(59,130,246,0.6)' }}>você</p>}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="td text-sm" style={{ color: 'rgba(148,163,184,0.7)' }}>{u.email}</td>
+                  <td className="td">
+                    <span className={`badge ${ROLE_BADGE[u.role] || 'badge-slate'}`}>{ROLE_LABEL[u.role] || u.role}</span>
+                  </td>
+                  <td className="td">
+                    {u.id !== me?.id && (
+                      <button onClick={() => handleDelete(u.id)}
+                        className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
+                        style={{ color: 'rgba(100,116,139,0.6)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                        <Trash2 size={13} />
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {modal && (
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-fade"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
+          <div className="modal-card w-full max-w-md animate-fade-up">
+            <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
+              <h2 className="text-lg font-light text-white">Novo Usuário</h2>
+              <button onClick={() => { setModal(false); setError(''); }} style={{ color: 'rgba(100,116,139,0.6)' }}
+                className="p-1.5 rounded-lg hover:text-white transition-colors"><X size={18} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <Field label="Nome" id="u-name" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="Ex: João Silva" />
+              <Field label="E-mail" id="u-email" value={form.email} onChange={v => setForm({ ...form, email: v })} placeholder="joao@empresa.com" type="email" />
+              <Field label="Senha" id="u-pass" value={form.password} onChange={v => setForm({ ...form, password: v })} placeholder="Mínimo 6 caracteres" type="password" />
+              <div>
+                <label className="label-dark">Papel</label>
+                <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} className="input-dark" style={{ cursor: 'pointer' }}>
+                  <option value="user">Usuário</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              {error && (
+                <div className="flex items-center gap-2 text-sm px-3 py-2.5 rounded-xl"
+                  style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
+                  <AlertCircle size={13} /> {error}
+                </div>
+              )}
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => { setModal(false); setError(''); }} className="btn-ghost flex-1 justify-center">Cancelar</button>
+              <button onClick={handleCreate} disabled={saving} className="btn-primary flex-1 justify-center">
+                {saving ? 'Criando…' : 'Criar Usuário'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Settings() {
+  const [tab, setTab] = useState<'api' | 'users'>('api');
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [webhookInfo, setWebhookInfo] = useState<{ webhookUrl: string; verifyToken: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -75,19 +205,13 @@ export default function Settings() {
   }, []);
 
   const set = (key: string, value: string) => setSettings(prev => ({ ...prev, [key]: value }));
-
   const handleSave = async () => {
-    setSaving(true);
-    await settingsApi.update(settings);
-    setSaving(false); setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    setSaving(true); await settingsApi.update(settings);
+    setSaving(false); setSaved(true); setTimeout(() => setSaved(false), 3000);
   };
-
   const handleCopy = (text: string, key: string) => {
-    navigator.clipboard.writeText(text);
-    setCopied(key); setTimeout(() => setCopied(null), 2000);
+    navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 2000);
   };
-
   const handleTest = async (type: string) => {
     const r = await settingsApi.testConnection(type);
     setTestResults(prev => ({ ...prev, [type]: r.data }));
@@ -95,129 +219,115 @@ export default function Settings() {
 
   return (
     <div className="p-8 animate-fade-up max-w-3xl">
-      {/* Header */}
       <div className="mb-8">
-        <p className="section-label mb-1">Integração</p>
+        <p className="section-label mb-1">Sistema</p>
         <h1 className="text-3xl font-extralight text-white tracking-tight" style={{ textShadow: '0 0 30px rgba(59,130,246,0.2)' }}>
           Configurações
         </h1>
-        <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.65)' }}>
-          Credenciais da API da Meta para WhatsApp, Instagram e Anúncios
-        </p>
       </div>
 
-      {/* Webhook Info */}
-      <div className="card p-6 mb-5" style={{ borderColor: 'rgba(59,130,246,0.2)' }}>
-        <div className="flex items-center gap-2 mb-5">
-          <Zap size={14} className="icon-blue" />
-          <p className="section-label">Webhook da Meta</p>
-          <span className="badge badge-blue ml-auto">Necessário no painel Meta Developers</span>
-        </div>
+      {/* Tabs */}
+      <div className="flex gap-1 mb-8 w-fit rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+        {[{ id: 'api', label: 'Integrações API', icon: Zap }, { id: 'users', label: 'Usuários', icon: Users }].map(t => (
+          <button key={t.id} onClick={() => setTab(t.id as any)}
+            className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all"
+            style={tab === t.id
+              ? { background: 'rgba(59,130,246,0.12)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }
+              : { color: 'rgba(100,116,139,0.7)', border: '1px solid transparent' }}>
+            <t.icon size={13} /> {t.label}
+          </button>
+        ))}
+      </div>
 
-        {webhookInfo && (
-          <div className="space-y-4">
-            <div>
-              <label className="label-dark">URL do Webhook</label>
-              <div className="flex gap-2">
-                <div className="flex-1 rounded-xl px-4 py-2.5 font-mono text-xs truncate"
-                  style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', color: '#93c5fd' }}>
-                  {webhookInfo.webhookUrl}
-                </div>
-                <button onClick={() => handleCopy(webhookInfo.webhookUrl, 'url')}
-                  className="btn-ghost px-3 flex-shrink-0">
-                  {copied === 'url' ? <CheckCircle2 size={14} className="icon-green" /> : <Copy size={14} />}
-                </button>
-              </div>
+      {tab === 'users' ? <UsersTab /> : (
+        <>
+          {/* Webhook Info */}
+          <div className="card p-6 mb-5" style={{ borderColor: 'rgba(59,130,246,0.2)' }}>
+            <div className="flex items-center gap-2 mb-5">
+              <Zap size={14} className="icon-blue" />
+              <p className="section-label">Webhook da Meta</p>
+              <span className="badge badge-blue ml-auto">Necessário no painel Meta Developers</span>
             </div>
-            <div>
-              <label className="label-dark">Token de Verificação</label>
-              <div className="flex gap-2">
-                <div className="flex-1 rounded-xl px-4 py-2.5 font-mono text-xs"
-                  style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', color: '#fcd34d' }}>
-                  {webhookInfo.verifyToken}
+            {webhookInfo && (
+              <div className="space-y-4">
+                <div>
+                  <label className="label-dark">URL do Webhook</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 rounded-xl px-4 py-2.5 font-mono text-xs truncate"
+                      style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)', color: '#93c5fd' }}>
+                      {webhookInfo.webhookUrl}
+                    </div>
+                    <button onClick={() => handleCopy(webhookInfo.webhookUrl, 'url')} className="btn-ghost px-3 flex-shrink-0">
+                      {copied === 'url' ? <CheckCircle2 size={14} className="icon-green" /> : <Copy size={14} />}
+                    </button>
+                  </div>
                 </div>
-                <button onClick={() => handleCopy(webhookInfo.verifyToken, 'token')}
-                  className="btn-ghost px-3 flex-shrink-0">
-                  {copied === 'token' ? <CheckCircle2 size={14} className="icon-green" /> : <Copy size={14} />}
-                </button>
+                <div>
+                  <label className="label-dark">Token de Verificação</label>
+                  <div className="flex gap-2">
+                    <div className="flex-1 rounded-xl px-4 py-2.5 font-mono text-xs"
+                      style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.15)', color: '#fcd34d' }}>
+                      {webhookInfo.verifyToken}
+                    </div>
+                    <button onClick={() => handleCopy(webhookInfo.verifyToken, 'token')} className="btn-ghost px-3 flex-shrink-0">
+                      {copied === 'token' ? <CheckCircle2 size={14} className="icon-green" /> : <Copy size={14} />}
+                    </button>
+                  </div>
+                </div>
               </div>
+            )}
+            <div className="mt-4 flex items-start gap-2.5 rounded-xl px-4 py-3"
+              style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.12)' }}>
+              <AlertCircle size={13} className="icon-amber flex-shrink-0 mt-0.5" />
+              <p className="text-xs" style={{ color: 'rgba(245,158,11,0.75)' }}>
+                Para receber mensagens reais, configure esta URL no{' '}
+                <a href="https://developers.facebook.com" target="_blank" rel="noreferrer"
+                  className="underline inline-flex items-center gap-0.5 hover:text-amber-300 transition-colors">
+                  Meta Developers <ExternalLink size={9} />
+                </a>
+              </p>
             </div>
           </div>
-        )}
 
-        <div className="mt-4 flex items-start gap-2.5 rounded-xl px-4 py-3"
-          style={{ background: 'rgba(245,158,11,0.05)', border: '1px solid rgba(245,158,11,0.12)' }}>
-          <AlertCircle size={13} className="icon-amber flex-shrink-0 mt-0.5" />
-          <p className="text-xs" style={{ color: 'rgba(245,158,11,0.75)' }}>
-            Para receber mensagens reais, exponha esta URL publicamente (ex: ngrok) e configure no{' '}
-            <a href="https://developers.facebook.com" target="_blank" rel="noreferrer"
-              className="underline inline-flex items-center gap-0.5 hover:text-amber-300 transition-colors">
-              Meta Developers <ExternalLink size={9} />
-            </a>
-          </p>
-        </div>
-      </div>
+          <Section icon={MessageSquare} title="WhatsApp Business API" iconStyle="icon-green"
+            testType="whatsapp" onTest={handleTest} testResult={testResults.whatsapp}>
+            <Field label="Access Token" id="whatsapp_token" value={settings.whatsapp_token || ''} onChange={v => set('whatsapp_token', v)} placeholder="EAABsbCS…" mono />
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Phone Number ID" id="whatsapp_phone_id" value={settings.whatsapp_phone_id || ''} onChange={v => set('whatsapp_phone_id', v)} placeholder="123456789012345" mono />
+              <Field label="Business Account ID" id="whatsapp_business_id" value={settings.whatsapp_business_id || ''} onChange={v => set('whatsapp_business_id', v)} placeholder="123456789" mono />
+            </div>
+          </Section>
 
-      {/* WhatsApp */}
-      <Section icon={MessageSquare} title="WhatsApp Business API" iconStyle="icon-green"
-        testType="whatsapp" onTest={handleTest} testResult={testResults.whatsapp}>
-        <Field label="Access Token" id="whatsapp_token"
-          value={settings.whatsapp_token || ''} onChange={v => set('whatsapp_token', v)}
-          placeholder="EAABsbCS…" mono hint="Token de acesso da API do WhatsApp Business" />
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Phone Number ID" id="whatsapp_phone_id"
-            value={settings.whatsapp_phone_id || ''} onChange={v => set('whatsapp_phone_id', v)}
-            placeholder="123456789012345" mono />
-          <Field label="Business Account ID" id="whatsapp_business_id"
-            value={settings.whatsapp_business_id || ''} onChange={v => set('whatsapp_business_id', v)}
-            placeholder="123456789" mono />
-        </div>
-      </Section>
+          <Section icon={Instagram} title="Instagram API" iconStyle="icon-pink"
+            testType="instagram" onTest={handleTest} testResult={testResults.instagram}>
+            <Field label="Access Token" id="instagram_token" value={settings.instagram_token || ''} onChange={v => set('instagram_token', v)} placeholder="EAABsbCS…" mono />
+            <Field label="Instagram Account ID" id="instagram_account_id" value={settings.instagram_account_id || ''} onChange={v => set('instagram_account_id', v)} placeholder="123456789" mono />
+          </Section>
 
-      {/* Instagram */}
-      <Section icon={Instagram} title="Instagram API" iconStyle="icon-pink"
-        testType="instagram" onTest={handleTest} testResult={testResults.instagram}>
-        <Field label="Access Token" id="instagram_token"
-          value={settings.instagram_token || ''} onChange={v => set('instagram_token', v)}
-          placeholder="EAABsbCS…" mono />
-        <Field label="Instagram Account ID" id="instagram_account_id"
-          value={settings.instagram_account_id || ''} onChange={v => set('instagram_account_id', v)}
-          placeholder="123456789" mono />
-      </Section>
+          <Section icon={Shield} title="Meta Ads API" iconStyle="icon-purple">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="App ID" id="meta_app_id" value={settings.meta_app_id || ''} onChange={v => set('meta_app_id', v)} placeholder="123456789012345" mono />
+              <Field label="App Secret" id="meta_app_secret" value={settings.meta_app_secret || ''} onChange={v => set('meta_app_secret', v)} placeholder="abc123…" type="password" mono />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Ad Account ID" id="meta_ads_account_id" value={settings.meta_ads_account_id || ''} onChange={v => set('meta_ads_account_id', v)} placeholder="act_123456789" mono />
+              <Field label="Verify Token (Webhook)" id="meta_verify_token" value={settings.meta_verify_token || ''} onChange={v => set('meta_verify_token', v)} placeholder="lunia_webhook_token" mono />
+            </div>
+          </Section>
 
-      {/* Meta Ads */}
-      <Section icon={Shield} title="Meta Ads API" iconStyle="icon-purple">
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="App ID" id="meta_app_id"
-            value={settings.meta_app_id || ''} onChange={v => set('meta_app_id', v)}
-            placeholder="123456789012345" mono />
-          <Field label="App Secret" id="meta_app_secret"
-            value={settings.meta_app_secret || ''} onChange={v => set('meta_app_secret', v)}
-            placeholder="abc123…" type="password" mono />
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Ad Account ID" id="meta_ads_account_id"
-            value={settings.meta_ads_account_id || ''} onChange={v => set('meta_ads_account_id', v)}
-            placeholder="act_123456789" mono />
-          <Field label="Verify Token (Webhook)" id="meta_verify_token"
-            value={settings.meta_verify_token || ''} onChange={v => set('meta_verify_token', v)}
-            placeholder="lunia_webhook_token" mono
-            hint="Token customizado para verificação do webhook" />
-        </div>
-      </Section>
-
-      {/* Save */}
-      <div className="flex items-center gap-4 mt-2">
-        <button onClick={handleSave} disabled={saving} className="btn-primary px-8">
-          {saving ? <RefreshCw size={14} className="animate-spin" /> : <Key size={14} />}
-          {saving ? 'Salvando…' : 'Salvar Configurações'}
-        </button>
-        {saved && (
-          <span className="flex items-center gap-2 text-sm animate-fade-up" style={{ color: '#34d399' }}>
-            <CheckCircle2 size={15} /> Configurações salvas com sucesso!
-          </span>
-        )}
-      </div>
+          <div className="flex items-center gap-4 mt-2">
+            <button onClick={handleSave} disabled={saving} className="btn-primary px-8">
+              {saving ? <RefreshCw size={14} className="animate-spin" /> : <Key size={14} />}
+              {saving ? 'Salvando…' : 'Salvar Configurações'}
+            </button>
+            {saved && (
+              <span className="flex items-center gap-2 text-sm animate-fade-up" style={{ color: '#34d399' }}>
+                <CheckCircle2 size={15} /> Salvo com sucesso!
+              </span>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }
