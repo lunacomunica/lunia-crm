@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
+import bcrypt from 'bcrypt';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_PATH = join(__dirname, '../../lunia.db');
@@ -10,8 +11,26 @@ db.pragma('journal_mode = WAL');
 db.pragma('foreign_keys = ON');
 
 db.exec(`
+  CREATE TABLE IF NOT EXISTS tenants (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    slug TEXT UNIQUE NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'admin',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS contacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     name TEXT NOT NULL,
     email TEXT,
     phone TEXT,
@@ -27,6 +46,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS deals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     contact_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL,
     title TEXT NOT NULL,
     value REAL DEFAULT 0,
@@ -40,6 +60,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     contact_id INTEGER REFERENCES contacts(id) ON DELETE CASCADE,
     platform TEXT NOT NULL,
     external_id TEXT UNIQUE,
@@ -63,6 +84,7 @@ db.exec(`
 
   CREATE TABLE IF NOT EXISTS activities (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     contact_id INTEGER,
     deal_id INTEGER,
     type TEXT,
@@ -71,12 +93,15 @@ db.exec(`
   );
 
   CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    key TEXT NOT NULL,
+    value TEXT,
+    PRIMARY KEY (tenant_id, key)
   );
 
   CREATE TABLE IF NOT EXISTS instagram_leads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
     form_id TEXT,
     form_name TEXT,
     lead_id TEXT UNIQUE,
@@ -88,12 +113,31 @@ db.exec(`
   );
 `);
 
-const contactCount = (db.prepare('SELECT COUNT(*) as count FROM contacts').get() as any).count;
+// Migrations: add tenant_id to existing tables if upgrading
+const migrations = [
+  "ALTER TABLE contacts ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
+  "ALTER TABLE deals ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
+  "ALTER TABLE conversations ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
+  "ALTER TABLE activities ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
+  "ALTER TABLE instagram_leads ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
+];
+for (const sql of migrations) {
+  try { db.exec(sql); } catch { /* column already exists */ }
+}
 
-if (contactCount === 0) {
+// Seed default tenant + admin user if empty
+const tenantCount = (db.prepare('SELECT COUNT(*) as count FROM tenants').get() as any).count;
+
+if (tenantCount === 0) {
+  const insertTenant = db.prepare(`INSERT INTO tenants (name, slug) VALUES (?, ?)`);
+  insertTenant.run('Demo', 'demo');
+
+  const passwordHash = bcrypt.hashSync('admin123', 10);
+  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (1, 'Admin', 'admin@lunia.com', ?, 'admin')`).run(passwordHash);
+
   const insertContact = db.prepare(`
-    INSERT INTO contacts (name, email, phone, source, status, tags, notes, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', ? || ' days'))
+    INSERT INTO contacts (tenant_id, name, email, phone, source, status, tags, notes, created_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, datetime('now', ? || ' days'))
   `);
 
   const contacts = [
@@ -110,15 +154,12 @@ if (contactCount === 0) {
   ];
 
   const ids: number[] = [];
-  for (const c of contacts) {
-    ids.push(Number(insertContact.run(...c).lastInsertRowid));
-  }
+  for (const c of contacts) ids.push(Number(insertContact.run(...c).lastInsertRowid));
 
   const insertDeal = db.prepare(`
-    INSERT INTO deals (contact_id, title, value, stage, probability, expected_close_date, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now', ? || ' days'))
+    INSERT INTO deals (tenant_id, contact_id, title, value, stage, probability, expected_close_date, created_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, datetime('now', ? || ' days'))
   `);
-
   insertDeal.run(ids[0], 'Plano Premium - Ana', 2500, 'proposal', 60, '2026-06-30', '-3');
   insertDeal.run(ids[1], 'Serviço de Marketing - Bruno', 5000, 'negotiation', 75, '2026-06-15', '-8');
   insertDeal.run(ids[2], 'Consultoria Mensal - Carla', 8000, 'closing', 90, '2026-06-10', '-12');
@@ -128,8 +169,8 @@ if (contactCount === 0) {
   insertDeal.run(ids[3], 'Demo Trial - Diego', 1000, 'prospecting', 20, '2026-07-20', '-1');
 
   const insertConv = db.prepare(`
-    INSERT INTO conversations (contact_id, platform, external_id, unread_count, last_message_at)
-    VALUES (?, ?, ?, ?, datetime('now', ? || ' hours'))
+    INSERT INTO conversations (tenant_id, contact_id, platform, external_id, unread_count, last_message_at)
+    VALUES (1, ?, ?, ?, ?, datetime('now', ? || ' hours'))
   `);
   const insertMsg = db.prepare(`
     INSERT INTO messages (conversation_id, content, direction, status, timestamp)
@@ -170,16 +211,16 @@ if (contactCount === 0) {
   insertMsg.run(c5, 'Sou do setor financeiro e preciso de automação', 'inbound', 'read', '-2');
 
   const insertLead = db.prepare(`
-    INSERT INTO instagram_leads (form_id, form_name, lead_id, ad_id, campaign_name, contact_id, data, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', ? || ' days'))
+    INSERT INTO instagram_leads (tenant_id, form_id, form_name, lead_id, ad_id, campaign_name, contact_id, data, created_at)
+    VALUES (1, ?, ?, ?, ?, ?, ?, ?, datetime('now', ? || ' days'))
   `);
-  insertLead.run('form_001', 'Lead Form - Produto A', 'lead_001', 'ad_abc123', 'Campanha Black Friday', ids[2], JSON.stringify({ name: 'Carla Lima', email: 'carla@consultoria.com', phone: '+5521997654321', interesse: 'Consultoria' }), '-10');
-  insertLead.run('form_001', 'Lead Form - Produto A', 'lead_002', 'ad_abc123', 'Campanha Black Friday', ids[5], JSON.stringify({ name: 'Fábio Oliveira', email: 'fabio@ecommerce.com', phone: '+5551994321098', interesse: 'E-commerce' }), '-7');
-  insertLead.run('form_002', 'Lead Form - Demo Grátis', 'lead_003', 'ad_def456', 'Campanha Janeiro', null, JSON.stringify({ name: 'Marcos Pereira', email: 'marcos@vendas.com', phone: '+5511988776655', interesse: 'Vendas' }), '-3');
-  insertLead.run('form_002', 'Lead Form - Demo Grátis', 'lead_004', 'ad_def456', 'Campanha Janeiro', null, JSON.stringify({ name: 'Sandra Torres', email: 'sandra@moda.com', phone: '+5521977665544', interesse: 'Moda' }), '-2');
-  insertLead.run('form_003', 'Webinar Gratuito', 'lead_005', 'ad_ghi789', 'Campanha Webinar', null, JSON.stringify({ name: 'Ricardo Mendes', email: 'ricardo@logistica.com', phone: '+5531966554433', interesse: 'Logística' }), '-1');
+  insertLead.run('form_001', 'Lead Form - Produto A', 'lead_001', 'ad_abc123', 'Campanha Black Friday', ids[2], JSON.stringify({ name: 'Carla Lima', email: 'carla@consultoria.com', phone: '+5521997654321' }), '-10');
+  insertLead.run('form_001', 'Lead Form - Produto A', 'lead_002', 'ad_abc123', 'Campanha Black Friday', ids[5], JSON.stringify({ name: 'Fábio Oliveira', email: 'fabio@ecommerce.com', phone: '+5551994321098' }), '-7');
+  insertLead.run('form_002', 'Lead Form - Demo Grátis', 'lead_003', 'ad_def456', 'Campanha Janeiro', null, JSON.stringify({ name: 'Marcos Pereira', email: 'marcos@vendas.com', phone: '+5511988776655' }), '-3');
+  insertLead.run('form_002', 'Lead Form - Demo Grátis', 'lead_004', 'ad_def456', 'Campanha Janeiro', null, JSON.stringify({ name: 'Sandra Torres', email: 'sandra@moda.com', phone: '+5521977665544' }), '-2');
+  insertLead.run('form_003', 'Webinar Gratuito', 'lead_005', 'ad_ghi789', 'Campanha Webinar', null, JSON.stringify({ name: 'Ricardo Mendes', email: 'ricardo@logistica.com', phone: '+5531966554433' }), '-1');
 
-  const insertAct = db.prepare(`INSERT INTO activities (contact_id, deal_id, type, description, created_at) VALUES (?, ?, ?, ?, datetime('now', ? || ' hours'))`);
+  const insertAct = db.prepare(`INSERT INTO activities (tenant_id, contact_id, deal_id, type, description, created_at) VALUES (1, ?, ?, ?, ?, datetime('now', ? || ' hours'))`);
   insertAct.run(ids[0], 1, 'whatsapp', 'Perguntou sobre a proposta via WhatsApp', '-1');
   insertAct.run(ids[2], 3, 'stage_change', 'Deal movido para Fechamento', '-2');
   insertAct.run(ids[4], 4, 'note', 'Reunião agendada para segunda-feira às 10h', '-3');

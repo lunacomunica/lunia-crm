@@ -4,10 +4,11 @@ import db from '../db.js';
 const router = Router();
 
 router.get('/', (req, res) => {
+  const tid = req.user.tenant_id;
   const { search, source, status, limit = '100', offset = '0' } = req.query as Record<string, string>;
 
-  let query = 'SELECT * FROM contacts WHERE 1=1';
-  const params: any[] = [];
+  let query = 'SELECT * FROM contacts WHERE tenant_id = ?';
+  const params: any[] = [tid];
 
   if (search) {
     query += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
@@ -21,26 +22,27 @@ router.get('/', (req, res) => {
   params.push(Number(limit), Number(offset));
 
   const contacts = db.prepare(query).all(...params);
-  const total = (db.prepare('SELECT COUNT(*) as count FROM contacts').get() as any).count;
+  const total = (db.prepare('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = ?').get(tid) as any).count;
 
   res.json({ contacts, total });
 });
 
 router.get('/:id', (req, res) => {
-  const contact = db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id);
+  const contact = db.prepare('SELECT * FROM contacts WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id);
   if (!contact) return res.status(404).json({ error: 'Contato não encontrado' });
   res.json(contact);
 });
 
 router.post('/', (req, res) => {
+  const tid = req.user.tenant_id;
   const { name, email, phone, source = 'manual', status = 'lead', tags = '[]', notes = '', external_id } = req.body;
   const result = db.prepare(`
-    INSERT INTO contacts (name, email, phone, source, status, tags, notes, external_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(name, email, phone, source, status, tags, notes, external_id || null);
+    INSERT INTO contacts (tenant_id, name, email, phone, source, status, tags, notes, external_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(tid, name, email, phone, source, status, tags, notes, external_id || null);
 
-  db.prepare('INSERT INTO activities (contact_id, type, description) VALUES (?, ?, ?)').run(
-    result.lastInsertRowid, 'note', `Contato criado via ${source}`
+  db.prepare('INSERT INTO activities (tenant_id, contact_id, type, description) VALUES (?, ?, ?, ?)').run(
+    tid, result.lastInsertRowid, 'note', `Contato criado via ${source}`
   );
 
   res.status(201).json(db.prepare('SELECT * FROM contacts WHERE id = ?').get(result.lastInsertRowid));
@@ -49,14 +51,15 @@ router.post('/', (req, res) => {
 router.put('/:id', (req, res) => {
   const { name, email, phone, source, status, tags, notes } = req.body;
   db.prepare(`
-    UPDATE contacts SET name=?, email=?, phone=?, source=?, status=?, tags=?, notes=?, updated_at=datetime('now') WHERE id=?
-  `).run(name, email, phone, source, status, tags, notes, req.params.id);
+    UPDATE contacts SET name=?, email=?, phone=?, source=?, status=?, tags=?, notes=?, updated_at=datetime('now')
+    WHERE id=? AND tenant_id=?
+  `).run(name, email, phone, source, status, tags, notes, req.params.id, req.user.tenant_id);
 
   res.json(db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id));
 });
 
 router.delete('/:id', (req, res) => {
-  db.prepare('DELETE FROM contacts WHERE id = ?').run(req.params.id);
+  db.prepare('DELETE FROM contacts WHERE id = ? AND tenant_id = ?').run(req.params.id, req.user.tenant_id);
   res.json({ success: true });
 });
 

@@ -9,6 +9,12 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 });
 
+api.interceptors.request.use(config => {
+  const token = localStorage.getItem('lunia_token');
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
 export const contactsApi = {
   list: (params?: Record<string, string>) => api.get('/contacts', { params }),
   get: (id: number) => api.get(`/contacts/${id}`),

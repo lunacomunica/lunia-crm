@@ -1,8 +1,9 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare, Instagram,
-  TrendingUp, Settings, Moon
+  TrendingUp, Settings, Moon, LogOut
 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 const navItems = [
   { path: '/dashboard',     label: 'Dashboard',      icon: LayoutDashboard },
@@ -15,6 +16,7 @@ const navItems = [
 
 export default function Sidebar() {
   const { pathname } = useLocation();
+  const { user, logout } = useAuth();
 
   return (
     <aside
@@ -103,27 +105,32 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* ── Status ── */}
-      <div className="p-3" style={{ borderTop: '1px solid rgba(59,130,246,0.07)' }}>
-        <div
-          className="rounded-xl p-3"
-          style={{
-            background: 'rgba(59,130,246,0.04)',
-            border: '1px solid rgba(59,130,246,0.1)',
-          }}
-        >
-          <div className="flex items-center gap-2 mb-1">
-            <div
-              className="w-1.5 h-1.5 rounded-full animate-glow"
-              style={{ background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.8)' }}
-            />
-            <span className="text-xs font-semibold" style={{ color: 'rgba(245,158,11,0.8)' }}>
-              Meta API
-            </span>
+      {/* ── User + Logout ── */}
+      <div className="p-3 space-y-2" style={{ borderTop: '1px solid rgba(59,130,246,0.07)' }}>
+        {user && (
+          <div className="rounded-xl px-3 py-2.5 flex items-center justify-between"
+            style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-white truncate">{user.name}</p>
+              <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>{user.tenant}</p>
+            </div>
+            <button onClick={logout} title="Sair"
+              className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
+              style={{ color: 'rgba(100,116,139,0.5)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+              <LogOut size={13} />
+            </button>
           </div>
-          <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.6)' }}>
-            Configure em Configurações
-          </p>
+        )}
+        <div className="rounded-xl p-3"
+          style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-1.5 h-1.5 rounded-full animate-glow"
+              style={{ background: '#f59e0b', boxShadow: '0 0 6px rgba(245,158,11,0.8)' }} />
+            <span className="text-xs font-semibold" style={{ color: 'rgba(245,158,11,0.8)' }}>Meta API</span>
+          </div>
+          <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.6)' }}>Configure em Configurações</p>
         </div>
       </div>
     </aside>

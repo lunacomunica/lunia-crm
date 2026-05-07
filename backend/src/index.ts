@@ -13,6 +13,8 @@ import conversationsRouter from './routes/conversations.js';
 import dashboardRouter from './routes/dashboard.js';
 import metaRouter from './routes/meta.js';
 import settingsRouter from './routes/settings.js';
+import authRouter from './routes/auth.js';
+import { authMiddleware } from './middleware/auth.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -24,12 +26,16 @@ if (!IS_PROD) {
 }
 app.use(express.json());
 
-app.use('/api/contacts', contactsRouter);
-app.use('/api/deals', dealsRouter);
-app.use('/api/conversations', conversationsRouter);
-app.use('/api/dashboard', dashboardRouter);
-app.use('/api/meta', metaRouter);
-app.use('/api/settings', settingsRouter);
+// Public routes
+app.use('/api/auth', authRouter);
+
+// Protected routes
+app.use('/api/contacts', authMiddleware, contactsRouter);
+app.use('/api/deals', authMiddleware, dealsRouter);
+app.use('/api/conversations', authMiddleware, conversationsRouter);
+app.use('/api/dashboard', authMiddleware, dashboardRouter);
+app.use('/api/meta', authMiddleware, metaRouter);
+app.use('/api/settings', authMiddleware, settingsRouter);
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', app: 'lun.ia CRM', timestamp: new Date().toISOString() });
