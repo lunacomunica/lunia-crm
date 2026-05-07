@@ -26,7 +26,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 if (!IS_PROD) {
   app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
 }
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 // Public routes
 app.use('/api/auth', authRouter);

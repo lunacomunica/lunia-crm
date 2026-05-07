@@ -7,18 +7,18 @@ router.get('/', (req, res) => {
   const tid = req.user.tenant_id;
   const { search, source, status, limit = '100', offset = '0' } = req.query as Record<string, string>;
 
-  let query = 'SELECT * FROM contacts WHERE tenant_id = ?';
+  let query = `SELECT c.*, r.name as referred_by_name FROM contacts c LEFT JOIN contacts r ON c.referred_by_id = r.id WHERE c.tenant_id = ?`;
   const params: any[] = [tid];
 
   if (search) {
-    query += ' AND (name LIKE ? OR email LIKE ? OR phone LIKE ?)';
+    query += ' AND (c.name LIKE ? OR c.email LIKE ? OR c.phone LIKE ?)';
     const s = `%${search}%`;
     params.push(s, s, s);
   }
-  if (source && source !== 'all') { query += ' AND source = ?'; params.push(source); }
-  if (status && status !== 'all') { query += ' AND status = ?'; params.push(status); }
+  if (source && source !== 'all') { query += ' AND c.source = ?'; params.push(source); }
+  if (status && status !== 'all') { query += ' AND c.status = ?'; params.push(status); }
 
-  query += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+  query += ' ORDER BY c.created_at DESC LIMIT ? OFFSET ?';
   params.push(Number(limit), Number(offset));
 
   const contacts = db.prepare(query).all(...params);
@@ -35,11 +35,11 @@ router.get('/:id', (req, res) => {
 
 router.post('/', (req, res) => {
   const tid = req.user.tenant_id;
-  const { name, email, phone, source = 'manual', status = 'lead', tags = '[]', notes = '', external_id } = req.body;
+  const { name, email, phone, source = 'manual', status = 'lead', tags = '[]', notes = '', external_id, referred_by_id } = req.body;
   const result = db.prepare(`
-    INSERT INTO contacts (tenant_id, name, email, phone, source, status, tags, notes, external_id)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(tid, name, email, phone, source, status, tags, notes, external_id || null);
+    INSERT INTO contacts (tenant_id, name, email, phone, source, status, tags, notes, external_id, referred_by_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(tid, name, email, phone, source, status, tags, notes, external_id || null, referred_by_id || null);
 
   db.prepare('INSERT INTO activities (tenant_id, contact_id, type, description) VALUES (?, ?, ?, ?)').run(
     tid, result.lastInsertRowid, 'note', `Contato criado via ${source}`
@@ -49,11 +49,11 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
-  const { name, email, phone, source, status, tags, notes } = req.body;
+  const { name, email, phone, source, status, tags, notes, referred_by_id } = req.body;
   db.prepare(`
-    UPDATE contacts SET name=?, email=?, phone=?, source=?, status=?, tags=?, notes=?, updated_at=datetime('now')
+    UPDATE contacts SET name=?, email=?, phone=?, source=?, status=?, tags=?, notes=?, referred_by_id=?, updated_at=datetime('now')
     WHERE id=? AND tenant_id=?
-  `).run(name, email, phone, source, status, tags, notes, req.params.id, req.user.tenant_id);
+  `).run(name, email, phone, source, status, tags, notes, referred_by_id || null, req.params.id, req.user.tenant_id);
 
   res.json(db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id));
 });

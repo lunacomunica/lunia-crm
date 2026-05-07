@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
-import { Plus, Search, Pencil, Trash2, Phone, Mail, X, SlidersHorizontal } from 'lucide-react';
+import { useEffect, useState, useRef } from 'react';
+import { Plus, Search, Pencil, Trash2, Phone, Mail, X, SlidersHorizontal, UserPlus } from 'lucide-react';
 import { contactsApi } from '../api/client';
 import { Contact } from '../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-const SRC_LABEL: Record<string, string> = { manual: 'Manual', whatsapp: 'WhatsApp', instagram: 'Instagram', ads: 'Anúncio' };
-const SRC_BADGE: Record<string, string> = { manual: 'badge-slate', whatsapp: 'badge-green', instagram: 'badge-pink', ads: 'badge-purple' };
+const SRC_LABEL: Record<string, string> = { manual: 'Manual', whatsapp: 'WhatsApp', instagram: 'Instagram', ads: 'Anúncio', indicacao: 'Indicação' };
+const SRC_BADGE: Record<string, string> = { manual: 'badge-slate', whatsapp: 'badge-green', instagram: 'badge-pink', ads: 'badge-purple', indicacao: 'badge-amber' };
 const ST_LABEL: Record<string, string> = { lead: 'Lead', qualified: 'Qualificado', customer: 'Cliente', lost: 'Perdido' };
 const ST_BADGE: Record<string, string> = { lead: 'badge-blue', qualified: 'badge-amber', customer: 'badge-green', lost: 'badge-red' };
 
@@ -31,7 +31,68 @@ function Avatar({ name }: { name: string }) {
   );
 }
 
-const emptyForm = { name: '', email: '', phone: '', source: 'manual', status: 'lead', tags: '[]', notes: '' };
+const emptyForm = { name: '', email: '', phone: '', source: 'manual', status: 'lead', tags: '[]', notes: '', referred_by_id: '' };
+
+function ReferrerPicker({ value, onChange, contacts }: { value: string; onChange: (id: string, name: string) => void; contacts: Contact[] }) {
+  const [search, setSearch] = useState('');
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selected = contacts.find(c => String(c.id) === value);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const filtered = contacts.filter(c => c.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8);
+
+  return (
+    <div ref={ref} className="relative">
+      <div className="input-dark flex items-center justify-between cursor-pointer" onClick={() => setOpen(o => !o)}
+        style={{ userSelect: 'none' }}>
+        {selected ? (
+          <span className="text-white text-sm">{selected.name}</span>
+        ) : (
+          <span className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Buscar contato…</span>
+        )}
+        {selected && (
+          <button onClick={e => { e.stopPropagation(); onChange('', ''); setSearch(''); }}
+            className="ml-auto" style={{ color: 'rgba(100,116,139,0.5)' }}>
+            <X size={12} />
+          </button>
+        )}
+      </div>
+      {open && (
+        <div className="absolute z-50 w-full mt-1 rounded-xl overflow-hidden"
+          style={{ background: '#0d0d1f', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+          <div className="p-2">
+            <input autoFocus value={search} onChange={e => setSearch(e.target.value)}
+              placeholder="Digitar nome…" className="input-dark text-sm py-2"
+              onClick={e => e.stopPropagation()} />
+          </div>
+          <div className="max-h-48 overflow-y-auto">
+            {filtered.length === 0 ? (
+              <p className="px-4 py-3 text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum contato encontrado</p>
+            ) : filtered.map(c => (
+              <button key={c.id} onClick={() => { onChange(String(c.id), c.name); setOpen(false); setSearch(''); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                style={{ color: 'rgba(226,232,240,0.85)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center text-white text-[10px] font-bold"
+                  style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                  {c.name.charAt(0).toUpperCase()}
+                </div>
+                <span className="text-sm truncate">{c.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Contacts() {
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -62,7 +123,7 @@ export default function Contacts() {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setModal(true); };
   const openEdit = (c: Contact) => {
     setEditing(c);
-    setForm({ name: c.name, email: c.email || '', phone: c.phone || '', source: c.source, status: c.status, tags: c.tags, notes: c.notes || '' });
+    setForm({ name: c.name, email: c.email || '', phone: c.phone || '', source: c.source, status: c.status, tags: c.tags, notes: c.notes || '', referred_by_id: c.referred_by_id ? String(c.referred_by_id) : '' });
     setModal(true);
   };
 
@@ -142,6 +203,7 @@ export default function Contacts() {
           <option value="whatsapp">WhatsApp</option>
           <option value="instagram">Instagram</option>
           <option value="ads">Anúncios</option>
+          <option value="indicacao">Indicação</option>
           <option value="manual">Manual</option>
         </select>
         <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={selectStyle}>
@@ -212,7 +274,12 @@ export default function Contacts() {
                     : <span style={{ color: 'rgba(100,116,139,0.4)' }}>—</span>}
                 </td>
                 <td className="td">
-                  <span className={`badge ${SRC_BADGE[c.source]}`}>{SRC_LABEL[c.source]}</span>
+                  <span className={`badge ${SRC_BADGE[c.source] || 'badge-slate'}`}>{SRC_LABEL[c.source] || c.source}</span>
+                  {c.source === 'indicacao' && (c as any).referred_by_name && (
+                    <p className="text-[10px] mt-1 flex items-center gap-1" style={{ color: 'rgba(245,158,11,0.6)' }}>
+                      <UserPlus size={9} />{(c as any).referred_by_name}
+                    </p>
+                  )}
                 </td>
                 <td className="td">
                   <span className={`badge ${ST_BADGE[c.status]}`}>{ST_LABEL[c.status]}</span>
@@ -283,12 +350,13 @@ export default function Contacts() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label-dark">Fonte</label>
-                  <select value={form.source} onChange={e => setForm({ ...form, source: e.target.value })}
+                  <select value={form.source} onChange={e => setForm({ ...form, source: e.target.value, referred_by_id: '' })}
                     className="input-dark" style={{ cursor: 'pointer' }}>
                     <option value="manual">Manual</option>
                     <option value="whatsapp">WhatsApp</option>
                     <option value="instagram">Instagram</option>
                     <option value="ads">Anúncio</option>
+                    <option value="indicacao">Indicação</option>
                   </select>
                 </div>
                 <div>
@@ -302,6 +370,16 @@ export default function Contacts() {
                   </select>
                 </div>
               </div>
+              {form.source === 'indicacao' && (
+                <div>
+                  <label className="label-dark">Indicado por *</label>
+                  <ReferrerPicker
+                    value={form.referred_by_id}
+                    onChange={(id) => setForm({ ...form, referred_by_id: id })}
+                    contacts={contacts.filter(c => !editing || c.id !== editing.id)}
+                  />
+                </div>
+              )}
               <div>
                 <label className="label-dark">Observações</label>
                 <textarea value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })}

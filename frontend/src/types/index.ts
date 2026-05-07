@@ -3,12 +3,14 @@ export interface Contact {
   name: string;
   email: string | null;
   phone: string | null;
-  source: 'manual' | 'whatsapp' | 'instagram' | 'ads';
+  source: 'manual' | 'whatsapp' | 'instagram' | 'ads' | 'indicacao';
   status: 'lead' | 'qualified' | 'customer' | 'lost';
   tags: string;
   notes: string | null;
   external_id: string | null;
   avatar_url: string | null;
+  referred_by_id: number | null;
+  referred_by_name?: string | null;
   created_at: string;
   updated_at: string;
 }
