@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2, RotateCcw, MessageSquare, Calendar, X, Send, Eye, ArrowLeft, FileImage, Clock } from 'lucide-react';
+import { CheckCircle2, RotateCcw, MessageSquare, Calendar, X, Send, Eye, ArrowLeft, FileImage, Clock, Grid3x3 } from 'lucide-react';
 import { contentApi, agencyClientsApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
 import { format } from 'date-fns';
@@ -114,11 +114,18 @@ export default function ClientPortal() {
               Modo preview — você está visualizando como o cliente vê este portal
             </span>
           </div>
-          <button onClick={() => navigate('/marketing/clients')}
-            className="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-70"
-            style={{ color: '#f59e0b' }}>
-            <ArrowLeft size={12} /> Voltar para clientes
-          </button>
+          <div className="flex items-center gap-3">
+            <button onClick={() => navigate(`/marketing/feed/${clientId}`)}
+              className="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-70"
+              style={{ color: '#f59e0b' }}>
+              <Grid3x3 size={12} /> Prévia do Feed
+            </button>
+            <button onClick={() => navigate('/marketing/clients')}
+              className="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-70"
+              style={{ color: '#f59e0b' }}>
+              <ArrowLeft size={12} /> Voltar para clientes
+            </button>
+          </div>
         </div>
       )}
 
