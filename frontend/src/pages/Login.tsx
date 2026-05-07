@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react';
-import { Moon, Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
+import { Mail, Lock, LogIn, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
@@ -28,13 +28,15 @@ export default function Login() {
       <div className="w-full max-w-sm animate-fade-up">
         {/* Logo */}
         <div className="flex flex-col items-center mb-10">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4"
-            style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)', boxShadow: '0 0 30px rgba(59,130,246,0.5)' }}>
-            <Moon size={24} className="text-white" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="lun.ia"
+            className="w-16 h-16 rounded-2xl object-cover mb-4"
+            style={{ boxShadow: '0 0 30px rgba(59,130,246,0.5)' }}
+          />
           <h1 className="text-3xl font-extralight text-white tracking-tight"
             style={{ textShadow: '0 0 30px rgba(59,130,246,0.3)' }}>lun.ia</h1>
-          <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.65)' }}>CRM Inteligente</p>
+          <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.65)' }}>CRM by @lunacomunica</p>
         </div>
 
         {/* Form */}

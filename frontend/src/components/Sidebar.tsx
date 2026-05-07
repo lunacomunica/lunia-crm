@@ -1,7 +1,7 @@
 import { Link, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare, Instagram,
-  TrendingUp, Settings, Moon, LogOut
+  TrendingUp, Settings, LogOut
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
@@ -30,15 +30,12 @@ export default function Sidebar() {
       {/* ── Logo ── */}
       <div className="px-5 py-6" style={{ borderBottom: '1px solid rgba(59,130,246,0.07)' }}>
         <div className="flex items-center gap-3">
-          <div
-            className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-            style={{
-              background: 'linear-gradient(135deg, #3b82f6 0%, #6366f1 100%)',
-              boxShadow: '0 0 18px rgba(59,130,246,0.55), 0 0 40px rgba(99,102,241,0.25)',
-            }}
-          >
-            <Moon size={16} className="text-white" fill="white" />
-          </div>
+          <img
+            src="/logo.png"
+            alt="lun.ia"
+            className="w-9 h-9 rounded-xl flex-shrink-0 object-cover"
+            style={{ boxShadow: '0 0 18px rgba(59,130,246,0.55)' }}
+          />
           <div>
             <p
               className="font-bold text-xl tracking-tight leading-none text-white"
@@ -47,7 +44,7 @@ export default function Sidebar() {
               lun.ia
             </p>
             <p className="text-[10px] mt-0.5" style={{ color: 'rgba(59,130,246,0.45)' }}>
-              CRM Inteligente
+              CRM by @lunacomunica
             </p>
           </div>
         </div>
