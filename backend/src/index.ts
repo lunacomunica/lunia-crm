@@ -41,9 +41,10 @@ app.get('/health', (_req, res) => {
   res.json({ status: 'ok', app: 'lun.ia CRM', timestamp: new Date().toISOString() });
 });
 
-// Serve frontend in production
+// Serve frontend
 const frontendDist = join(__dirname, 'public');
-if (IS_PROD && existsSync(frontendDist)) {
+console.log(`[static] frontendDist=${frontendDist} exists=${existsSync(frontendDist)}`);
+if (existsSync(frontendDist)) {
   app.use(express.static(frontendDist));
   app.get('*', (_req, res) => res.sendFile(join(frontendDist, 'index.html')));
 }
