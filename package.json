@@ -1,0 +1,13 @@
+{
+  "name": "lunia-crm",
+  "private": true,
+  "workspaces": ["backend", "frontend"],
+  "scripts": {
+    "dev": "concurrently -n \"API,APP\" -c \"cyan,magenta\" \"npm run dev -w backend\" \"npm run dev -w frontend\"",
+    "build": "npm run build -w frontend && npm run build -w backend",
+    "start": "NODE_ENV=production node backend/dist/index.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

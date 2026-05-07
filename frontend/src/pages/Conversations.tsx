@@ -1,0 +1,304 @@
+import { useEffect, useRef, useState } from 'react';
+import { Search, Send, MessageSquare, Phone, CheckCheck, Check } from 'lucide-react';
+import { conversationsApi } from '../api/client';
+import { Conversation, Message } from '../types';
+import { formatDistanceToNow, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+
+const AVATAR_COLORS = [
+  'linear-gradient(135deg,#3b82f6,#6366f1)',
+  'linear-gradient(135deg,#8b5cf6,#ec4899)',
+  'linear-gradient(135deg,#10b981,#06b6d4)',
+  'linear-gradient(135deg,#f59e0b,#ef4444)',
+];
+
+function Avatar({ name, size = 'md' }: { name: string; size?: 'sm' | 'md' | 'lg' }) {
+  const initials = (name || '?').split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+  const bg = AVATAR_COLORS[(name || '?').charCodeAt(0) % AVATAR_COLORS.length];
+  const sz = size === 'sm' ? 'w-8 h-8 text-xs' : size === 'lg' ? 'w-11 h-11 text-sm' : 'w-9 h-9 text-xs';
+  return (
+    <div className={`${sz} rounded-full flex items-center justify-center text-white font-semibold flex-shrink-0`}
+      style={{ background: bg, boxShadow: '0 0 12px rgba(59,130,246,0.15)' }}>
+      {initials}
+    </div>
+  );
+}
+
+export default function Conversations() {
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [active, setActive] = useState<Conversation | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [text, setText] = useState('');
+  const [search, setSearch] = useState('');
+  const [platform, setPlatform] = useState('all');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  const loadConvs = () => {
+    const p: Record<string, string> = {};
+    if (platform !== 'all') p.platform = platform;
+    conversationsApi.list(p).then(r => { setConversations(r.data); setLoading(false); });
+  };
+
+  useEffect(() => { loadConvs(); }, [platform]);
+
+  const openConv = (conv: Conversation) => {
+    setActive(conv);
+    conversationsApi.getMessages(conv.id).then(r => {
+      setMessages(r.data);
+      setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 60);
+    });
+    conversationsApi.markRead(conv.id);
+    setConversations(prev => prev.map(c => c.id === conv.id ? { ...c, unread_count: 0 } : c));
+  };
+
+  const handleSend = async () => {
+    if (!text.trim() || !active) return;
+    setSending(true);
+    const r = await conversationsApi.sendMessage(active.id, text);
+    setMessages(prev => [...prev, r.data]);
+    setText('');
+    setSending(false);
+    setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 60);
+  };
+
+  const filtered = conversations.filter(c =>
+    !search || (c.contact_name || '').toLowerCase().includes(search.toLowerCase())
+  );
+
+  return (
+    <div className="flex h-screen overflow-hidden">
+      {/* ── Left panel ── */}
+      <div
+        className="w-80 flex-shrink-0 flex flex-col"
+        style={{
+          background: 'linear-gradient(180deg, #030314 0%, #04041a 100%)',
+          borderRight: '1px solid rgba(59,130,246,0.07)',
+        }}
+      >
+        {/* Panel header */}
+        <div className="px-4 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.07)' }}>
+          <p className="section-label mb-1">Mensagens</p>
+          <h2 className="text-xl font-light text-white mb-4">Conversas</h2>
+          <div className="relative mb-3">
+            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(59,130,246,0.4)' }} />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar conversa…"
+              className="input-dark pl-8 text-xs"
+            />
+          </div>
+          <div
+            className="flex gap-0.5 p-1 rounded-xl"
+            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+          >
+            {(['all', 'whatsapp', 'instagram'] as const).map(p => (
+              <button
+                key={p}
+                onClick={() => setPlatform(p)}
+                className="flex-1 py-1.5 rounded-lg text-xs font-medium transition-all duration-150"
+                style={platform === p
+                  ? { background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }
+                  : { color: 'rgba(100,116,139,0.6)', border: '1px solid transparent' }}
+              >
+                {p === 'all' ? 'Todos' : p === 'whatsapp' ? 'WhatsApp' : 'Instagram'}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Conv list */}
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex justify-center py-10">
+              <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
+                style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+            </div>
+          ) : filtered.length === 0 ? (
+            <p className="text-center text-sm py-10" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhuma conversa</p>
+          ) : filtered.map(conv => (
+            <button
+              key={conv.id}
+              onClick={() => openConv(conv)}
+              className="w-full flex items-start gap-3 px-4 py-3.5 text-left transition-all duration-150 relative"
+              style={{
+                borderBottom: '1px solid rgba(59,130,246,0.05)',
+                background: active?.id === conv.id ? 'rgba(59,130,246,0.08)' : 'transparent',
+                borderLeft: active?.id === conv.id ? '2px solid #3b82f6' : '2px solid transparent',
+              }}
+            >
+              <div className="relative">
+                <Avatar name={conv.contact_name || '?'} />
+                <div
+                  className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full"
+                  style={{
+                    background: conv.platform === 'whatsapp' ? '#25d366' : '#ec4899',
+                    border: '2px solid #030314',
+                    boxShadow: conv.platform === 'whatsapp' ? '0 0 6px rgba(37,211,102,0.6)' : '0 0 6px rgba(236,72,153,0.6)',
+                  }}
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-0.5">
+                  <p className="text-sm font-medium text-white truncate">{conv.contact_name}</p>
+                  <span className="text-[10px] ml-1 whitespace-nowrap" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                    {conv.last_message_time
+                      ? formatDistanceToNow(new Date(conv.last_message_time), { locale: ptBR })
+                      : ''}
+                  </span>
+                </div>
+                <p className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                  {conv.last_message || 'Sem mensagens'}
+                </p>
+              </div>
+              {conv.unread_count > 0 && (
+                <div
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] text-white font-bold flex-shrink-0 mt-1"
+                  style={{ background: '#3b82f6', boxShadow: '0 0 8px rgba(59,130,246,0.7)' }}
+                >
+                  {conv.unread_count}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* ── Chat panel ── */}
+      {active ? (
+        <div className="flex-1 flex flex-col" style={{ background: '#05050f' }}>
+          {/* Chat header */}
+          <div
+            className="flex items-center justify-between px-6 py-4"
+            style={{
+              background: 'linear-gradient(180deg, #07071e 0%, #05050f 100%)',
+              borderBottom: '1px solid rgba(59,130,246,0.07)',
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <Avatar name={active.contact_name || '?'} size="lg" />
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-white font-medium">{active.contact_name}</p>
+                  <span
+                    className="text-[9px] font-bold px-1.5 py-0.5 rounded uppercase"
+                    style={active.platform === 'whatsapp'
+                      ? { background: 'rgba(37,211,102,0.15)', color: '#4ade80', border: '1px solid rgba(37,211,102,0.2)' }
+                      : { background: 'rgba(236,72,153,0.15)', color: '#f472b6', border: '1px solid rgba(236,72,153,0.2)' }}
+                  >
+                    {active.platform}
+                  </span>
+                </div>
+                {active.contact_phone && (
+                  <p className="text-xs flex items-center gap-1 mt-0.5" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                    <Phone size={10} />{active.contact_phone}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-3">
+            {messages.map((msg, i) => {
+              const isOut = msg.direction === 'outbound';
+              const showDate = i === 0 || new Date(messages[i - 1].timestamp).toDateString() !== new Date(msg.timestamp).toDateString();
+              return (
+                <div key={msg.id}>
+                  {showDate && (
+                    <div className="flex items-center justify-center my-4">
+                      <div className="divider-glow flex-1" />
+                      <span className="mx-4 text-[10px] px-3 py-1 rounded-full"
+                        style={{ color: 'rgba(100,116,139,0.5)', background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.08)' }}>
+                        {format(new Date(msg.timestamp), "d 'de' MMM", { locale: ptBR })}
+                      </span>
+                      <div className="divider-glow flex-1" />
+                    </div>
+                  )}
+                  <div className={`flex ${isOut ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                      className="max-w-[68%] px-4 py-2.5 rounded-2xl text-sm"
+                      style={isOut
+                        ? {
+                            background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                            borderBottomRightRadius: '4px',
+                            boxShadow: '0 0 14px rgba(59,130,246,0.25)',
+                          }
+                        : {
+                            background: 'linear-gradient(145deg, #0c0c28 0%, #0f0f30 100%)',
+                            border: '1px solid rgba(59,130,246,0.1)',
+                            borderBottomLeftRadius: '4px',
+                          }
+                      }
+                    >
+                      <p className="leading-relaxed" style={{ color: isOut ? '#fff' : '#e2e8f0' }}>{msg.content}</p>
+                      <div className={`flex items-center gap-1 mt-1 ${isOut ? 'justify-end' : 'justify-start'}`}>
+                        <span className="text-[10px]" style={{ color: isOut ? 'rgba(255,255,255,0.45)' : 'rgba(100,116,139,0.5)' }}>
+                          {format(new Date(msg.timestamp), 'HH:mm')}
+                        </span>
+                        {isOut && (msg.status === 'read' || msg.status === 'delivered'
+                          ? <CheckCheck size={11} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                          : <Check size={11} style={{ color: 'rgba(255,255,255,0.4)' }} />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input */}
+          <div
+            className="px-6 py-4"
+            style={{
+              background: 'linear-gradient(0deg, #07071e 0%, #05050f 100%)',
+              borderTop: '1px solid rgba(59,130,246,0.07)',
+            }}
+          >
+            <div className="flex gap-3 items-end">
+              <input
+                value={text}
+                onChange={e => setText(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+                placeholder="Digite uma mensagem…"
+                className="input-dark flex-1"
+              />
+              <button
+                onClick={handleSend}
+                disabled={!text.trim() || sending}
+                className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all duration-200"
+                style={{
+                  background: 'linear-gradient(135deg, #3b82f6, #2563eb)',
+                  boxShadow: '0 0 18px rgba(59,130,246,0.4)',
+                  opacity: !text.trim() || sending ? 0.4 : 1,
+                }}
+              >
+                <Send size={15} className="text-white" />
+              </button>
+            </div>
+            <p className="text-center text-[10px] mt-2" style={{ color: 'rgba(100,116,139,0.4)' }}>
+              Configure a API da Meta para envio real via WhatsApp
+            </p>
+          </div>
+        </div>
+      ) : (
+        <div className="flex-1 flex flex-col items-center justify-center gap-4" style={{ background: '#05050f' }}>
+          <div
+            className="w-16 h-16 rounded-2xl flex items-center justify-center"
+            style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.12)' }}
+          >
+            <MessageSquare size={28} className="icon-blue" />
+          </div>
+          <div className="text-center">
+            <p className="text-lg font-light text-white mb-1">Selecione uma conversa</p>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>ou aguarde novas mensagens pelo webhook</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
