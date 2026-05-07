@@ -10,7 +10,6 @@ import Products from './pages/Products';
 import Settings from './pages/Settings';
 import MarketingClients from './pages/marketing/Clients';
 import MarketingContent from './pages/marketing/Content';
-import MarketingCalendar from './pages/marketing/Calendar';
 import ClientPortal from './pages/marketing/ClientPortal';
 import FeedPreview from './pages/marketing/FeedPreview';
 import Login from './pages/Login';
@@ -43,7 +42,6 @@ export default function App() {
             <Route path="products" element={<Products />} />
             <Route path="marketing/clients" element={<MarketingClients />} />
             <Route path="marketing/content" element={<MarketingContent />} />
-            <Route path="marketing/calendar" element={<MarketingCalendar />} />
             <Route path="marketing/portal/:clientId" element={<ClientPortal />} />
             <Route path="marketing/feed/:clientId" element={<FeedPreview />} />
             <Route path="settings" element={<Settings />} />

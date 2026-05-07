@@ -21,7 +21,6 @@ const commercialItems = [
 const marketingItems = [
   { path: '/marketing/clients',  label: 'Clientes',    icon: Briefcase },
   { path: '/marketing/content',  label: 'Conteúdos',   icon: FileImage },
-  { path: '/marketing/calendar', label: 'Calendário',  icon: CalendarDays },
 ];
 
 function NavItem({ path, label, icon: Icon }: { path: string; label: string; icon: any }) {
