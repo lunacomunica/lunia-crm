@@ -1,43 +1,81 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CheckCircle2, RotateCcw, MessageSquare, Calendar, X, Send, Eye, ArrowLeft, FileImage, Clock, Grid3x3 } from 'lucide-react';
-import { contentApi, agencyClientsApi } from '../../api/client';
-import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
+import {
+  CheckCircle2, RotateCcw, MessageSquare, Calendar, X, Send, Eye,
+  ArrowLeft, FileImage, Clock, Grid3x3, Megaphone, Smartphone,
+  TrendingUp, MousePointer, DollarSign, BarChart3
+} from 'lucide-react';
+import { contentApi, agencyClientsApi, campaignsApi } from '../../api/client';
+import { ContentPiece, ContentStatus, AgencyClient, Campaign } from '../../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '../../context/AuthContext';
 
-const STATUS_CONFIG: Record<ContentStatus, { label: string; color: string; bg: string; border: string }> = {
-  em_criacao:           { label: 'Em Criação',        color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.15)' },
-  em_revisao:           { label: 'Em Revisão',        color: '#60a5fa', bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.15)'  },
-  aguardando_aprovacao: { label: 'Aguardando Aprovação', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.25)' },
-  aprovado:             { label: 'Aprovado',          color: '#34d399', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.2)'  },
-  ajuste_solicitado:    { label: 'Ajuste Solicitado', color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.2)'  },
-  agendado:             { label: 'Agendado',          color: '#a78bfa', bg: 'rgba(167,139,250,0.08)',border: 'rgba(167,139,250,0.2)' },
-  publicado:            { label: 'Publicado',         color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)'  },
+/* ─── Status configs ─────────────────────────────────────────────────────── */
+const STATUS_CFG: Record<ContentStatus, { label: string; color: string; bg: string; border: string }> = {
+  em_criacao:           { label: 'Em Criação',           color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.15)' },
+  em_revisao:           { label: 'Em Revisão',           color: '#60a5fa', bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.15)'  },
+  aguardando_aprovacao: { label: 'Aguardando Aprovação', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.25)'  },
+  aprovado:             { label: 'Aprovado',             color: '#34d399', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.2)'   },
+  ajuste_solicitado:    { label: 'Ajuste Solicitado',    color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.2)'   },
+  agendado:             { label: 'Agendado',             color: '#a78bfa', bg: 'rgba(167,139,250,0.08)',border: 'rgba(167,139,250,0.2)'  },
+  publicado:            { label: 'Publicado',            color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)'   },
+};
+
+const FEED_OVERLAY: Partial<Record<ContentStatus, { icon: any; color: string; bg: string; label: string }>> = {
+  aguardando_aprovacao: { icon: Clock,     color: '#f59e0b', bg: 'rgba(245,158,11,0.75)',  label: 'Ag. aprovação' },
+  ajuste_solicitado:    { icon: RotateCcw, color: '#f97316', bg: 'rgba(249,115,22,0.75)',  label: 'Ajuste pedido' },
+  em_criacao:           { icon: FileImage, color: '#94a3b8', bg: 'rgba(5,5,15,0.7)',       label: 'Em criação'    },
+  em_revisao:           { icon: Eye,       color: '#60a5fa', bg: 'rgba(59,130,246,0.65)',  label: 'Em revisão'    },
+  agendado:             { icon: Calendar,  color: '#a78bfa', bg: 'rgba(167,139,250,0.65)', label: 'Agendado'      },
+};
+
+const PLATFORM_CFG: Record<string, { label: string; color: string }> = {
+  meta:     { label: 'Meta Ads',    color: '#1877f2' },
+  google:   { label: 'Google Ads',  color: '#ea4335' },
+  tiktok:   { label: 'TikTok Ads',  color: '#ff0050' },
+  linkedin: { label: 'LinkedIn Ads',color: '#0077b5' },
+};
+
+const CAMPAIGN_STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
+  rascunho: { label: 'Rascunho', color: '#94a3b8', bg: 'rgba(148,163,184,0.1)' },
+  ativa:    { label: 'Ativa',    color: '#34d399', bg: 'rgba(52,211,153,0.1)'  },
+  pausada:  { label: 'Pausada',  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)' },
+  encerrada:{ label: 'Encerrada',color: '#64748b', bg: 'rgba(100,116,139,0.1)' },
 };
 
 const TYPE_LABEL: Record<string, string> = { post: 'Post', reels: 'Reels', story: 'Story', carrossel: 'Carrossel' };
 
+type TabId = 'aprovacoes' | 'campanhas' | 'feed';
+
+/* ─── Helpers ────────────────────────────────────────────────────────────── */
+const fmtR = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+const fmtN = (v: number) => v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v);
+
 function StatusBadge({ status }: { status: ContentStatus }) {
-  const cfg = STATUS_CONFIG[status];
+  const c = STATUS_CFG[status];
   return (
     <span className="text-xs font-medium px-2.5 py-1 rounded-full"
-      style={{ color: cfg.color, background: cfg.bg, border: `1px solid ${cfg.border}` }}>
-      {cfg.label}
+      style={{ color: c.color, background: c.bg, border: `1px solid ${c.border}` }}>
+      {c.label}
     </span>
   );
 }
 
+/* ─── Main component ─────────────────────────────────────────────────────── */
 export default function ClientPortal() {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
   const isPreview = user?.role === 'admin' || user?.role === 'user' || user?.role === 'team';
 
+  const [tab, setTab] = useState<TabId>('aprovacoes');
   const [client, setClient] = useState<AgencyClient | null>(null);
   const [pieces, setPieces] = useState<ContentPiece[]>([]);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // Approval tab state
   const [detail, setDetail] = useState<ContentPiece | null>(null);
   const [adjustModal, setAdjustModal] = useState(false);
   const [adjustComment, setAdjustComment] = useState('');
@@ -45,14 +83,20 @@ export default function ClientPortal() {
   const [sendingComment, setSendingComment] = useState(false);
   const [acting, setActing] = useState(false);
 
+  // Feed tab state
+  const [feedFilter, setFeedFilter] = useState<'all' | 'approved'>('all');
+  const [phoneFrame, setPhoneFrame] = useState(true);
+
   const load = async () => {
     setLoading(true);
-    const [clientRes, contentRes] = await Promise.all([
+    const [clientRes, contentRes, campRes] = await Promise.all([
       agencyClientsApi.get(Number(clientId)),
       contentApi.list({ client_id: clientId! }),
+      campaignsApi.list({ client_id: clientId! }),
     ]);
     setClient(clientRes.data);
     setPieces(contentRes.data);
+    setCampaigns(campRes.data);
     setLoading(false);
   };
 
@@ -102,8 +146,197 @@ export default function ClientPortal() {
     </div>
   );
 
+  /* ── Feed grid (reused in Feed tab) ─────────────────────────────────── */
+  const feedDisplayed = pieces.filter(p =>
+    feedFilter === 'all' ? true : ['aprovado', 'agendado', 'publicado'].includes(p.status)
+  ).slice(0, 30);
+
+  const feedStats = {
+    total: pieces.length,
+    approved: pieces.filter(p => ['aprovado', 'agendado', 'publicado'].includes(p.status)).length,
+    pending: pieces.filter(p => p.status === 'aguardando_aprovacao').length,
+  };
+
+  function FeedGrid() {
+    return (
+      <div>
+        <div className="px-4 pt-4 pb-3">
+          <div className="flex items-center gap-3 mb-3">
+            {client?.logo ? (
+              <img src={client.logo} alt={client.name} className="w-14 h-14 rounded-full object-cover"
+                style={{ border: '2px solid rgba(255,255,255,0.1)' }} />
+            ) : (
+              <div className="w-14 h-14 rounded-full flex items-center justify-center text-white text-xl font-bold"
+                style={{ background: 'linear-gradient(135deg,#f59e0b,#ec4899,#8b5cf6)', padding: '2px' }}>
+                <div className="w-full h-full rounded-full flex items-center justify-center" style={{ background: '#111' }}>
+                  {client?.name.charAt(0).toUpperCase()}
+                </div>
+              </div>
+            )}
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-white">{client?.instagram_handle ? `@${client.instagram_handle}` : client?.name}</p>
+              {client?.segment && <p className="text-xs" style={{ color: 'rgba(148,163,184,0.6)' }}>{client.segment}</p>}
+            </div>
+          </div>
+          <div className="grid grid-cols-3 text-center mb-3 py-2 rounded-xl"
+            style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+            {[
+              { label: 'Peças', value: feedStats.total },
+              { label: 'Aprovadas', value: feedStats.approved },
+              { label: 'Pendentes', value: feedStats.pending },
+            ].map(s => (
+              <div key={s.label}>
+                <p className="text-sm font-bold text-white">{s.value}</p>
+                <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{s.label}</p>
+              </div>
+            ))}
+          </div>
+          <div className="flex border-b" style={{ borderColor: 'rgba(255,255,255,0.08)' }}>
+            <button onClick={() => setFeedFilter('all')}
+              className="flex-1 py-2 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+              style={{ color: feedFilter === 'all' ? '#fff' : 'rgba(100,116,139,0.5)', borderBottom: feedFilter === 'all' ? '2px solid #fff' : '2px solid transparent' }}>
+              <Grid3x3 size={11} /> Tudo
+            </button>
+            <button onClick={() => setFeedFilter('approved')}
+              className="flex-1 py-2 text-xs font-medium transition-colors flex items-center justify-center gap-1.5"
+              style={{ color: feedFilter === 'approved' ? '#34d399' : 'rgba(100,116,139,0.5)', borderBottom: feedFilter === 'approved' ? '2px solid #34d399' : '2px solid transparent' }}>
+              <CheckCircle2 size={11} /> Aprovados
+            </button>
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-0.5">
+          {feedDisplayed.length === 0 ? (
+            <div className="col-span-3 py-12 text-center">
+              <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma peça para exibir</p>
+            </div>
+          ) : feedDisplayed.map(p => {
+            const overlay = FEED_OVERLAY[p.status];
+            const isPublished = p.status === 'publicado';
+            return (
+              <button key={p.id} onClick={() => openDetail(p)}
+                className="relative aspect-square overflow-hidden group"
+                style={{ background: 'rgba(255,255,255,0.03)' }}>
+                {p.media_url ? (
+                  <img src={p.media_url} alt={p.title}
+                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                    style={{ opacity: overlay ? 0.65 : 1 }} />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.05)' }}>
+                    <FileImage size={20} style={{ color: 'rgba(59,130,246,0.2)' }} />
+                  </div>
+                )}
+                {overlay && !isPublished && (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-1" style={{ background: overlay.bg }}>
+                    <overlay.icon size={16} style={{ color: overlay.color }} />
+                    <span className="text-[9px] font-bold" style={{ color: overlay.color }}>{overlay.label}</span>
+                  </div>
+                )}
+                {isPublished && (
+                  <div className="absolute top-1 right-1">
+                    <div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: '#10b981' }}>
+                      <CheckCircle2 size={10} className="text-white" />
+                    </div>
+                  </div>
+                )}
+                {p.type !== 'post' && (
+                  <div className="absolute bottom-1 left-1">
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                      style={{ background: 'rgba(0,0,0,0.7)', color: 'rgba(255,255,255,0.8)' }}>
+                      {TYPE_LABEL[p.type]}
+                    </span>
+                  </div>
+                )}
+                {p.scheduled_date && (
+                  <div className="absolute inset-0 flex items-end justify-center pb-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 60%)' }}>
+                    <span className="text-[9px]" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                      {format(new Date(p.scheduled_date), "d MMM", { locale: ptBR })}
+                    </span>
+                  </div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Campaign card ───────────────────────────────────────────────────── */
+  function CampaignCard({ c }: { c: Campaign }) {
+    const platform = PLATFORM_CFG[c.platform] || { label: c.platform, color: '#60a5fa' };
+    const statusCfg = CAMPAIGN_STATUS_CFG[c.status] || CAMPAIGN_STATUS_CFG.rascunho;
+    const progress = c.budget > 0 ? Math.min((c.spent / c.budget) * 100, 100) : 0;
+    const roasVal = c.spent > 0 ? (c.revenue / c.spent) : 0;
+
+    return (
+      <div className="rounded-2xl p-5"
+        style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.1)' }}>
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                style={{ background: `${platform.color}15`, color: platform.color, border: `1px solid ${platform.color}30` }}>
+                {platform.label}
+              </span>
+              <span className="text-xs font-medium px-2 py-0.5 rounded-full"
+                style={{ background: statusCfg.bg, color: statusCfg.color }}>
+                {statusCfg.label}
+              </span>
+            </div>
+            <h3 className="text-sm font-semibold text-white truncate">{c.name}</h3>
+            {(c.start_date || c.end_date) && (
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                {c.start_date && format(new Date(c.start_date), "d MMM", { locale: ptBR })}
+                {c.start_date && c.end_date && ' → '}
+                {c.end_date && format(new Date(c.end_date), "d MMM yyyy", { locale: ptBR })}
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* Budget progress */}
+        <div className="mb-4">
+          <div className="flex justify-between text-xs mb-1.5">
+            <span style={{ color: 'rgba(100,116,139,0.6)' }}>Investido</span>
+            <span className="text-white font-medium">{fmtR(c.spent)} <span style={{ color: 'rgba(100,116,139,0.5)' }}>/ {fmtR(c.budget)}</span></span>
+          </div>
+          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+            <div className="h-full rounded-full transition-all"
+              style={{ width: `${progress}%`, background: progress > 90 ? '#f97316' : '#3b82f6' }} />
+          </div>
+        </div>
+
+        {/* Metrics */}
+        <div className="grid grid-cols-4 gap-3">
+          {[
+            { icon: Eye,          label: 'Impressões', value: fmtN(c.impressions) },
+            { icon: MousePointer, label: 'Cliques',    value: fmtN(c.clicks)      },
+            { icon: TrendingUp,   label: 'Conversões', value: fmtN(c.conversions) },
+            { icon: BarChart3,    label: 'ROAS',       value: roasVal > 0 ? `${roasVal.toFixed(1)}x` : '—' },
+          ].map(m => (
+            <div key={m.label} className="text-center">
+              <m.icon size={12} className="mx-auto mb-1" style={{ color: 'rgba(100,116,139,0.4)' }} />
+              <p className="text-sm font-semibold text-white">{m.value}</p>
+              <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Summary stats for Campanhas tab ────────────────────────────────── */
+  const activeCampaigns = campaigns.filter(c => c.status === 'ativa');
+  const totalSpent = campaigns.reduce((s, c) => s + c.spent, 0);
+  const totalImpressions = campaigns.reduce((s, c) => s + c.impressions, 0);
+  const totalConversions = campaigns.reduce((s, c) => s + c.conversions, 0);
+  const totalRevenue = campaigns.reduce((s, c) => s + c.revenue, 0);
+  const overallRoas = totalSpent > 0 ? totalRevenue / totalSpent : 0;
+
   return (
     <div className="min-h-screen" style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(59,130,246,0.06) 0%, #05050f 60%)' }}>
+
       {/* Preview banner */}
       {isPreview && (
         <div className="flex items-center justify-between px-6 py-2.5"
@@ -114,18 +347,11 @@ export default function ClientPortal() {
               Modo preview — você está visualizando como o cliente vê este portal
             </span>
           </div>
-          <div className="flex items-center gap-3">
-            <button onClick={() => navigate(`/marketing/feed/${clientId}`)}
-              className="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-70"
-              style={{ color: '#f59e0b' }}>
-              <Grid3x3 size={12} /> Prévia do Feed
-            </button>
-            <button onClick={() => navigate('/marketing/clients')}
-              className="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-70"
-              style={{ color: '#f59e0b' }}>
-              <ArrowLeft size={12} /> Voltar para clientes
-            </button>
-          </div>
+          <button onClick={() => navigate('/marketing/clients')}
+            className="flex items-center gap-1.5 text-xs transition-opacity hover:opacity-70"
+            style={{ color: '#f59e0b' }}>
+            <ArrowLeft size={12} /> Voltar para clientes
+          </button>
         </div>
       )}
 
@@ -143,10 +369,10 @@ export default function ClientPortal() {
             )}
             <div>
               <h1 className="text-xl font-semibold text-white">{client?.name}</h1>
-              <p className="text-sm" style={{ color: 'rgba(100,116,139,0.6)' }}>Portal de Aprovação de Conteúdo</p>
+              <p className="text-sm" style={{ color: 'rgba(100,116,139,0.6)' }}>Portal do Cliente</p>
             </div>
           </div>
-          {pendingCount > 0 && (
+          {pendingCount > 0 && tab === 'aprovacoes' && (
             <div className="flex items-center gap-2 px-4 py-2 rounded-xl"
               style={{ background: 'rgba(245,158,11,0.1)', border: '1px solid rgba(245,158,11,0.2)' }}>
               <Clock size={14} style={{ color: '#f59e0b' }} />
@@ -158,67 +384,189 @@ export default function ClientPortal() {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Tabs */}
+      <div className="max-w-5xl mx-auto px-8">
+        <div className="flex gap-1 pt-4 pb-0" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
+          {([
+            { id: 'aprovacoes', label: 'Aprovações',  icon: CheckCircle2, badge: pendingCount },
+            { id: 'campanhas',  label: 'Campanhas',   icon: Megaphone,    badge: activeCampaigns.length },
+            { id: 'feed',       label: 'Prévia do Feed', icon: Grid3x3,   badge: 0 },
+          ] as const).map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className="flex items-center gap-2 px-4 py-3 text-sm font-medium transition-colors relative"
+              style={{ color: tab === t.id ? '#e2e8f0' : 'rgba(100,116,139,0.6)' }}>
+              <t.icon size={14} />
+              {t.label}
+              {t.badge > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                  style={{
+                    background: t.id === 'aprovacoes' ? 'rgba(245,158,11,0.15)' : 'rgba(52,211,153,0.15)',
+                    color: t.id === 'aprovacoes' ? '#f59e0b' : '#34d399',
+                  }}>
+                  {t.badge}
+                </span>
+              )}
+              {tab === t.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t"
+                  style={{ background: '#3b82f6' }} />
+              )}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Tab content */}
       <div className="max-w-5xl mx-auto px-8 py-8">
-        {pieces.length === 0 ? (
-          <div className="text-center py-24">
-            <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.2)' }} />
-            <p style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum conteúdo disponível ainda.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {pieces.map(p => (
-              <div key={p.id} onClick={() => openDetail(p)}
-                className="rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200"
-                style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: p.status === 'aguardando_aprovacao' ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(59,130,246,0.1)', boxShadow: p.status === 'aguardando_aprovacao' ? '0 0 20px rgba(245,158,11,0.08)' : 'none' }}>
-                {/* Thumbnail */}
-                <div className="relative aspect-square overflow-hidden"
-                  style={{ background: 'rgba(59,130,246,0.04)' }}>
-                  {p.media_url ? (
-                    <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                      <FileImage size={32} style={{ color: 'rgba(59,130,246,0.2)' }} />
-                      <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Sem imagem</span>
+
+        {/* ── Aprovações ── */}
+        {tab === 'aprovacoes' && (
+          pieces.length === 0 ? (
+            <div className="text-center py-24">
+              <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.2)' }} />
+              <p style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum conteúdo disponível ainda.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pieces.map(p => (
+                <div key={p.id} onClick={() => openDetail(p)}
+                  className="rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200"
+                  style={{
+                    background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)',
+                    border: p.status === 'aguardando_aprovacao' ? '1px solid rgba(245,158,11,0.3)' : '1px solid rgba(59,130,246,0.1)',
+                    boxShadow: p.status === 'aguardando_aprovacao' ? '0 0 20px rgba(245,158,11,0.08)' : 'none',
+                  }}>
+                  <div className="relative aspect-square overflow-hidden" style={{ background: 'rgba(59,130,246,0.04)' }}>
+                    {p.media_url ? (
+                      <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                        <FileImage size={32} style={{ color: 'rgba(59,130,246,0.2)' }} />
+                        <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Sem imagem</span>
+                      </div>
+                    )}
+                    <div className="absolute top-2 right-2">
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-md"
+                        style={{ background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)' }}>
+                        {TYPE_LABEL[p.type] || p.type}
+                      </span>
                     </div>
-                  )}
-                  <div className="absolute top-2 right-2">
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-md"
-                      style={{ background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.7)', backdropFilter: 'blur(4px)' }}>
-                      {TYPE_LABEL[p.type] || p.type}
-                    </span>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-sm font-medium text-white mb-1 truncate">{p.title}</p>
+                    {p.scheduled_date && (
+                      <p className="flex items-center gap-1 text-xs mb-3" style={{ color: 'rgba(100,116,139,0.55)' }}>
+                        <Calendar size={10} />{format(new Date(p.scheduled_date), "d 'de' MMM", { locale: ptBR })}
+                      </p>
+                    )}
+                    <StatusBadge status={p.status} />
                   </div>
                 </div>
+              ))}
+            </div>
+          )
+        )}
 
-                {/* Info */}
-                <div className="p-4">
-                  <p className="text-sm font-medium text-white mb-1 truncate">{p.title}</p>
-                  {p.scheduled_date && (
-                    <p className="flex items-center gap-1 text-xs mb-3" style={{ color: 'rgba(100,116,139,0.55)' }}>
-                      <Calendar size={10} />{format(new Date(p.scheduled_date), "d 'de' MMM", { locale: ptBR })}
-                    </p>
-                  )}
-                  <StatusBadge status={p.status} />
-                </div>
+        {/* ── Campanhas ── */}
+        {tab === 'campanhas' && (
+          <div>
+            {campaigns.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+                {[
+                  { icon: DollarSign,   label: 'Total Investido',  value: fmtR(totalSpent)              },
+                  { icon: Eye,          label: 'Impressões',       value: fmtN(totalImpressions)         },
+                  { icon: TrendingUp,   label: 'Conversões',       value: fmtN(totalConversions)         },
+                  { icon: BarChart3,    label: 'ROAS Geral',       value: overallRoas > 0 ? `${overallRoas.toFixed(1)}x` : '—' },
+                ].map(m => (
+                  <div key={m.label} className="rounded-2xl px-5 py-4"
+                    style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.1)' }}>
+                    <m.icon size={16} className="mb-2" style={{ color: 'rgba(59,130,246,0.5)' }} />
+                    <p className="text-xl font-bold text-white">{m.value}</p>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.55)' }}>{m.label}</p>
+                  </div>
+                ))}
               </div>
-            ))}
+            )}
+
+            {campaigns.length === 0 ? (
+              <div className="text-center py-24">
+                <Megaphone size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.2)' }} />
+                <p style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhuma campanha cadastrada ainda.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {campaigns.map(c => <CampaignCard key={c.id} c={c} />)}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Feed ── */}
+        {tab === 'feed' && (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <p className="text-sm" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                Visualização do feed como aparecerá no Instagram
+              </p>
+              <button onClick={() => setPhoneFrame(f => !f)}
+                className="flex items-center gap-2 btn-ghost text-xs px-3 py-2"
+                style={{ color: phoneFrame ? '#60a5fa' : 'rgba(100,116,139,0.6)' }}>
+                <Smartphone size={13} /> {phoneFrame ? 'Sem moldura' : 'Com moldura'}
+              </button>
+            </div>
+            <div className="flex justify-center">
+              {phoneFrame ? (
+                <div className="relative" style={{ width: '375px' }}>
+                  <div className="rounded-[44px] overflow-hidden"
+                    style={{ background: '#000', border: '10px solid #1a1a2e', boxShadow: '0 40px 80px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.06), inset 0 0 0 1px rgba(255,255,255,0.04)' }}>
+                    <div className="flex items-center justify-between px-6 pt-3 pb-1" style={{ background: '#000' }}>
+                      <span className="text-[11px] font-semibold text-white">9:41</span>
+                      <div className="w-24 h-5 rounded-full" style={{ background: '#000', border: '1px solid rgba(255,255,255,0.1)' }} />
+                      <div className="flex items-center gap-1">
+                        {[3, 4, 5].map(w => <div key={w} className="rounded-sm" style={{ width: '3px', height: `${w * 2}px`, background: 'white', opacity: 0.8 }} />)}
+                        <div className="ml-1 text-[11px] font-semibold text-white">100%</div>
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between px-4 py-3"
+                      style={{ background: '#000', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
+                      <span className="text-base font-bold text-white" style={{ fontFamily: 'Georgia, serif', fontStyle: 'italic' }}>
+                        {client?.instagram_handle || client?.name}
+                      </span>
+                      <div className="flex items-center gap-3">
+                        <div className="w-4 h-4 rounded-full border border-white opacity-60" />
+                        <div className="w-4 h-0.5 rounded-full bg-white opacity-60" />
+                      </div>
+                    </div>
+                    <div className="overflow-y-auto" style={{ maxHeight: '680px', background: '#000' }}>
+                      <FeedGrid />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="w-full max-w-sm rounded-2xl overflow-hidden"
+                  style={{ background: '#000', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <FeedGrid />
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
 
-      {/* Detail panel */}
+      {/* Detail panel (shared: used by Aprovações + Feed) */}
       {detail && (
-        <div className="fixed inset-0 flex items-center justify-end z-50 animate-fade"
+        <div className="fixed inset-0 flex items-center justify-end z-50"
           style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
           onClick={() => { setDetail(null); setAdjustModal(false); }}>
-          <div className="h-full w-full max-w-lg overflow-y-auto animate-fade-up"
+          <div className="h-full w-full max-w-lg overflow-y-auto"
             style={{ background: '#07071a', borderLeft: '1px solid rgba(59,130,246,0.12)', boxShadow: '-20px 0 60px rgba(0,0,0,0.7)' }}
             onClick={e => e.stopPropagation()}>
 
             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
               <StatusBadge status={detail.status} />
               <button onClick={() => setDetail(null)} style={{ color: 'rgba(100,116,139,0.5)' }}
-                className="p-1.5 rounded-lg hover:text-white transition-colors"><X size={18} /></button>
+                className="p-1.5 rounded-lg hover:text-white transition-colors">
+                <X size={18} />
+              </button>
             </div>
 
             <div className="p-6 space-y-6">
@@ -255,7 +603,6 @@ export default function ClientPortal() {
                 </div>
               )}
 
-              {/* Approval actions */}
               {detail.status === 'aguardando_aprovacao' && (
                 <div className="space-y-3">
                   <p className="label-dark">Sua decisão</p>
@@ -292,7 +639,6 @@ export default function ClientPortal() {
                 </div>
               )}
 
-              {/* Adjust modal inline */}
               {adjustModal && (
                 <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)' }}>
                   <p className="text-sm font-medium" style={{ color: '#f97316' }}>Descreva o ajuste necessário</p>
@@ -300,7 +646,8 @@ export default function ClientPortal() {
                     rows={3} placeholder="Ex: Mudar a cor do texto, ajustar a copy…"
                     className="input-dark resize-none text-sm w-full" />
                   <div className="flex gap-2">
-                    <button onClick={() => { setAdjustModal(false); setAdjustComment(''); }} className="btn-ghost flex-1 justify-center text-sm py-2">Cancelar</button>
+                    <button onClick={() => { setAdjustModal(false); setAdjustComment(''); }}
+                      className="btn-ghost flex-1 justify-center text-sm py-2">Cancelar</button>
                     <button onClick={handleRequestAdjust} disabled={!adjustComment.trim() || acting}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-sm font-medium transition-all"
                       style={{ background: 'rgba(249,115,22,0.15)', border: '1px solid rgba(249,115,22,0.3)', color: '#f97316' }}>
@@ -310,7 +657,6 @@ export default function ClientPortal() {
                 </div>
               )}
 
-              {/* Comments */}
               <div>
                 <p className="label-dark mb-3 flex items-center gap-2"><MessageSquare size={12} />Comentários</p>
                 <div className="space-y-3 mb-4 max-h-52 overflow-y-auto">
