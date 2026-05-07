@@ -14,6 +14,7 @@ import dashboardRouter from './routes/dashboard.js';
 import metaRouter from './routes/meta.js';
 import settingsRouter from './routes/settings.js';
 import authRouter from './routes/auth.js';
+import usersRouter from './routes/users.js';
 import { authMiddleware } from './middleware/auth.js';
 import db from './db.js';
 
@@ -85,6 +86,7 @@ app.use('/api/conversations', authMiddleware, conversationsRouter);
 app.use('/api/dashboard', authMiddleware, dashboardRouter);
 app.use('/api/meta', authMiddleware, metaRouter);
 app.use('/api/settings', authMiddleware, settingsRouter);
+app.use('/api/users', authMiddleware, usersRouter);
 
 app.get('/privacy', (_req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');

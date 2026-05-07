@@ -45,6 +45,8 @@ export default function Contacts() {
   const [form, setForm] = useState(emptyForm);
   const [deleting, setDeleting] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const load = () => {
     setLoading(true);
@@ -76,6 +78,17 @@ export default function Contacts() {
     await contactsApi.delete(id); setDeleting(null); load();
   };
 
+  const toggleSelect = (id: number) => {
+    setSelected(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s; });
+  };
+  const toggleAll = () => setSelected(selected.size === contacts.length ? new Set() : new Set(contacts.map(c => c.id)));
+  const handleBulkDelete = async () => {
+    if (!confirm(`Apagar ${selected.size} contato(s) selecionado(s)?`)) return;
+    setBulkDeleting(true);
+    await contactsApi.bulkDelete([...selected]);
+    setSelected(new Set()); setBulkDeleting(false); load();
+  };
+
   const selectStyle = {
     background: 'rgba(255,255,255,0.025)',
     border: '1px solid rgba(255,255,255,0.06)',
@@ -100,9 +113,17 @@ export default function Contacts() {
             {total} contatos cadastrados
           </p>
         </div>
-        <button className="btn-primary" onClick={openCreate}>
-          <Plus size={15} /> Novo Contato
-        </button>
+        <div className="flex gap-2">
+          {selected.size > 0 && (
+            <button onClick={handleBulkDelete} disabled={bulkDeleting} className="btn-ghost"
+              style={{ color: '#f87171', borderColor: 'rgba(239,68,68,0.3)' }}>
+              <Trash2 size={14} /> {bulkDeleting ? 'Apagando…' : `Apagar ${selected.size}`}
+            </button>
+          )}
+          <button className="btn-primary" onClick={openCreate}>
+            <Plus size={15} /> Novo Contato
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -140,6 +161,10 @@ export default function Contacts() {
         <table className="w-full">
           <thead>
             <tr>
+              <th className="th w-8">
+                <input type="checkbox" checked={contacts.length > 0 && selected.size === contacts.length}
+                  onChange={toggleAll} className="rounded" style={{ accentColor: '#3b82f6', cursor: 'pointer' }} />
+              </th>
               <th className="th">Contato</th>
               <th className="th hidden md:table-cell">Telefone</th>
               <th className="th">Fonte</th>
@@ -163,7 +188,11 @@ export default function Contacts() {
                 </td>
               </tr>
             ) : contacts.map(c => (
-              <tr key={c.id} className="tr group">
+              <tr key={c.id} className="tr group" style={selected.has(c.id) ? { background: 'rgba(59,130,246,0.05)' } : {}}>
+                <td className="td">
+                  <input type="checkbox" checked={selected.has(c.id)} onChange={() => toggleSelect(c.id)}
+                    style={{ accentColor: '#3b82f6', cursor: 'pointer' }} />
+                </td>
                 <td className="td">
                   <div className="flex items-center gap-3">
                     <Avatar name={c.name} />

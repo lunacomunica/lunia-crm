@@ -21,6 +21,14 @@ export const contactsApi = {
   create: (data: any) => api.post('/contacts', data),
   update: (id: number, data: any) => api.put(`/contacts/${id}`, data),
   delete: (id: number) => api.delete(`/contacts/${id}`),
+  bulkDelete: (ids: number[]) => api.delete('/contacts/bulk', { data: { ids } }),
+};
+
+export const usersApi = {
+  list: () => api.get('/users'),
+  create: (data: any) => api.post('/users', data),
+  update: (id: number, data: any) => api.put(`/users/${id}`, data),
+  delete: (id: number) => api.delete(`/users/${id}`),
 };
 
 export const dealsApi = {

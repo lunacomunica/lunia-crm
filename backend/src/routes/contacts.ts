@@ -58,6 +58,14 @@ router.put('/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM contacts WHERE id = ?').get(req.params.id));
 });
 
+router.delete('/bulk', (req, res) => {
+  const { ids } = req.body as { ids: number[] };
+  if (!Array.isArray(ids) || ids.length === 0) return res.status(400).json({ error: 'ids required' });
+  const placeholders = ids.map(() => '?').join(',');
+  db.prepare(`DELETE FROM contacts WHERE tenant_id = ? AND id IN (${placeholders})`).run(req.user.tenant_id, ...ids);
+  res.json({ deleted: ids.length });
+});
+
 router.delete('/:id', (req, res) => {
   db.prepare('DELETE FROM contacts WHERE id = ? AND tenant_id = ?').run(req.params.id, req.user.tenant_id);
   res.json({ success: true });
