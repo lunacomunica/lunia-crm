@@ -240,6 +240,12 @@ for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }
 }
 
+// Migration: promote first tenant-1 admin to superadmin
+{
+  const firstAdmin = db.prepare("SELECT id FROM users WHERE tenant_id = 1 AND role = 'admin' ORDER BY id LIMIT 1").get() as any;
+  if (firstAdmin) db.prepare("UPDATE users SET role = 'superadmin' WHERE id = ?").run(firstAdmin.id);
+}
+
 // Seed default tenant + admin user if empty
 const tenantCount = (db.prepare('SELECT COUNT(*) as count FROM tenants').get() as any).count;
 
@@ -248,7 +254,7 @@ if (tenantCount === 0) {
   insertTenant.run('Demo', 'demo');
 
   const passwordHash = '$2b$10$mrWKuVQVqaO.2Z5dvX3zde9Ldc3R2KqSkEVaWCxTcqVc9RQRRJqOe';
-  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (1, 'Admin', 'admin@lunia.com', ?, 'admin')`).run(passwordHash);
+  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (1, 'Admin', 'admin@lunia.com', ?, 'superadmin')`).run(passwordHash);
 
   const insertContact = db.prepare(`
     INSERT INTO contacts (tenant_id, name, email, phone, source, status, tags, notes, created_at)

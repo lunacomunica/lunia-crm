@@ -9,6 +9,10 @@ import { notificationsApi } from '../api/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+const platformItems = [
+  { path: '/admin/tenants', label: 'Workspaces', icon: Building2 },
+];
+
 const negocioItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/products',  label: 'Produtos',  icon: Package },
@@ -121,11 +125,12 @@ function NotificationBell() {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'Usuário', team: 'Time', client: 'Cliente' };
+const ROLE_LABEL: Record<string, string> = { superadmin: 'Super Admin', admin: 'Admin', user: 'Usuário', team: 'Time', client: 'Cliente' };
 
 export default function Sidebar() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const isSuperAdmin = user?.role === 'superadmin';
   const isInternal = user?.role !== 'team';
 
   return (
@@ -147,6 +152,16 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
+        {/* Plataforma — superadmin only */}
+        {isSuperAdmin && (
+          <div>
+            <p className="section-label px-3 mb-2">Plataforma</p>
+            <div className="space-y-0.5">
+              {platformItems.map(item => <NavItem key={item.path} {...item} />)}
+            </div>
+          </div>
+        )}
+
         {/* Negócio — hidden for team */}
         {isInternal && (
           <div>

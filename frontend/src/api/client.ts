@@ -109,3 +109,9 @@ export const settingsApi = {
   getWebhookInfo: () => api.get('/settings/webhook-info'),
   testConnection: (type: string) => api.post('/settings/test-connection', { type }),
 };
+
+export const adminApi = {
+  listTenants: () => api.get('/admin/tenants'),
+  createTenant: (data: { name: string; admin_name: string; admin_email: string; admin_password: string }) => api.post('/admin/tenants', data),
+  deleteTenant: (id: number) => api.delete(`/admin/tenants/${id}`),
+};

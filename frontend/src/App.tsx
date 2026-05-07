@@ -13,6 +13,7 @@ import MarketingContent from './pages/marketing/Content';
 import ClientPortal from './pages/marketing/ClientPortal';
 import Traffic from './pages/marketing/Traffic';
 import FeedPreview from './pages/marketing/FeedPreview';
+import Tenants from './pages/admin/Tenants';
 import Login from './pages/Login';
 
 function PrivateRoutes() {
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="marketing/portal/:clientId" element={<ClientPortal />} />
             <Route path="marketing/feed/:clientId" element={<FeedPreview />} />
             <Route path="settings" element={<Settings />} />
+            <Route path="admin/tenants" element={<Tenants />} />
           </Route>
         </Routes>
       </BrowserRouter>
