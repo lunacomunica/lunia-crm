@@ -81,6 +81,17 @@ export const contentApi = {
   delete: (id: number) => api.delete(`/content/${id}`),
 };
 
+export const campaignsApi = {
+  list: (params?: Record<string, string>) => api.get('/campaigns', { params }),
+  get: (id: number) => api.get(`/campaigns/${id}`),
+  create: (data: any) => api.post('/campaigns', data),
+  update: (id: number, data: any) => api.put(`/campaigns/${id}`, data),
+  delete: (id: number) => api.delete(`/campaigns/${id}`),
+  addCreative: (id: number, data: any) => api.post(`/campaigns/${id}/creatives`, data),
+  updateCreative: (id: number, cid: number, data: any) => api.put(`/campaigns/${id}/creatives/${cid}`, data),
+  deleteCreative: (id: number, cid: number) => api.delete(`/campaigns/${id}/creatives/${cid}`),
+};
+
 export const productsApi = {
   list: () => api.get('/products'),
   create: (data: any) => api.post('/products', data),

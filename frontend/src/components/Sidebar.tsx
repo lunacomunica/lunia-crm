@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare, Instagram,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, CalendarDays, Bell
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, CalendarDays, Bell, Megaphone
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
@@ -19,8 +19,9 @@ const commercialItems = [
 ];
 
 const marketingItems = [
-  { path: '/marketing/clients',  label: 'Clientes',    icon: Briefcase },
-  { path: '/marketing/content',  label: 'Conteúdos',   icon: FileImage },
+  { path: '/marketing/clients',  label: 'Clientes',       icon: Briefcase },
+  { path: '/marketing/content',  label: 'Conteúdos',      icon: FileImage },
+  { path: '/marketing/traffic',  label: 'Tráfego Pago',   icon: Megaphone },
 ];
 
 function NavItem({ path, label, icon: Icon }: { path: string; label: string; icon: any }) {

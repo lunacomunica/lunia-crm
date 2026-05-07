@@ -171,6 +171,46 @@ db.exec(`
     PRIMARY KEY (deal_id, product_id)
   );
 
+  CREATE TABLE IF NOT EXISTS campaigns (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    agency_client_id INTEGER REFERENCES agency_clients(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    platform TEXT DEFAULT 'meta',
+    status TEXT DEFAULT 'rascunho',
+    objective TEXT DEFAULT 'trafego',
+    budget REAL DEFAULT 0,
+    spent REAL DEFAULT 0,
+    revenue REAL DEFAULT 0,
+    impressions INTEGER DEFAULT 0,
+    clicks INTEGER DEFAULT 0,
+    conversions INTEGER DEFAULT 0,
+    target_audience TEXT,
+    utm_link TEXT,
+    start_date TEXT,
+    end_date TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS campaign_creatives (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    type TEXT DEFAULT 'image',
+    media_url TEXT,
+    headline TEXT,
+    description TEXT,
+    cta TEXT,
+    status TEXT DEFAULT 'ativo',
+    impressions INTEGER DEFAULT 0,
+    clicks INTEGER DEFAULT 0,
+    conversions INTEGER DEFAULT 0,
+    spend REAL DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS instagram_leads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id INTEGER NOT NULL DEFAULT 1,
@@ -377,6 +417,69 @@ if (agencyCount === 0) {
   insertContent.run(client2Id, 'Story — Ambiente do Café', 'story', 'em_criacao',
     null, 'Mostrar o ambiente aconchegante', '2026-05-16',
     null, '0');
+}
+
+// Seed campaigns demo data
+const campaignCount = (db.prepare('SELECT COUNT(*) as count FROM campaigns').get() as any).count;
+if (campaignCount === 0) {
+  const clients = db.prepare('SELECT id, name FROM agency_clients LIMIT 2').all() as any[];
+  if (clients.length >= 1) {
+    const c1 = clients[0].id;
+    const c2 = clients[1]?.id || clients[0].id;
+
+    const insertCampaign = db.prepare(`
+      INSERT INTO campaigns (tenant_id, agency_client_id, name, platform, status, objective, budget, spent, revenue, impressions, clicks, conversions, target_audience, utm_link, start_date, end_date, notes)
+      VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const cam1 = Number(insertCampaign.run(c1, 'Coleção Verão — Conversão', 'meta', 'ativa', 'conversao',
+      1500, 1247.80, 4320, 84300, 1842, 38, 'Mulheres 25-40 interessadas em moda, SP e RJ',
+      'https://studioz.com.br/colecao-verao?utm_source=meta&utm_campaign=verao2026',
+      '2026-05-01', '2026-05-31', 'Campanha principal da coleção verão').lastInsertRowid);
+
+    const cam2 = Number(insertCampaign.run(c1, 'Retargeting — Visitantes do Site', 'meta', 'ativa', 'conversao',
+      600, 412.50, 1890, 31200, 724, 18, 'Retargeting visitantes últimos 30 dias',
+      null, '2026-05-05', '2026-05-25', 'Público quente — reimpacto com oferta especial').lastInsertRowid);
+
+    const cam3 = Number(insertCampaign.run(c1, 'Reconhecimento de Marca Q2', 'meta', 'pausada', 'reconhecimento',
+      800, 800, 0, 210000, 3100, 0, 'Lookalike clientes — Brasil nacional',
+      null, '2026-04-01', '2026-04-30', 'Campanha de topo de funil encerrada em abril').lastInsertRowid);
+
+    const cam4 = Number(insertCampaign.run(c2, 'Lançamento Cardápio Inverno', 'meta', 'ativa', 'trafego',
+      900, 631.20, 0, 52400, 1580, 0, 'Homens e mulheres 28-50, raio 10km do café',
+      'https://cafeboreal.com/cardapio?utm_source=meta&utm_campaign=inverno',
+      '2026-05-03', '2026-06-03', null).lastInsertRowid);
+
+    const cam5 = Number(insertCampaign.run(c2, 'Google — Café Gourmet SP', 'google', 'ativa', 'trafego',
+      400, 298.60, 0, 18700, 842, 0, 'Busca: café gourmet são paulo, cafeteria pinheiros',
+      null, '2026-05-01', null, 'Campanha de pesquisa Google Ads').lastInsertRowid);
+
+    const insertCreative = db.prepare(`
+      INSERT INTO campaign_creatives (campaign_id, title, type, media_url, headline, description, cta, status, impressions, clicks, conversions, spend)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    insertCreative.run(cam1, 'Look Azul Marinho', 'image', 'https://picsum.photos/seed/cr1/800/800',
+      'A peça que todo closet precisa', 'Azul marinho clássico. Disponível em 3 tamanhos. Frete grátis.',
+      'Comprar Agora', 'ativo', 41200, 934, 19, 618.40);
+    insertCreative.run(cam1, 'Carrossel Nova Coleção', 'carousel', 'https://picsum.photos/seed/cr2/800/800',
+      'Conheça a coleção completa', '5 looks para arrasar no verão. Desconto especial para primeiros pedidos.',
+      'Ver Coleção', 'ativo', 28600, 712, 14, 423.80);
+    insertCreative.run(cam1, 'Vídeo Making of', 'video', 'https://picsum.photos/seed/cr3/800/800',
+      'De dentro do estúdio para você', 'Veja como nossa coleção é criada com muito carinho.',
+      'Saiba Mais', 'pausado', 14500, 196, 5, 205.60);
+
+    insertCreative.run(cam2, 'Oferta Especial — Retargeting', 'image', 'https://picsum.photos/seed/cr4/800/800',
+      'Você deixou algo para trás 👀', 'Volte e aproveite 10% OFF exclusivo para você.',
+      'Aproveitar Oferta', 'ativo', 31200, 724, 18, 412.50);
+
+    insertCreative.run(cam4, 'Foto Ambiente', 'image', 'https://picsum.photos/seed/cr5/800/800',
+      'O lugar perfeito para o seu inverno', 'Ambiente aconchegante, drinks especiais e muito sabor.',
+      'Reservar Mesa', 'ativo', 31800, 960, 0, 382.10);
+    insertCreative.run(cam4, 'Vídeo Cardápio', 'video', 'https://picsum.photos/seed/cr6/800/800',
+      'Novidades quentinhas chegaram', 'Conheça nosso cardápio de inverno com ingredientes selecionados.',
+      'Ver Cardápio', 'ativo', 20600, 620, 0, 249.10);
+  }
 }
 
 export default db;

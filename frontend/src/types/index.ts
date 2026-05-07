@@ -146,6 +146,55 @@ export interface Activity {
   created_at: string;
 }
 
+export type CampaignPlatform = 'meta' | 'google' | 'tiktok' | 'linkedin';
+export type CampaignStatus = 'rascunho' | 'ativa' | 'pausada' | 'encerrada';
+export type CampaignObjective = 'conversao' | 'trafego' | 'reconhecimento' | 'leads' | 'vendas';
+export type CreativeType = 'image' | 'video' | 'carousel';
+export type CreativeStatus = 'ativo' | 'pausado' | 'reprovado';
+
+export interface CampaignCreative {
+  id: number;
+  campaign_id: number;
+  title: string;
+  type: CreativeType;
+  media_url: string | null;
+  headline: string | null;
+  description: string | null;
+  cta: string | null;
+  status: CreativeStatus;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  spend: number;
+  created_at: string;
+}
+
+export interface Campaign {
+  id: number;
+  tenant_id: number;
+  agency_client_id: number | null;
+  client_name?: string;
+  name: string;
+  platform: CampaignPlatform;
+  status: CampaignStatus;
+  objective: CampaignObjective;
+  budget: number;
+  spent: number;
+  revenue: number;
+  impressions: number;
+  clicks: number;
+  conversions: number;
+  target_audience: string | null;
+  utm_link: string | null;
+  start_date: string | null;
+  end_date: string | null;
+  notes: string | null;
+  creative_count?: number;
+  creatives?: CampaignCreative[];
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DashboardData {
   stats: {
     totalContacts: number;
