@@ -8,6 +8,9 @@ import Instagram from './pages/Instagram';
 import Funnel from './pages/Funnel';
 import Products from './pages/Products';
 import Settings from './pages/Settings';
+import MarketingClients from './pages/marketing/Clients';
+import MarketingContent from './pages/marketing/Content';
+import MarketingCalendar from './pages/marketing/Calendar';
 import Login from './pages/Login';
 
 function PrivateRoutes() {
@@ -29,19 +32,27 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<LoginGuard />} />
           <Route path="/" element={<PrivateRoutes />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
+            <Route index element={<DefaultRedirect />} />
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="contacts" element={<Contacts />} />
             <Route path="conversations" element={<Conversations />} />
             <Route path="instagram" element={<Instagram />} />
             <Route path="funnel" element={<Funnel />} />
             <Route path="products" element={<Products />} />
+            <Route path="marketing/clients" element={<MarketingClients />} />
+            <Route path="marketing/content" element={<MarketingContent />} />
+            <Route path="marketing/calendar" element={<MarketingCalendar />} />
             <Route path="settings" element={<Settings />} />
           </Route>
         </Routes>
       </BrowserRouter>
     </AuthProvider>
   );
+}
+
+function DefaultRedirect() {
+  const { user } = useAuth();
+  return <Navigate to={user?.role === 'team' ? '/marketing/clients' : '/dashboard'} replace />;
 }
 
 function LoginGuard() {

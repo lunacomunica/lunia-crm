@@ -57,6 +57,24 @@ export const metaApi = {
   deleteLead: (id: number) => api.delete(`/meta/instagram-leads/${id}`),
 };
 
+export const agencyClientsApi = {
+  list: () => api.get('/agency-clients'),
+  get: (id: number) => api.get(`/agency-clients/${id}`),
+  create: (data: any) => api.post('/agency-clients', data),
+  update: (id: number, data: any) => api.put(`/agency-clients/${id}`, data),
+  delete: (id: number) => api.delete(`/agency-clients/${id}`),
+};
+
+export const contentApi = {
+  list: (params?: Record<string, string>) => api.get('/content', { params }),
+  get: (id: number) => api.get(`/content/${id}`),
+  create: (data: any) => api.post('/content', data),
+  update: (id: number, data: any) => api.put(`/content/${id}`, data),
+  updateStatus: (id: number, status: string) => api.patch(`/content/${id}/status`, { status }),
+  addComment: (id: number, message: string) => api.post(`/content/${id}/comments`, { message }),
+  delete: (id: number) => api.delete(`/content/${id}`),
+};
+
 export const productsApi = {
   list: () => api.get('/products'),
   create: (data: any) => api.post('/products', data),

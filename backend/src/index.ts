@@ -16,6 +16,8 @@ import settingsRouter from './routes/settings.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
 import productsRouter from './routes/products.js';
+import agencyClientsRouter from './routes/agency-clients.js';
+import contentRouter from './routes/content.js';
 import { authMiddleware } from './middleware/auth.js';
 import db from './db.js';
 
@@ -83,6 +85,8 @@ app.post('/api/meta/webhook', (req, res) => {
 // Protected routes
 app.use('/api/contacts', authMiddleware, contactsRouter);
 app.use('/api/products', authMiddleware, productsRouter);
+app.use('/api/agency-clients', authMiddleware, agencyClientsRouter);
+app.use('/api/content', authMiddleware, contentRouter);
 app.use('/api/deals', authMiddleware, dealsRouter);
 app.use('/api/conversations', authMiddleware, conversationsRouter);
 app.use('/api/dashboard', authMiddleware, dashboardRouter);

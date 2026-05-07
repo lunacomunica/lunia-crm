@@ -99,6 +99,46 @@ db.exec(`
     PRIMARY KEY (tenant_id, key)
   );
 
+  CREATE TABLE IF NOT EXISTS agency_clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    name TEXT NOT NULL,
+    segment TEXT,
+    contact_name TEXT,
+    contact_email TEXT,
+    instagram_handle TEXT,
+    logo TEXT,
+    active INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS content_pieces (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    type TEXT DEFAULT 'post',
+    caption TEXT,
+    media_url TEXT,
+    media_thumb TEXT,
+    scheduled_date TEXT,
+    objective TEXT,
+    status TEXT DEFAULT 'em_criacao',
+    created_by INTEGER REFERENCES users(id),
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS content_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content_piece_id INTEGER NOT NULL REFERENCES content_pieces(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id),
+    user_name TEXT NOT NULL,
+    message TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id INTEGER NOT NULL DEFAULT 1,

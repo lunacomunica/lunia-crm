@@ -194,8 +194,8 @@ function ProfileTab() {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'Usuário' };
-const ROLE_BADGE: Record<string, string> = { admin: 'badge-blue', user: 'badge-slate' };
+const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'Usuário', team: 'Time' };
+const ROLE_BADGE: Record<string, string> = { admin: 'badge-blue', user: 'badge-slate', team: 'badge-purple' };
 
 function UsersTab() {
   const { user: me } = useAuth();
@@ -309,6 +309,7 @@ function UsersTab() {
                 <label className="label-dark">Papel</label>
                 <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value })} className="input-dark" style={{ cursor: 'pointer' }}>
                   <option value="user">Usuário</option>
+                  <option value="team">Time (só Marketing)</option>
                   <option value="admin">Admin</option>
                 </select>
               </div>

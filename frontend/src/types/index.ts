@@ -15,6 +15,49 @@ export interface Contact {
   updated_at: string;
 }
 
+export interface AgencyClient {
+  id: number;
+  name: string;
+  segment: string | null;
+  contact_name: string | null;
+  contact_email: string | null;
+  instagram_handle: string | null;
+  logo: string | null;
+  active: number;
+  content_count?: number;
+  pending_approvals?: number;
+  created_at: string;
+}
+
+export type ContentStatus = 'em_criacao' | 'em_revisao' | 'aguardando_aprovacao' | 'aprovado' | 'ajuste_solicitado' | 'agendado' | 'publicado';
+export type ContentType = 'post' | 'reels' | 'story' | 'carrossel';
+
+export interface ContentPiece {
+  id: number;
+  agency_client_id: number;
+  client_name?: string;
+  title: string;
+  type: ContentType;
+  caption: string | null;
+  media_url: string | null;
+  scheduled_date: string | null;
+  objective: string | null;
+  status: ContentStatus;
+  creator_name?: string;
+  comments?: ContentComment[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ContentComment {
+  id: number;
+  content_piece_id: number;
+  user_id: number;
+  user_name: string;
+  message: string;
+  created_at: string;
+}
+
 export interface Product {
   id: number;
   name: string;
