@@ -63,19 +63,21 @@ export default function App() {
 
 function InternalOnly({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  if (user?.role === 'client') return <Navigate to={user.client_id ? `/marketing/portal/${user.client_id}` : '/login'} replace />;
   if (user?.role === 'team' || user?.role === 'user') return <Navigate to="/gerot" replace />;
   return <>{children}</>;
 }
 
 function AdminOnly({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  if (user?.role === 'client') return <Navigate to={user.client_id ? `/marketing/portal/${user.client_id}` : '/login'} replace />;
   if (user?.role !== 'admin' && user?.role !== 'superadmin') return <Navigate to="/gerot" replace />;
   return <>{children}</>;
 }
 
 function DefaultRedirect() {
   const { user } = useAuth();
-  if (user?.role === 'client' && user.client_id) return <Navigate to={`/marketing/portal/${user.client_id}`} replace />;
+  if (user?.role === 'client') return <Navigate to={user.client_id ? `/marketing/portal/${user.client_id}` : '/login'} replace />;
   if (user?.role === 'team' || user?.role === 'user') return <Navigate to="/gerot" replace />;
   return <Navigate to="/dashboard" replace />;
 }

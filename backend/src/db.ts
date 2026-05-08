@@ -566,6 +566,14 @@ if (teamCount === 0) {
   db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'user', ?)`).run('Beatriz Lins', 'beatriz@lunacomunica.com', teamHash, 'Gestora de Projetos');
 }
 
+// Fix client users whose agency_client_id is NULL (migration for existing DBs)
+{
+  const ac1 = db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1").get() as any;
+  const ac2 = db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1 OFFSET 1").get() as any;
+  if (ac1) db.prepare("UPDATE users SET agency_client_id = ? WHERE email = 'bia@studioz.com' AND (agency_client_id IS NULL OR agency_client_id = 0)").run(ac1.id);
+  if (ac2) db.prepare("UPDATE users SET agency_client_id = ? WHERE email = 'rafael@cafeboreal.com' AND (agency_client_id IS NULL OR agency_client_id = 0)").run(ac2.id);
+}
+
 // Seed client portal users — one per agency client, survives redeploys
 const clientUserCount = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'client' AND tenant_id = 1").get() as any).count;
 if (clientUserCount === 0) {
