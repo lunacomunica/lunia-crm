@@ -65,4 +65,26 @@ router.delete('/tenants/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// Limpa todos os dados do tenant 1, mantendo apenas o superadmin
+router.post('/reset-tenant', (req, res) => {
+  const tid = req.user.tenant_id;
+  db.transaction(() => {
+    db.prepare('DELETE FROM task_sessions WHERE task_id IN (SELECT id FROM tasks WHERE tenant_id = ?)').run(tid);
+    db.prepare('DELETE FROM tasks WHERE tenant_id = ?').run(tid);
+    db.prepare('DELETE FROM campaign_creatives WHERE campaign_id IN (SELECT id FROM campaigns WHERE tenant_id = ?)').run(tid);
+    db.prepare('DELETE FROM campaigns WHERE tenant_id = ?').run(tid);
+    db.prepare('DELETE FROM content_pieces WHERE tenant_id = ?').run(tid);
+    db.prepare('DELETE FROM feed_batches WHERE tenant_id = ?').run(tid);
+    db.prepare('DELETE FROM agency_clients WHERE tenant_id = ?').run(tid);
+    db.prepare('DELETE FROM messages WHERE conversation_id IN (SELECT id FROM conversations WHERE tenant_id = ?)').run(tid);
+    db.prepare('DELETE FROM conversations WHERE tenant_id = ?').run(tid);
+    db.prepare('DELETE FROM activities WHERE tenant_id = ?').run(tid);
+    db.prepare('DELETE FROM instagram_leads WHERE tenant_id = ?').run(tid);
+    db.prepare('DELETE FROM deals WHERE tenant_id = ?').run(tid);
+    db.prepare('DELETE FROM contacts WHERE tenant_id = ?').run(tid);
+    db.prepare("DELETE FROM users WHERE tenant_id = ? AND role != 'superadmin'").run(tid);
+  })();
+  res.json({ ok: true });
+});
+
 export default router;
