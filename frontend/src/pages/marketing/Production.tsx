@@ -108,7 +108,7 @@ export default function Production() {
   const loadFeeds = async () => {
     setLoadingBatches(true);
     const r = await contentApi.productionBatches();
-    setBatches(r.data.filter((b: BatchProduction) => b.post_count > 0));
+    setBatches(r.data);
     setLoadingBatches(false);
   };
 
