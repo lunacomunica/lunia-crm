@@ -38,15 +38,17 @@ function NavSection({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-function ClientSwitcher() {
+function ClientSwitcher({ showAgency }: { showAgency: boolean }) {
   const [clients, setClients] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    agencyClientsApi.list().then(r => setClients(r.data.filter((c: any) => c.active)));
-  }, []);
+    agencyClientsApi.list().then(r =>
+      setClients(r.data.filter((c: any) => c.active && (showAgency || !c.is_agency)))
+    );
+  }, [showAgency]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -235,7 +237,7 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
             </NavSection>
 
             <NavSection label="Modo Cliente">
-              <ClientSwitcher />
+              <ClientSwitcher showAgency={true} />
             </NavSection>
           </>
         )}
@@ -255,7 +257,7 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
             </NavSection>
 
             <NavSection label="Modo Cliente">
-              <ClientSwitcher />
+              <ClientSwitcher showAgency={false} />
             </NavSection>
           </>
         )}
