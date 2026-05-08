@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
-import { notificationsApi, agencyClientsApi } from '../api/client';
+import { notificationsApi, agencyClientsApi, usersApi } from '../api/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -38,17 +38,21 @@ function NavSection({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-function ClientSwitcher({ showAgency }: { showAgency: boolean }) {
+function ClientSwitcher({ showAgency, managerMode }: { showAgency: boolean; managerMode?: boolean }) {
   const [clients, setClients] = useState<any[]>([]);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    agencyClientsApi.list().then(r =>
-      setClients(r.data.filter((c: any) => c.active && (showAgency || !c.is_agency)))
-    );
-  }, [showAgency]);
+    if (managerMode) {
+      usersApi.getMyClients().then(r => setClients(r.data));
+    } else {
+      agencyClientsApi.list().then(r =>
+        setClients(r.data.filter((c: any) => c.active && (showAgency || !c.is_agency)))
+      );
+    }
+  }, [showAgency, managerMode]);
 
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -263,7 +267,7 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
             </NavSection>
 
             <NavSection label="Modo Cliente">
-              <ClientSwitcher showAgency={false} />
+              <ClientSwitcher showAgency={false} managerMode />
             </NavSection>
           </>
         )}

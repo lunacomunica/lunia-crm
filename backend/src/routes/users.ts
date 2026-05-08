@@ -42,6 +42,33 @@ router.put('/:id', (req, res) => {
   res.json({ id: req.params.id, name: newName, email: newEmail, role: newRole, agency_client_id: newClientId, job_title: newJobTitle });
 });
 
+router.get('/me/clients', (req, res) => {
+  const rows = db.prepare(`
+    SELECT ac.* FROM agency_clients ac
+    JOIN user_agency_clients uac ON ac.id = uac.agency_client_id
+    WHERE uac.user_id = ? AND ac.active = 1
+  `).all(req.user.id);
+  res.json(rows);
+});
+
+router.get('/:id/clients', (req, res) => {
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Acesso negado' });
+  const rows = db.prepare('SELECT agency_client_id FROM user_agency_clients WHERE user_id = ?').all(req.params.id) as any[];
+  res.json(rows.map(r => r.agency_client_id));
+});
+
+router.put('/:id/clients', (req, res) => {
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Acesso negado' });
+  const { client_ids } = req.body as { client_ids: number[] };
+  db.transaction(() => {
+    db.prepare('DELETE FROM user_agency_clients WHERE user_id = ?').run(req.params.id);
+    for (const cid of (client_ids || [])) {
+      db.prepare('INSERT OR IGNORE INTO user_agency_clients (user_id, agency_client_id) VALUES (?, ?)').run(req.params.id, cid);
+    }
+  })();
+  res.json({ ok: true });
+});
+
 router.delete('/:id', (req, res) => {
   if (req.user.role !== 'owner') return res.status(403).json({ error: 'Apenas admins podem remover usuários' });
   if (Number(req.params.id) === req.user.id) return res.status(400).json({ error: 'Você não pode remover sua própria conta' });

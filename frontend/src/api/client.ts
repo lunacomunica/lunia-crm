@@ -29,6 +29,9 @@ export const usersApi = {
   create: (data: any) => api.post('/users', data),
   update: (id: number, data: any) => api.put(`/users/${id}`, data),
   delete: (id: number) => api.delete(`/users/${id}`),
+  getMyClients: () => api.get('/users/me/clients'),
+  getClients: (id: number) => api.get(`/users/${id}/clients`),
+  setClients: (id: number, client_ids: number[]) => api.put(`/users/${id}/clients`, { client_ids }),
 };
 
 export const dealsApi = {

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2, AlertTriangle } from 'lucide-react';
+import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2, AlertTriangle, Eye } from 'lucide-react';
 import { settingsApi, usersApi, profileApi, agencyClientsApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -206,9 +206,26 @@ function UsersTab() {
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [clientModal, setClientModal] = useState<any | null>(null);
+  const [clientPerms, setClientPerms] = useState<number[]>([]);
+  const [savingPerms, setSavingPerms] = useState(false);
 
   const load = () => { setLoading(true); usersApi.list().then(r => { setUsers(r.data); setLoading(false); }); };
-  useEffect(() => { load(); agencyClientsApi.list().then(r => setAgencyClients(r.data)); }, []);
+  useEffect(() => { load(); agencyClientsApi.list().then(r => setAgencyClients(r.data.filter((c: any) => c.active))); }, []);
+
+  const openClientModal = async (u: any) => {
+    const r = await usersApi.getClients(u.id);
+    setClientPerms(r.data);
+    setClientModal(u);
+  };
+  const toggleClient = (id: number) => setClientPerms(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  const saveClientPerms = async () => {
+    if (!clientModal) return;
+    setSavingPerms(true);
+    await usersApi.setClients(clientModal.id, clientPerms);
+    setSavingPerms(false);
+    setClientModal(null);
+  };
 
   const handleCreate = async () => {
     if (!form.name || !form.email || !form.password) { setError('Preencha todos os campos'); return; }
@@ -280,15 +297,26 @@ function UsersTab() {
                     </div>
                   </td>
                   <td className="td">
-                    {u.id !== me?.id && (
-                      <button onClick={() => handleDelete(u.id)}
-                        className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all"
-                        style={{ color: 'rgba(100,116,139,0.6)' }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                        <Trash2 size={13} />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                      {u.role === 'manager' && (
+                        <button onClick={() => openClientModal(u)} title="Clientes visíveis no Modo Cliente"
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ color: 'rgba(100,116,139,0.6)' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                          <Eye size={13} />
+                        </button>
+                      )}
+                      {u.id !== me?.id && (
+                        <button onClick={() => handleDelete(u.id)}
+                          className="p-1.5 rounded-lg transition-colors"
+                          style={{ color: 'rgba(100,116,139,0.6)' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                          <Trash2 size={13} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -296,6 +324,55 @@ function UsersTab() {
           </table>
         )}
       </div>
+
+      {clientModal && (
+        <div className="fixed inset-0 flex items-start justify-center z-50 p-4 pt-8 overflow-y-auto animate-fade"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
+          <div className="modal-card w-full max-w-sm animate-fade-up my-auto">
+            <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
+              <div>
+                <h2 className="text-base font-light text-white">Modo Cliente</h2>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>{clientModal.name}</p>
+              </div>
+              <button onClick={() => setClientModal(null)} style={{ color: 'rgba(100,116,139,0.6)' }}
+                className="p-1.5 rounded-lg hover:text-white transition-colors"><X size={18} /></button>
+            </div>
+            <div className="p-6">
+              <p className="text-xs mb-4" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                Selecione quais clientes este gestor pode visualizar no Modo Cliente:
+              </p>
+              <div className="space-y-2">
+                {agencyClients.map((c: any) => (
+                  <button key={c.id} onClick={() => toggleClient(c.id)}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-left"
+                    style={{ background: clientPerms.includes(c.id) ? 'rgba(59,130,246,0.1)' : 'rgba(255,255,255,0.02)', border: clientPerms.includes(c.id) ? '1px solid rgba(59,130,246,0.25)' : '1px solid rgba(255,255,255,0.05)' }}>
+                    <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                      style={{ background: clientPerms.includes(c.id) ? '#3b82f6' : 'rgba(255,255,255,0.06)', border: clientPerms.includes(c.id) ? 'none' : '1px solid rgba(255,255,255,0.1)' }}>
+                      {clientPerms.includes(c.id) && <CheckCircle2 size={10} className="text-white" />}
+                    </div>
+                    {c.logo ? (
+                      <img src={c.logo} alt={c.name} className="w-6 h-6 rounded-full object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                        style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>{c.name.charAt(0)}</div>
+                    )}
+                    <span className="text-sm text-white">{c.name}</span>
+                  </button>
+                ))}
+                {agencyClients.length === 0 && (
+                  <p className="text-sm text-center py-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum cliente cadastrado</p>
+                )}
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setClientModal(null)} className="btn-ghost flex-1 justify-center">Cancelar</button>
+              <button onClick={saveClientPerms} disabled={savingPerms} className="btn-primary flex-1 justify-center">
+                {savingPerms ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {modal && (
         <div className="fixed inset-0 flex items-start justify-center z-50 p-4 pt-8 overflow-y-auto animate-fade"
