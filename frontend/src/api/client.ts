@@ -150,6 +150,14 @@ export const clientPortalApi = {
   updatePositioning: (clientId: number, data: any) => api.put(`/client-portal/${clientId}/positioning`, data),
 };
 
+export const uploadApi = {
+  files: (files: File[]) => {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    return api.post('/upload', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
+};
+
 export const adminApi = {
   listTenants: () => api.get('/admin/tenants'),
   createTenant: (data: { name: string; admin_name: string; admin_email: string; admin_password: string }) => api.post('/admin/tenants', data),

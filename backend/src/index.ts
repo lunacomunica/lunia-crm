@@ -3,7 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { existsSync } from 'fs';
+import { existsSync, mkdirSync } from 'fs';
 
 dotenv.config();
 
@@ -24,6 +24,7 @@ import adminRouter from './routes/admin.js';
 import tasksRouter from './routes/tasks.js';
 import clientPortalRouter from './routes/client-portal.js';
 import clientCrmRouter from './routes/client-crm.js';
+import uploadRouter from './routes/upload.js';
 import { authMiddleware } from './middleware/auth.js';
 import db from './db.js';
 
@@ -31,11 +32,14 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const IS_PROD = process.env.NODE_ENV === 'production';
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const UPLOAD_DIR = join(__dirname, '../uploads');
+if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
 
 if (!IS_PROD) {
   app.use(cors({ origin: ['http://localhost:5173', 'http://127.0.0.1:5173'] }));
 }
 app.use(express.json({ limit: '5mb' }));
+app.use('/uploads', express.static(UPLOAD_DIR));
 
 // Public routes
 app.use('/api/auth', authRouter);
@@ -102,6 +106,7 @@ app.use('/api/meta', authMiddleware, metaRouter);
 app.use('/api/settings', authMiddleware, settingsRouter);
 app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/upload', authMiddleware, uploadRouter);
 app.use('/api/tasks', authMiddleware, tasksRouter);
 app.use('/api/client-portal', authMiddleware, clientPortalRouter);
 app.use('/api/client-crm', authMiddleware, clientCrmRouter);

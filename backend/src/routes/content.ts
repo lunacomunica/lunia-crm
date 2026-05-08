@@ -140,14 +140,15 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM content_pieces WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id) as any;
   if (!existing) return res.status(404).json({ error: 'Conteúdo não encontrado' });
 
-  const { title, type, caption, media_url, scheduled_date, objective, status, batch_id, copy_text } = req.body;
+  const { title, type, caption, media_url, scheduled_date, objective, status, batch_id, copy_text, media_files } = req.body;
   const newStatus = status && VALID_STATUSES.includes(status) ? status : existing.status;
 
-  db.prepare(`UPDATE content_pieces SET title=?, type=?, caption=?, media_url=?, scheduled_date=?, objective=?, status=?, batch_id=?, copy_text=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?`).run(
+  db.prepare(`UPDATE content_pieces SET title=?, type=?, caption=?, media_url=?, scheduled_date=?, objective=?, status=?, batch_id=?, copy_text=?, media_files=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?`).run(
     title ?? existing.title, type ?? existing.type, caption ?? existing.caption,
     media_url ?? existing.media_url, scheduled_date ?? existing.scheduled_date,
     objective ?? existing.objective, newStatus, batch_id !== undefined ? batch_id : existing.batch_id,
     copy_text ?? existing.copy_text,
+    media_files !== undefined ? media_files : (existing.media_files ?? '[]'),
     req.params.id, req.user.tenant_id
   );
 

@@ -24,6 +24,15 @@ function toDisplayUrl(url: string): string {
   return url;
 }
 
+function getPostThumbnail(p: any): string | null {
+  try {
+    const files = JSON.parse(p.media_files || '[]');
+    const img = files.find((f: any) => f.type === 'image');
+    if (img?.url) return img.url;
+  } catch {}
+  return p.media_url ? toDisplayUrl(p.media_url) : null;
+}
+
 const STATUS_CFG: Record<ContentStatus, { label: string; color: string; bg: string; border: string; icon: any }> = {
   em_criacao:           { label: 'Em Criação',        color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.2)', icon: FileImage },
   em_revisao:           { label: 'Em Revisão',        color: '#60a5fa', bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.2)',  icon: Eye },
@@ -763,8 +772,8 @@ export default function ClientDetail() {
                                 <span className="text-[10px] font-mono w-5 flex-shrink-0 text-center" style={{ color: 'rgba(100,116,139,0.35)' }}>
                                   {String(i + 1).padStart(2, '0')}
                                 </span>
-                                {p.media_url ? (
-                                  <img src={toDisplayUrl(p.media_url)} alt={p.title} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" style={{ border: '1px solid rgba(59,130,246,0.12)' }} />
+                                {getPostThumbnail(p) ? (
+                                  <img src={getPostThumbnail(p)!} alt={p.title} className="w-9 h-9 rounded-lg object-cover flex-shrink-0" style={{ border: '1px solid rgba(59,130,246,0.12)' }} />
                                 ) : (
                                   <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.1)' }}>
                                     <FileImage size={13} style={{ color: 'rgba(59,130,246,0.35)' }} />
@@ -861,8 +870,8 @@ export default function ClientDetail() {
                                 return (
                                   <div key={p.id} className="relative group cursor-pointer" style={{ aspectRatio: '1' }}
                                     onClick={() => setPanelPost(p)}>
-                                    {p.media_url ? (
-                                      <img src={toDisplayUrl(p.media_url)} alt={p.title} className="w-full h-full object-cover" />
+                                    {getPostThumbnail(p) ? (
+                                      <img src={getPostThumbnail(p)!} alt={p.title} className="w-full h-full object-cover" />
                                     ) : (
                                       <div className="w-full h-full flex flex-col items-center justify-center gap-1"
                                         style={{ background: 'rgba(59,130,246,0.06)' }}>
