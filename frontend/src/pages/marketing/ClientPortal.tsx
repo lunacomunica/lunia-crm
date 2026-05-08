@@ -4,10 +4,10 @@ import {
   CheckCircle2, RotateCcw, MessageSquare, Calendar, X, Send, Eye,
   FileImage, Clock, Grid3x3, Megaphone, Smartphone,
   TrendingUp, MousePointer, DollarSign, BarChart3, Target, Pencil,
-  Plus, Trash2, ChevronRight, Zap, Users, Star, BookOpen, Briefcase,
-  ArrowLeft, LayoutDashboard, Menu, Phone, UserPlus, Kanban
+  Plus, Trash2, ChevronRight, ChevronLeft, Zap, Users, Star, BookOpen, Briefcase,
+  ArrowLeft, LayoutDashboard, Menu, Phone, UserPlus, Kanban, Settings, Search
 } from 'lucide-react';
-import { contentApi, agencyClientsApi, campaignsApi, clientPortalApi, clientCrmApi } from '../../api/client';
+import { contentApi, agencyClientsApi, campaignsApi, clientPortalApi, clientCrmApi, conversationsApi, profileApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient, Campaign } from '../../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -48,7 +48,7 @@ const CAMPAIGN_STATUS_CFG: Record<string, { label: string; color: string; bg: st
 
 const TYPE_LABEL: Record<string, string> = { post: 'Post', reels: 'Reels', story: 'Story', carrossel: 'Carrossel' };
 
-type PageId = 'visao' | 'posicionamento' | 'metas' | 'aprovacoes' | 'feed' | 'campanhas' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline';
+type PageId = 'visao' | 'posicionamento' | 'metas' | 'aprovacoes' | 'feed' | 'campanhas' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline' | 'crm_mensagens' | 'crm_config';
 
 const STAGES_CRM = [
   { id: 'novo',       label: 'Novo',        color: '#94a3b8' },
@@ -103,9 +103,11 @@ function PortalSidebar({
     {
       label: 'Comercial',
       items: [
-        { id: 'crm_dashboard' as PageId, label: 'Dashboard',  icon: LayoutDashboard, badge: 0 },
-        { id: 'crm_contatos'  as PageId, label: 'Contatos',   icon: Users,           badge: 0 },
-        { id: 'crm_pipeline'  as PageId, label: 'Pipeline',   icon: Kanban,          badge: 0 },
+        { id: 'crm_dashboard'  as PageId, label: 'Dashboard',      icon: LayoutDashboard, badge: 0 },
+        { id: 'crm_contatos'   as PageId, label: 'Contatos',        icon: Users,           badge: 0 },
+        { id: 'crm_pipeline'   as PageId, label: 'Pipeline',        icon: Kanban,          badge: 0 },
+        { id: 'crm_mensagens'  as PageId, label: 'Mensagens',       icon: MessageSquare,   badge: 0 },
+        { id: 'crm_config'     as PageId, label: 'Configurações',   icon: Settings,        badge: 0 },
       ],
     },
   ];
@@ -236,6 +238,19 @@ export default function ClientPortal() {
   const [dealForm, setDealForm] = useState({ title: '', value: '', stage: 'novo', probability: '20', notes: '', client_contact_id: '' });
   const [savingDeal, setSavingDeal] = useState(false);
 
+  // Conversations state
+  const [convs, setConvs] = useState<any[]>([]);
+  const [convLoading, setConvLoading] = useState(false);
+  const [activeConv, setActiveConv] = useState<any>(null);
+  const [convMessages, setConvMessages] = useState<any[]>([]);
+  const [convSearch, setConvSearch] = useState('');
+  const [convMsg, setConvMsg] = useState('');
+  const [sendingMsg, setSendingMsg] = useState(false);
+
+  // Profile state
+  const [profileForm, setProfileForm] = useState({ name: '', avatar: '' });
+  const [profileSaving, setProfileSaving] = useState(false);
+
   const [detail, setDetail] = useState<ContentPiece | null>(null);
   const [adjustModal, setAdjustModal] = useState(false);
   const [adjustComment, setAdjustComment] = useState('');
@@ -284,6 +299,13 @@ export default function ClientPortal() {
   useEffect(() => {
     if ((page === 'crm_dashboard' || page === 'crm_contatos' || page === 'crm_pipeline') && !crmDash && !crmLoading) {
       loadCrm();
+    }
+    if (page === 'crm_mensagens' && convs.length === 0 && !convLoading) {
+      setConvLoading(true);
+      conversationsApi.list().then(r => { setConvs(r.data); setConvLoading(false); });
+    }
+    if (page === 'crm_config' && user) {
+      setProfileForm({ name: user.name || '', avatar: user.avatar || '' });
     }
   }, [page]);
 
@@ -1135,67 +1157,318 @@ export default function ClientPortal() {
     );
   }
 
+  const KANBAN_STAGES = STAGES_CRM.filter(s => s.id !== 'perdido');
+  const STAGE_ORDER_CRM = STAGES_CRM.map(s => s.id);
+  const AVATAR_COLORS = [
+    'linear-gradient(135deg,#3b82f6,#6366f1)',
+    'linear-gradient(135deg,#8b5cf6,#ec4899)',
+    'linear-gradient(135deg,#10b981,#06b6d4)',
+    'linear-gradient(135deg,#f59e0b,#ef4444)',
+  ];
+  const avatarColor = (name: string) => AVATAR_COLORS[(name || '?').charCodeAt(0) % AVATAR_COLORS.length];
+  const initials = (name: string) => (name || '?').split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase();
+
   function PageCrmPipeline() {
     if (crmLoading) return <CrmSpinner />;
+    const total = crmDeals.reduce((s, d) => s + (d.value || 0), 0);
+
+    const moveStage = async (deal: any, dir: 1 | -1) => {
+      const idx = STAGE_ORDER_CRM.indexOf(deal.stage);
+      const next = STAGE_ORDER_CRM[idx + dir];
+      if (!next) return;
+      setCrmDeals(prev => prev.map(d => d.id === deal.id ? { ...d, stage: next } : d));
+      await clientCrmApi.updateDeal(cid, deal.id, { ...deal, stage: next });
+    };
+
     return (
-      <div className="space-y-4">
-        <div className="flex items-start justify-between gap-4">
+      <div className="flex flex-col h-full -m-6 md:-m-8">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 md:px-8 pt-6 md:pt-8 pb-5 flex-shrink-0">
           <div>
-            <h2 className="text-2xl font-semibold text-white mb-1">Pipeline</h2>
-            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>{crmDeals.length} negócios em aberto</p>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(100,116,139,0.45)' }}>Pipeline</p>
+            <h2 className="text-3xl font-extralight text-white tracking-tight">Funil de Vendas</h2>
+            <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>
+              {crmDeals.length} negócios · <span style={{ color: '#34d399' }}>{fmtR(total)}</span>
+            </p>
           </div>
           <button onClick={openNewDeal}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white flex-shrink-0"
-            style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}>
-            <Plus size={14} /> Novo negócio
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold text-white"
+            style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)', boxShadow: '0 0 20px rgba(99,102,241,0.35)' }}>
+            <Plus size={15} /> Novo negócio
           </button>
         </div>
-        {crmDeals.length === 0 ? (
-          <div className="text-center py-16 rounded-2xl" style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
-            <Kanban size={32} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.3)' }} />
-            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum negócio no pipeline</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {STAGES_CRM.map(stage => {
+
+        {/* Kanban */}
+        <div className="flex-1 overflow-x-auto px-6 md:px-8 pb-6">
+          <div className="grid h-full gap-4" style={{ gridTemplateColumns: `repeat(${KANBAN_STAGES.length}, minmax(220px, 1fr))`, minWidth: `${KANBAN_STAGES.length * 240}px` }}>
+            {KANBAN_STAGES.map((stage, si) => {
               const stageDeals = crmDeals.filter(d => d.stage === stage.id);
-              if (stageDeals.length === 0) return null;
-              const stageTotal = stageDeals.reduce((sum, d) => sum + (d.value || 0), 0);
+              const stageValue = stageDeals.reduce((s, d) => s + (d.value || 0), 0);
+              const glow = stage.color + '55';
               return (
-                <div key={stage.id}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2 h-2 rounded-full" style={{ background: stage.color }} />
-                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: stage.color }}>{stage.label}</span>
-                    <span className="text-xs ml-1" style={{ color: 'rgba(100,116,139,0.4)' }}>{stageDeals.length} · {fmtR(stageTotal)}</span>
+                <div key={stage.id} className="flex flex-col rounded-2xl overflow-hidden"
+                  style={{ background: 'rgba(255,255,255,0.012)', border: '1px solid rgba(59,130,246,0.07)', animationDelay: `${si * 60}ms` }}>
+                  {/* Column header */}
+                  <div className="px-4 py-4 flex-shrink-0" style={{ borderBottom: `1px solid ${stage.color}18` }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-bold px-2.5 py-1 rounded-lg"
+                        style={{ background: `${stage.color}12`, color: stage.color, border: `1px solid ${stage.color}25`, textShadow: `0 0 8px ${glow}` }}>
+                        {stage.label}
+                      </span>
+                      <span className="text-xs font-semibold" style={{ color: 'rgba(100,116,139,0.6)' }}>{stageDeals.length}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <Target size={12} style={{ color: stage.color, opacity: 0.7 }} />
+                      <span className="text-sm font-semibold" style={{ color: stage.color }}>{fmtR(stageValue)}</span>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    {stageDeals.map(d => (
-                      <div key={d.id} className="flex items-center gap-4 px-4 py-3 rounded-xl group"
-                        style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${stage.color}18` }}>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white">{d.title}</p>
-                          {d.contact_name && (
-                            <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                              <Phone size={10} />{d.contact_name}
-                            </p>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <div className="text-right">
-                            <p className="text-sm font-semibold" style={{ color: stage.id === 'fechado' ? '#34d399' : 'white' }}>{fmtR(d.value || 0)}</p>
-                            <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{d.probability}%</p>
+
+                  {/* Cards */}
+                  <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                    {stageDeals.map(d => {
+                      const idx = STAGE_ORDER_CRM.indexOf(d.stage);
+                      const canBack = idx > 0;
+                      const canFwd = idx < STAGE_ORDER_CRM.length - 1;
+                      return (
+                        <div key={d.id} className="rounded-xl p-4 cursor-pointer group transition-all duration-200"
+                          style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.1)', boxShadow: '0 2px 16px rgba(0,0,0,0.4)' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${stage.color}33`; (e.currentTarget as HTMLElement).style.boxShadow = `0 0 20px ${stage.color}18, 0 4px 20px rgba(0,0,0,0.5)`; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(59,130,246,0.1)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 16px rgba(0,0,0,0.4)'; }}
+                          onClick={() => openEditDeal(d)}>
+                          <div className="flex items-start justify-between mb-2">
+                            <p className="text-sm font-medium text-white leading-tight flex-1 pr-2 line-clamp-2">{d.title}</p>
+                            <button onClick={e => { e.stopPropagation(); deleteDeal(d.id); }}
+                              className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-all flex-shrink-0"
+                              style={{ color: 'rgba(100,116,139,0.6)' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                              <Trash2 size={11} />
+                            </button>
                           </div>
-                          <button onClick={() => openEditDeal(d)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}><Pencil size={13} /></button>
-                          <button onClick={() => deleteDeal(d.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg" style={{ color: 'rgba(248,113,113,0.6)' }}><Trash2 size={13} /></button>
+                          {d.contact_name && (
+                            <div className="flex items-center gap-1.5 mb-3">
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[9px] font-bold flex-shrink-0"
+                                style={{ background: avatarColor(d.contact_name) }}>{initials(d.contact_name)}</div>
+                              <p className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.65)' }}>{d.contact_name}</p>
+                            </div>
+                          )}
+                          <div className="flex items-center justify-between mb-3">
+                            <span className="text-sm font-semibold" style={{ color: stage.color, textShadow: `0 0 12px ${glow}` }}>{fmtR(d.value || 0)}</span>
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                              style={{ background: `${stage.color}15`, color: stage.color, border: `1px solid ${stage.color}30` }}>{d.probability}%</span>
+                          </div>
+                          <div className="flex gap-1.5" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => moveStage(d, -1)} disabled={!canBack}
+                              className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] transition-all"
+                              style={{ color: canBack ? 'rgba(100,116,139,0.6)' : 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                              <ChevronLeft size={10} /> Voltar
+                            </button>
+                            <button onClick={() => moveStage(d, 1)} disabled={!canFwd}
+                              className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[10px] transition-all"
+                              style={canFwd ? { color: stage.color, background: `${stage.color}10`, border: `1px solid ${stage.color}25` } : { color: 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                              Avançar <ChevronRight size={10} />
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
+                    <button onClick={() => { setDealForm(f => ({ ...f, stage: stage.id })); openNewDeal(); }}
+                      className="w-full py-2.5 rounded-xl text-xs flex items-center justify-center gap-1.5 transition-all"
+                      style={{ border: `1px dashed ${stage.color}20`, color: 'rgba(100,116,139,0.4)' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = `${stage.color}40`; (e.currentTarget as HTMLElement).style.color = stage.color; (e.currentTarget as HTMLElement).style.background = `${stage.color}06`; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = `${stage.color}20`; (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.4)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                      <Plus size={11} /> Adicionar negócio
+                    </button>
                   </div>
                 </div>
               );
             })}
           </div>
-        )}
+        </div>
+      </div>
+    );
+  }
+
+  function PageCrmMensagens() {
+    const openConv = async (c: any) => {
+      setActiveConv(c);
+      const r = await conversationsApi.getMessages(c.id);
+      setConvMessages(r.data);
+      conversationsApi.markRead(c.id);
+      setConvs(prev => prev.map(x => x.id === c.id ? { ...x, unread_count: 0 } : x));
+    };
+    const sendMsg = async () => {
+      if (!convMsg.trim() || !activeConv || sendingMsg) return;
+      setSendingMsg(true);
+      const r = await conversationsApi.sendMessage(activeConv.id, convMsg);
+      setConvMessages(prev => [...prev, r.data]);
+      setConvMsg('');
+      setSendingMsg(false);
+    };
+    const filtered = convs.filter(c => c.contact_name?.toLowerCase().includes(convSearch.toLowerCase()));
+    const platformDot = (p: string) => p === 'whatsapp' ? '#25d366' : '#e1306c';
+
+    return (
+      <div className="flex h-full -m-6 md:-m-8 overflow-hidden">
+        {/* List */}
+        <div className="w-full md:w-80 flex-shrink-0 flex flex-col border-r" style={{ borderColor: 'rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)' }}>
+          <div className="px-4 pt-5 pb-3 flex-shrink-0">
+            <h2 className="text-xl font-semibold text-white mb-3">Mensagens</h2>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(100,116,139,0.4)' }} />
+              <input value={convSearch} onChange={e => setConvSearch(e.target.value)}
+                placeholder="Buscar conversa…"
+                className="w-full pl-9 pr-3 py-2 rounded-xl text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)', color: 'white' }} />
+            </div>
+          </div>
+          <div className="flex-1 overflow-y-auto">
+            {convLoading ? <CrmSpinner /> : filtered.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma conversa</p>
+              </div>
+            ) : filtered.map(c => (
+              <button key={c.id} onClick={() => openConv(c)}
+                className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all"
+                style={{ background: activeConv?.id === c.id ? 'rgba(59,130,246,0.08)' : 'transparent', borderLeft: activeConv?.id === c.id ? '2px solid #3b82f6' : '2px solid transparent' }}>
+                <div className="relative flex-shrink-0">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                    style={{ background: avatarColor(c.contact_name || '') }}>{initials(c.contact_name || '?')}</div>
+                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
+                    style={{ background: platformDot(c.platform), borderColor: '#05050f' }} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-white truncate">{c.contact_name}</p>
+                    {c.unread_count > 0 && (
+                      <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ml-1"
+                        style={{ background: '#3b82f6', color: 'white' }}>{c.unread_count}</span>
+                    )}
+                  </div>
+                  <p className="text-xs truncate mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>{c.last_message || '…'}</p>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Chat */}
+        <div className="flex-1 flex flex-col hidden md:flex">
+          {!activeConv ? (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3">
+              <div className="w-16 h-16 rounded-2xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.12)' }}>
+                <MessageSquare size={28} style={{ color: 'rgba(59,130,246,0.5)' }} />
+              </div>
+              <p className="text-base font-medium text-white">Selecione uma conversa</p>
+              <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>ou aguarde novas mensagens pelo webhook</p>
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center gap-3 px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                  style={{ background: avatarColor(activeConv.contact_name || '') }}>{initials(activeConv.contact_name || '?')}</div>
+                <div>
+                  <p className="text-sm font-semibold text-white">{activeConv.contact_name}</p>
+                  <p className="text-xs capitalize" style={{ color: 'rgba(100,116,139,0.5)' }}>{activeConv.platform}</p>
+                </div>
+              </div>
+              <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+                {convMessages.map((m: any) => (
+                  <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>
+                    <div className="max-w-xs px-3 py-2 rounded-2xl text-sm"
+                      style={m.direction === 'outbound'
+                        ? { background: 'rgba(59,130,246,0.2)', color: 'white', borderBottomRightRadius: '4px' }
+                        : { background: 'rgba(255,255,255,0.06)', color: 'rgba(226,232,240,0.9)', borderBottomLeftRadius: '4px' }}>
+                      {m.content}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <input value={convMsg} onChange={e => setConvMsg(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMsg()}
+                  placeholder="Escrever mensagem…"
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'white' }} />
+                <button onClick={sendMsg} disabled={!convMsg.trim() || sendingMsg}
+                  className="px-4 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40"
+                  style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                  <Send size={14} />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  function PageCrmConfig() {
+    const saveProfile = async () => {
+      if (!profileForm.name.trim()) return;
+      setProfileSaving(true);
+      await profileApi.update({ name: profileForm.name, avatar: profileForm.avatar || undefined });
+      setProfileSaving(false);
+    };
+    return (
+      <div className="space-y-8 max-w-lg">
+        <div>
+          <h2 className="text-2xl font-semibold text-white mb-1">Configurações</h2>
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Perfil e integrações da sua conta</p>
+        </div>
+
+        {/* Profile */}
+        <div className="rounded-2xl p-6 space-y-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Perfil</p>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white text-lg font-bold flex-shrink-0"
+              style={{ background: profileForm.avatar ? 'transparent' : 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+              {profileForm.avatar
+                ? <img src={profileForm.avatar} className="w-full h-full rounded-2xl object-cover" />
+                : initials(profileForm.name || user?.name || '?')}
+            </div>
+            <div className="flex-1">
+              <input value={profileForm.avatar} onChange={e => setProfileForm(p => ({ ...p, avatar: e.target.value }))}
+                placeholder="URL da foto de perfil"
+                className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'white' }} />
+              <p className="text-[11px] mt-1" style={{ color: 'rgba(100,116,139,0.35)' }}>Cole o link de uma imagem pública</p>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <input value={profileForm.name} onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))}
+              placeholder="Seu nome"
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none"
+              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'white' }} />
+            <input value={user?.email || ''} disabled placeholder="E-mail"
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none opacity-50"
+              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)', color: 'rgba(148,163,184,0.6)' }} />
+          </div>
+          <button onClick={saveProfile} disabled={profileSaving || !profileForm.name.trim()}
+            className="px-5 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
+            style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+            {profileSaving ? 'Salvando…' : 'Salvar perfil'}
+          </button>
+        </div>
+
+        {/* Meta integration */}
+        <div className="rounded-2xl p-6 space-y-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Integração Meta</p>
+          <div className="flex items-center gap-3 p-4 rounded-xl" style={{ background: 'rgba(24,119,242,0.06)', border: '1px solid rgba(24,119,242,0.15)' }}>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(24,119,242,0.15)' }}>
+              <span className="text-base font-black" style={{ color: '#1877f2' }}>f</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-white">WhatsApp & Instagram</p>
+              <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>Gerenciado pela sua agência via API da Meta</p>
+            </div>
+            <span className="text-xs font-medium px-2.5 py-1 rounded-full" style={{ background: 'rgba(52,211,153,0.1)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }}>Ativo</span>
+          </div>
+          <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+            As mensagens recebidas via WhatsApp e Instagram aparecem automaticamente na aba Mensagens.
+            Para configurar novas integrações, fale com sua agência.
+          </p>
+        </div>
       </div>
     );
   }
@@ -1210,6 +1483,8 @@ export default function ClientPortal() {
     crm_dashboard:  <PageCrmDashboard />,
     crm_contatos:   <PageCrmContatos />,
     crm_pipeline:   <PageCrmPipeline />,
+    crm_mensagens:  <PageCrmMensagens />,
+    crm_config:     <PageCrmConfig />,
   };
 
   return (
@@ -1231,7 +1506,9 @@ export default function ClientPortal() {
           <p className="font-semibold text-white text-sm">{client?.name}</p>
         </div>
 
-        <div className="p-6 md:p-10 max-w-4xl">
+        <div className={page === 'crm_pipeline' || page === 'crm_mensagens'
+          ? 'p-6 md:p-8 h-[calc(100vh-56px)] flex flex-col'
+          : 'p-6 md:p-10 max-w-4xl'}>
           {pageComponents[page]}
         </div>
       </main>
