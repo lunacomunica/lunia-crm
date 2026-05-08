@@ -23,6 +23,7 @@ import campaignsRouter from './routes/campaigns.js';
 import adminRouter from './routes/admin.js';
 import tasksRouter from './routes/tasks.js';
 import clientPortalRouter from './routes/client-portal.js';
+import clientCrmRouter from './routes/client-crm.js';
 import { authMiddleware } from './middleware/auth.js';
 import db from './db.js';
 
@@ -103,6 +104,7 @@ app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/tasks', authMiddleware, tasksRouter);
 app.use('/api/client-portal', authMiddleware, clientPortalRouter);
+app.use('/api/client-crm', authMiddleware, clientCrmRouter);
 
 app.get('/privacy', (_req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');

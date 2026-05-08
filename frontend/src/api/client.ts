@@ -125,6 +125,18 @@ export const tasksApi = {
   teamOverview: () => api.get('/tasks/team-overview'),
 };
 
+export const clientCrmApi = {
+  dashboard: (clientId: number) => api.get(`/client-crm/${clientId}/dashboard`),
+  contacts: (clientId: number, params?: Record<string, string>) => api.get(`/client-crm/${clientId}/contacts`, { params }),
+  createContact: (clientId: number, data: any) => api.post(`/client-crm/${clientId}/contacts`, data),
+  updateContact: (clientId: number, id: number, data: any) => api.put(`/client-crm/${clientId}/contacts/${id}`, data),
+  deleteContact: (clientId: number, id: number) => api.delete(`/client-crm/${clientId}/contacts/${id}`),
+  deals: (clientId: number) => api.get(`/client-crm/${clientId}/deals`),
+  createDeal: (clientId: number, data: any) => api.post(`/client-crm/${clientId}/deals`, data),
+  updateDeal: (clientId: number, id: number, data: any) => api.put(`/client-crm/${clientId}/deals/${id}`, data),
+  deleteDeal: (clientId: number, id: number) => api.delete(`/client-crm/${clientId}/deals/${id}`),
+};
+
 export const clientPortalApi = {
   summary: (clientId: number) => api.get(`/client-portal/${clientId}/summary`),
   goals: (clientId: number) => api.get(`/client-portal/${clientId}/goals`),

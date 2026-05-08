@@ -211,6 +211,34 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS client_contacts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT,
+    phone TEXT,
+    source TEXT DEFAULT 'manual',
+    campaign_id INTEGER REFERENCES campaigns(id) ON DELETE SET NULL,
+    stage TEXT DEFAULT 'novo',
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS client_deals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
+    client_contact_id INTEGER REFERENCES client_contacts(id) ON DELETE SET NULL,
+    title TEXT NOT NULL,
+    value REAL DEFAULT 0,
+    stage TEXT DEFAULT 'novo',
+    probability INTEGER DEFAULT 20,
+    expected_close_date TEXT,
+    notes TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS client_goals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
@@ -426,7 +454,7 @@ if (agencyCount === 0) {
     INSERT INTO agency_clients (tenant_id, name, segment, instagram_handle, contact_name, contact_email, active)
     VALUES (1, ?, ?, ?, ?, ?, 1)
   `);
-  const client1Id = Number(insertClient.run('Studio Z', 'Moda & Lifestyle', 'studioz', 'Bia Torres', 'bia@studioz.com').lastInsertRowid);
+  const client1Id = Number(insertClient.run('Sol na Varanda', 'Varejo', 'solnavaranda', 'Mariana Morschel', 'mariana@solnavaranda.com').lastInsertRowid);
   const client2Id = Number(insertClient.run('Café Boreal', 'Gastronomia', 'cafeboreal', 'Rafael Nunes', 'rafael@cafeboreal.com').lastInsertRowid);
 
   const insertContent = db.prepare(`
@@ -434,43 +462,43 @@ if (agencyCount === 0) {
     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ? || ' days'))
   `);
 
-  // Studio Z — mix de status com imagens placeholder (picsum)
-  insertContent.run(client1Id, 'Nova Coleção Verão', 'post', 'aprovado',
-    'Chegou a coleção que você esperava ☀️ Peças leves, elegantes e com muito estilo. Link na bio!',
-    'Apresentar nova coleção e gerar tráfego pro site',
+  // Sol na Varanda — mix de status com imagens placeholder (picsum)
+  insertContent.run(client1Id, 'Novidades da Semana', 'post', 'aprovado',
+    'Sua varanda merece o melhor ☀️ Chegaram peças novas — confira no link da bio!',
+    'Apresentar novos produtos e gerar tráfego pro site',
     '2026-05-10', 'https://picsum.photos/seed/c1/600/600', '-5');
 
-  insertContent.run(client1Id, 'Behind the scenes — Ensaio', 'reels', 'aprovado',
-    'De dentro do estúdio para o seu feed 🎬 Veja como foi o making of do nosso último ensaio.',
+  insertContent.run(client1Id, 'Por dentro da loja', 'reels', 'aprovado',
+    'Vem dar uma volta com a gente 🎬 Veja os bastidores da Sol na Varanda.',
     'Humanizar a marca e aumentar engajamento',
     '2026-05-12', 'https://picsum.photos/seed/c2/600/600', '-4');
 
   insertContent.run(client1Id, 'Promoção Dia das Mães', 'carrossel', 'aguardando_aprovacao',
-    'Presente especial para quem você ama 💛 Até 30% OFF em peças selecionadas. Só até domingo!',
+    'Presente especial para quem você ama 💛 Até 30% OFF em itens selecionados. Só até domingo!',
     'Converter vendas no feriado',
     '2026-05-11', 'https://picsum.photos/seed/c3/600/600', '-2');
 
-  insertContent.run(client1Id, 'Look do Dia — Azul Marinho', 'post', 'aguardando_aprovacao',
-    'O azul marinho nunca sai de moda 💙 Combine com tudo e esteja sempre pronta.',
-    'Inspirar o público com looks do dia',
+  insertContent.run(client1Id, 'Destaque da semana', 'post', 'aguardando_aprovacao',
+    'Esse produto chegou pra ficar 💛 Um dos mais pedidos da temporada — e agora tá no estoque!',
+    'Apresentar produto destaque e gerar desejo de compra',
     '2026-05-14', 'https://picsum.photos/seed/c4/600/600', '-1');
 
-  insertContent.run(client1Id, 'Story — Flash Sale 24h', 'story', 'ajuste_solicitado',
-    'FLASH SALE ⚡ 24h apenas! Não perde!',
+  insertContent.run(client1Id, 'Story — Queima de Estoque 24h', 'story', 'ajuste_solicitado',
+    'QUEIMA DE ESTOQUE ⚡ 24h apenas! Não perde!',
     'Urgência para converter seguidores',
     '2026-05-08', 'https://picsum.photos/seed/c5/600/600', '-3');
 
-  insertContent.run(client1Id, 'Reels Tendências Outono', 'reels', 'em_revisao',
-    null, 'Antecipar tendências da nova estação', '2026-05-18',
+  insertContent.run(client1Id, 'Reels — Produtos da Temporada', 'reels', 'em_revisao',
+    null, 'Antecipar lançamentos da nova temporada', '2026-05-18',
     'https://picsum.photos/seed/c6/600/600', '-1');
 
-  insertContent.run(client1Id, 'Post Institucional — Valores', 'post', 'em_criacao',
+  insertContent.run(client1Id, 'Post Institucional — Quem somos', 'post', 'em_criacao',
     null, 'Fortalecer identidade de marca', '2026-05-22',
     null, '0');
 
-  insertContent.run(client1Id, 'Coleção Inverno — Teaser', 'post', 'agendado',
-    'O frio chegou com tudo 🧥 Prepare-se para a nova coleção.',
-    'Gerar antecipação para o lançamento de inverno',
+  insertContent.run(client1Id, 'Lançamento — Nova Linha', 'post', 'agendado',
+    'Novidade chegando! 🌿 Prepare-se para a nossa nova linha de produtos.',
+    'Gerar antecipação para o lançamento',
     '2026-05-20', 'https://picsum.photos/seed/c8/600/600', '-6');
 
   insertContent.run(client1Id, 'Post Publicado — Março', 'post', 'publicado',
@@ -566,11 +594,15 @@ if (teamCount === 0) {
   db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'user', ?)`).run('Beatriz Lins', 'beatriz@lunacomunica.com', teamHash, 'Gestora de Projetos');
 }
 
+// Rename Studio Z → Sol na Varanda (migration for existing DBs)
+db.prepare("UPDATE agency_clients SET name='Sol na Varanda', segment='Varejo', instagram_handle='solnavaranda', contact_name='Mariana Morschel', contact_email='mariana@solnavaranda.com' WHERE name='Studio Z' AND tenant_id=1").run();
+db.prepare("UPDATE users SET name='Mariana Morschel', email='mariana@solnavaranda.com' WHERE email='bia@studioz.com' AND tenant_id=1").run();
+
 // Fix client users whose agency_client_id is NULL (migration for existing DBs)
 {
   const ac1 = db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1").get() as any;
   const ac2 = db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1 OFFSET 1").get() as any;
-  if (ac1) db.prepare("UPDATE users SET agency_client_id = ? WHERE email = 'bia@studioz.com' AND (agency_client_id IS NULL OR agency_client_id = 0)").run(ac1.id);
+  if (ac1) db.prepare("UPDATE users SET agency_client_id = ? WHERE email IN ('mariana@solnavaranda.com') AND (agency_client_id IS NULL OR agency_client_id = 0)").run(ac1.id);
   if (ac2) db.prepare("UPDATE users SET agency_client_id = ? WHERE email = 'rafael@cafeboreal.com' AND (agency_client_id IS NULL OR agency_client_id = 0)").run(ac2.id);
 }
 
@@ -580,7 +612,7 @@ if (clientUserCount === 0) {
   const clientHash = '$2b$10$mrWKuVQVqaO.2Z5dvX3zde9Ldc3R2KqSkEVaWCxTcqVc9RQRRJqOe'; // admin123
   const ac1 = db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1").get() as any;
   const ac2 = db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1 OFFSET 1").get() as any;
-  if (ac1) db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, agency_client_id) VALUES (1, ?, ?, ?, 'client', ?)`).run('Bia Torres', 'bia@studioz.com', clientHash, ac1.id);
+  if (ac1) db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, agency_client_id) VALUES (1, ?, ?, ?, 'client', ?)`).run('Mariana Morschel', 'mariana@solnavaranda.com', clientHash, ac1.id);
   if (ac2) db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, agency_client_id) VALUES (1, ?, ?, ?, 'client', ?)`).run('Rafael Nunes', 'rafael@cafeboreal.com', clientHash, ac2.id);
 }
 
@@ -628,8 +660,31 @@ if (taskCount === 0) {
     }
 
     // Completed task from yesterday
-    db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, agency_client_id, priority, stage, status, due_date, estimated_minutes, total_minutes, completed_at) VALUES (1, 'Briefing criativo Studio Z', ?, ?, ?, 'media', 'planejamento', 'concluida', date('now', '-1 days'), 60, 55, datetime('now', '-1 days'))`)
+    db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, agency_client_id, priority, stage, status, due_date, estimated_minutes, total_minutes, completed_at) VALUES (1, 'Briefing criativo Sol na Varanda', ?, ?, ?, 'media', 'planejamento', 'concluida', date('now', '-1 days'), 60, 55, datetime('now', '-1 days'))`)
       .run(beatriz?.id, beatriz?.id, c1);
+  }
+}
+
+// Seed client CRM demo data
+const clientCrmCount = (db.prepare('SELECT COUNT(*) as count FROM client_contacts').get() as any).count;
+if (clientCrmCount === 0) {
+  const ac1 = db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1").get() as any;
+  const cam1 = db.prepare("SELECT id FROM campaigns WHERE agency_client_id = ? ORDER BY id LIMIT 1").get(ac1?.id) as any;
+
+  if (ac1) {
+    const ins = db.prepare(`INSERT INTO client_contacts (agency_client_id, name, email, phone, source, campaign_id, stage, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', ? || ' days'))`);
+    const c1 = Number(ins.run(ac1.id, 'Ana Paula Ferreira', 'anapaula@gmail.com', '(11) 98765-4321', 'meta_ads', cam1?.id, 'proposta', 'Interessada no kit lançamento', '-5').lastInsertRowid);
+    const c2 = Number(ins.run(ac1.id, 'Juliana Rocha', 'ju.rocha@hotmail.com', '(11) 91234-5678', 'meta_ads', cam1?.id, 'negociacao', 'Quer desconto no frete', '-3').lastInsertRowid);
+    const c3 = Number(ins.run(ac1.id, 'Fernanda Lima', null, '(21) 99876-5432', 'instagram', null, 'fechado', 'Comprou 3 itens', '-8').lastInsertRowid);
+    const c4 = Number(ins.run(ac1.id, 'Carla Mendes', 'carla.m@email.com', '(11) 97654-3210', 'meta_ads', cam1?.id, 'contato', null, '-1').lastInsertRowid);
+    const c5 = Number(ins.run(ac1.id, 'Patricia Souza', null, '(31) 98765-1234', 'meta_ads', cam1?.id, 'novo', null, '0').lastInsertRowid);
+    const c6 = Number(ins.run(ac1.id, 'Renata Alves', 'renata@gmail.com', '(11) 93456-7890', 'instagram', null, 'perdido', 'Comprou no concorrente', '-10').lastInsertRowid);
+
+    const insd = db.prepare(`INSERT INTO client_deals (agency_client_id, client_contact_id, title, value, stage, probability, expected_close_date) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    insd.run(ac1.id, c1, 'Kit Lançamento — Ana Paula', 480, 'proposta', 60, '2026-05-20');
+    insd.run(ac1.id, c2, 'Compra Online — Juliana', 320, 'negociacao', 75, '2026-05-15');
+    insd.run(ac1.id, c3, 'Compra Realizada — Fernanda', 650, 'fechado', 100, '2026-05-08');
+    insd.run(ac1.id, c4, 'Primeiro contato — Carla', 200, 'contato', 30, '2026-05-25');
   }
 }
 
