@@ -48,7 +48,17 @@ const CAMPAIGN_STATUS_CFG: Record<string, { label: string; color: string; bg: st
 
 const TYPE_LABEL: Record<string, string> = { post: 'Post', reels: 'Reels', story: 'Story', carrossel: 'Carrossel' };
 
-type PageId = 'visao' | 'posicionamento' | 'metas' | 'aprovacoes' | 'feed' | 'campanhas' | 'comercial';
+type PageId = 'visao' | 'posicionamento' | 'metas' | 'aprovacoes' | 'feed' | 'campanhas' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline';
+
+const STAGES_CRM = [
+  { id: 'novo',       label: 'Novo',        color: '#94a3b8' },
+  { id: 'contato',    label: 'Contato',     color: '#60a5fa' },
+  { id: 'proposta',   label: 'Proposta',    color: '#a78bfa' },
+  { id: 'negociacao', label: 'Negociação',  color: '#f59e0b' },
+  { id: 'fechado',    label: 'Fechado',     color: '#34d399' },
+  { id: 'perdido',    label: 'Perdido',     color: '#f87171' },
+];
+const stageCfg = (id: string) => STAGES_CRM.find(s => s.id === id) || STAGES_CRM[0];
 
 const fmtR = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 const fmtN = (v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v);
@@ -93,7 +103,9 @@ function PortalSidebar({
     {
       label: 'Comercial',
       items: [
-        { id: 'comercial' as PageId, label: 'Comercial', icon: TrendingUp, badge: 0 },
+        { id: 'crm_dashboard' as PageId, label: 'Dashboard',  icon: LayoutDashboard, badge: 0 },
+        { id: 'crm_contatos'  as PageId, label: 'Contatos',   icon: Users,           badge: 0 },
+        { id: 'crm_pipeline'  as PageId, label: 'Pipeline',   icon: Kanban,          badge: 0 },
       ],
     },
   ];
@@ -210,6 +222,20 @@ export default function ClientPortal() {
   const [positioning, setPositioning] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  // CRM state
+  const [crmDash, setCrmDash] = useState<any>(null);
+  const [crmContacts, setCrmContacts] = useState<any[]>([]);
+  const [crmDeals, setCrmDeals] = useState<any[]>([]);
+  const [crmLoading, setCrmLoading] = useState(false);
+  const [contactModal, setContactModal] = useState(false);
+  const [editingContact, setEditingContact] = useState<any>(null);
+  const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', source: 'manual', notes: '' });
+  const [savingContact, setSavingContact] = useState(false);
+  const [dealModal, setDealModal] = useState(false);
+  const [editingDeal, setEditingDeal] = useState<any>(null);
+  const [dealForm, setDealForm] = useState({ title: '', value: '', stage: 'novo', probability: '20', notes: '', client_contact_id: '' });
+  const [savingDeal, setSavingDeal] = useState(false);
+
   const [detail, setDetail] = useState<ContentPiece | null>(null);
   const [adjustModal, setAdjustModal] = useState(false);
   const [adjustComment, setAdjustComment] = useState('');
@@ -241,6 +267,61 @@ export default function ClientPortal() {
   };
 
   useEffect(() => { load(); }, [clientId]);
+
+  const loadCrm = async () => {
+    setCrmLoading(true);
+    const [dashRes, contactsRes, dealsRes] = await Promise.all([
+      clientCrmApi.dashboard(cid),
+      clientCrmApi.contacts(cid),
+      clientCrmApi.deals(cid),
+    ]);
+    setCrmDash(dashRes.data);
+    setCrmContacts(contactsRes.data);
+    setCrmDeals(dealsRes.data);
+    setCrmLoading(false);
+  };
+
+  useEffect(() => {
+    if ((page === 'crm_dashboard' || page === 'crm_contatos' || page === 'crm_pipeline') && !crmDash && !crmLoading) {
+      loadCrm();
+    }
+  }, [page]);
+
+  const openNewContact = () => { setEditingContact(null); setContactForm({ name: '', email: '', phone: '', source: 'manual', notes: '' }); setContactModal(true); };
+  const openEditContact = (c: any) => { setEditingContact(c); setContactForm({ name: c.name, email: c.email || '', phone: c.phone || '', source: c.source || 'manual', notes: c.notes || '' }); setContactModal(true); };
+  const saveContact = async () => {
+    if (!contactForm.name.trim()) return;
+    setSavingContact(true);
+    if (editingContact) await clientCrmApi.updateContact(cid, editingContact.id, { ...contactForm, stage: editingContact.stage });
+    else await clientCrmApi.createContact(cid, contactForm);
+    await loadCrm();
+    setContactModal(false); setSavingContact(false);
+  };
+  const deleteContact = async (id: number) => {
+    if (!confirm('Excluir este contato?')) return;
+    await clientCrmApi.deleteContact(cid, id); await loadCrm();
+  };
+  const updateContactStage = async (id: number, stage: string) => {
+    const c = crmContacts.find(x => x.id === id);
+    if (!c) return;
+    await clientCrmApi.updateContact(cid, id, { ...c, stage });
+    setCrmContacts(prev => prev.map(x => x.id === id ? { ...x, stage } : x));
+  };
+  const openNewDeal = () => { setEditingDeal(null); setDealForm({ title: '', value: '', stage: 'novo', probability: '20', notes: '', client_contact_id: '' }); setDealModal(true); };
+  const openEditDeal = (d: any) => { setEditingDeal(d); setDealForm({ title: d.title, value: String(d.value || ''), stage: d.stage, probability: String(d.probability || 20), notes: d.notes || '', client_contact_id: String(d.client_contact_id || '') }); setDealModal(true); };
+  const saveDeal = async () => {
+    if (!dealForm.title.trim()) return;
+    setSavingDeal(true);
+    const data = { ...dealForm, value: parseFloat(dealForm.value) || 0, probability: parseInt(dealForm.probability) || 20, client_contact_id: parseInt(dealForm.client_contact_id) || null };
+    if (editingDeal) await clientCrmApi.updateDeal(cid, editingDeal.id, data);
+    else await clientCrmApi.createDeal(cid, data);
+    await loadCrm();
+    setDealModal(false); setSavingDeal(false);
+  };
+  const deleteDeal = async (id: number) => {
+    if (!confirm('Excluir este negócio?')) return;
+    await clientCrmApi.deleteDeal(cid, id); await loadCrm();
+  };
 
   const openDetail = async (p: ContentPiece) => {
     const r = await contentApi.get(p.id);
@@ -923,425 +1004,196 @@ export default function ClientPortal() {
     );
   }
 
-  function PageComercial() {
-    const [crmTab, setCrmTab] = useState<'dashboard' | 'leads' | 'pipeline'>('dashboard');
-    const [crmDash, setCrmDash] = useState<any>(null);
-    const [crmContacts, setCrmContacts] = useState<any[]>([]);
-    const [crmDeals, setCrmDeals] = useState<any[]>([]);
-    const [crmLoading, setCrmLoading] = useState(true);
+  const crmInputCls = "w-full px-3 py-2 rounded-lg text-sm text-white bg-transparent outline-none focus:ring-1 focus:ring-blue-500/50";
+  const crmInputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' };
+  const crmSelectStyle = { background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)', color: 'white' };
 
-    // Contact modal
-    const [contactModal, setContactModal] = useState(false);
-    const [editingContact, setEditingContact] = useState<any>(null);
-    const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', source: 'manual', notes: '' });
-    const [savingContact, setSavingContact] = useState(false);
+  function CrmSpinner() {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+      </div>
+    );
+  }
 
-    // Deal modal
-    const [dealModal, setDealModal] = useState(false);
-    const [editingDeal, setEditingDeal] = useState<any>(null);
-    const [dealForm, setDealForm] = useState({ title: '', value: '', stage: 'novo', probability: '20', notes: '', client_contact_id: '' });
-    const [savingDeal, setSavingDeal] = useState(false);
-
-    const STAGES_CRM = [
-      { id: 'novo',       label: 'Novo',        color: '#94a3b8' },
-      { id: 'contato',    label: 'Contato',     color: '#60a5fa' },
-      { id: 'proposta',   label: 'Proposta',    color: '#a78bfa' },
-      { id: 'negociacao', label: 'Negociação',  color: '#f59e0b' },
-      { id: 'fechado',    label: 'Fechado',     color: '#34d399' },
-      { id: 'perdido',    label: 'Perdido',     color: '#f87171' },
-    ];
-
-    const stageCfg = (id: string) => STAGES_CRM.find(s => s.id === id) || STAGES_CRM[0];
-
-    const loadCrm = async () => {
-      setCrmLoading(true);
-      const [dashRes, contactsRes, dealsRes] = await Promise.all([
-        clientCrmApi.dashboard(cid),
-        clientCrmApi.contacts(cid),
-        clientCrmApi.deals(cid),
-      ]);
-      setCrmDash(dashRes.data);
-      setCrmContacts(contactsRes.data);
-      setCrmDeals(dealsRes.data);
-      setCrmLoading(false);
-    };
-
-    useEffect(() => { loadCrm(); }, []);
-
-    const openNewContact = () => {
-      setEditingContact(null);
-      setContactForm({ name: '', email: '', phone: '', source: 'manual', notes: '' });
-      setContactModal(true);
-    };
-    const openEditContact = (c: any) => {
-      setEditingContact(c);
-      setContactForm({ name: c.name, email: c.email || '', phone: c.phone || '', source: c.source || 'manual', notes: c.notes || '' });
-      setContactModal(true);
-    };
-    const saveContact = async () => {
-      if (!contactForm.name.trim()) return;
-      setSavingContact(true);
-      if (editingContact) {
-        await clientCrmApi.updateContact(cid, editingContact.id, { ...contactForm, stage: editingContact.stage });
-      } else {
-        await clientCrmApi.createContact(cid, contactForm);
-      }
-      await loadCrm();
-      setContactModal(false);
-      setSavingContact(false);
-    };
-    const deleteContact = async (id: number) => {
-      if (!confirm('Excluir este contato?')) return;
-      await clientCrmApi.deleteContact(cid, id);
-      await loadCrm();
-    };
-    const updateContactStage = async (id: number, stage: string) => {
-      const c = crmContacts.find(x => x.id === id);
-      if (!c) return;
-      await clientCrmApi.updateContact(cid, id, { ...c, stage });
-      setCrmContacts(prev => prev.map(x => x.id === id ? { ...x, stage } : x));
-    };
-
-    const openNewDeal = () => {
-      setEditingDeal(null);
-      setDealForm({ title: '', value: '', stage: 'novo', probability: '20', notes: '', client_contact_id: '' });
-      setDealModal(true);
-    };
-    const openEditDeal = (d: any) => {
-      setEditingDeal(d);
-      setDealForm({ title: d.title, value: String(d.value || ''), stage: d.stage, probability: String(d.probability || 20), notes: d.notes || '', client_contact_id: String(d.client_contact_id || '') });
-      setDealModal(true);
-    };
-    const saveDeal = async () => {
-      if (!dealForm.title.trim()) return;
-      setSavingDeal(true);
-      const data = { ...dealForm, value: parseFloat(dealForm.value) || 0, probability: parseInt(dealForm.probability) || 20, client_contact_id: parseInt(dealForm.client_contact_id) || null };
-      if (editingDeal) {
-        await clientCrmApi.updateDeal(cid, editingDeal.id, data);
-      } else {
-        await clientCrmApi.createDeal(cid, data);
-      }
-      await loadCrm();
-      setDealModal(false);
-      setSavingDeal(false);
-    };
-    const deleteDeal = async (id: number) => {
-      if (!confirm('Excluir este negócio?')) return;
-      await clientCrmApi.deleteDeal(cid, id);
-      await loadCrm();
-    };
-
-    const inputCls = "w-full px-3 py-2 rounded-lg text-sm text-white bg-transparent outline-none focus:ring-1 focus:ring-blue-500/50";
-    const inputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' };
-    const selectStyle = { background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)', color: 'white' };
-
+  function PageCrmDashboard() {
+    if (crmLoading || !crmDash) return <CrmSpinner />;
     return (
       <div className="space-y-6">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-semibold text-white mb-1">Comercial</h2>
-            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Seu pipeline de vendas — do lead ao fechamento</p>
-          </div>
+        <div>
+          <h2 className="text-2xl font-semibold text-white mb-1">Dashboard</h2>
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Visão geral do seu pipeline comercial</p>
         </div>
-
-        {/* Sub-tabs */}
-        <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-          {([
-            { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-            { id: 'leads',     label: 'Leads',     icon: Users },
-            { id: 'pipeline',  label: 'Pipeline',  icon: Kanban },
-          ] as const).map(t => (
-            <button key={t.id} onClick={() => setCrmTab(t.id)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
-              style={crmTab === t.id
-                ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }
-                : { color: 'rgba(100,116,139,0.6)', border: '1px solid transparent' }}>
-              <t.icon size={14} />
-              {t.label}
-            </button>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Total de contatos',  value: fmtN(crmDash.contacts?.total ?? 0),          color: '#60a5fa' },
+            { label: 'Negócios ativos',    value: fmtN((crmDash.deals?.total ?? 0) - (crmDash.deals?.won_count ?? 0) - (crmDash.deals?.lost_count ?? 0)), color: '#a78bfa' },
+            { label: 'Pipeline',           value: fmtR(crmDash.deals?.pipeline_total ?? 0),    color: '#f59e0b' },
+            { label: 'Receita gerada',     value: fmtR(crmDash.deals?.won ?? 0),               color: '#34d399' },
+          ].map(k => (
+            <div key={k.label} className="rounded-2xl px-4 py-4"
+              style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <p className="text-2xl font-bold mb-1 text-white">{k.value}</p>
+              <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{k.label}</p>
+            </div>
           ))}
         </div>
+        <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-5" style={{ color: 'rgba(100,116,139,0.45)' }}>Pipeline por etapa</p>
+          <div className="space-y-3">
+            {(crmDash.byStage || []).filter((s: any) => s.stage !== 'perdido').map((s: any) => {
+              const cfg = stageCfg(s.stage);
+              const maxVal = Math.max(...(crmDash.byStage || []).map((x: any) => x.value), 1);
+              return (
+                <div key={s.stage} className="flex items-center gap-3">
+                  <span className="text-xs w-20 flex-shrink-0" style={{ color: cfg.color }}>{cfg.label}</span>
+                  <div className="flex-1 h-5 rounded-md overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                    <div className="h-full rounded-md transition-all duration-500"
+                      style={{ width: `${s.value > 0 ? Math.max((s.value / maxVal) * 100, 4) : 0}%`, background: `${cfg.color}30`, borderRight: s.value > 0 ? `2px solid ${cfg.color}` : 'none' }} />
+                  </div>
+                  <div className="text-right flex-shrink-0 w-28">
+                    <span className="text-xs font-semibold text-white">{fmtR(s.value)}</span>
+                    <span className="text-[10px] ml-2" style={{ color: 'rgba(100,116,139,0.45)' }}>{s.count} neg.</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(52,211,153,0.08)' }}>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.1)' }}>
+              <Zap size={16} style={{ color: '#34d399' }} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Leads do marketing</p>
+              <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>Contatos gerados por campanhas</p>
+            </div>
+            <div className="ml-auto">
+              <span className="text-2xl font-bold" style={{ color: '#34d399' }}>{fmtN(crmDash.contacts?.from_marketing ?? 0)}</span>
+            </div>
+          </div>
+          <p className="text-xs mt-3 pl-11" style={{ color: 'rgba(100,116,139,0.4)' }}>O marketing gera os leads — o comercial fecha os negócios.</p>
+        </div>
+      </div>
+    );
+  }
 
-        {crmLoading ? (
-          <div className="flex items-center justify-center py-16">
-            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+  function PageCrmContatos() {
+    if (crmLoading) return <CrmSpinner />;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-white mb-1">Contatos</h2>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>{crmContacts.length} contatos no seu CRM</p>
+          </div>
+          <button onClick={openNewContact}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white flex-shrink-0"
+            style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}>
+            <UserPlus size={14} /> Novo contato
+          </button>
+        </div>
+        {crmContacts.length === 0 ? (
+          <div className="text-center py-16 rounded-2xl" style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
+            <Users size={32} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.3)' }} />
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum contato ainda</p>
+            <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.25)' }}>Adicione manualmente ou eles virão do marketing</p>
           </div>
         ) : (
-          <>
-            {/* ── DASHBOARD ── */}
-            {crmTab === 'dashboard' && crmDash && (
-              <div className="space-y-6">
-                {/* KPI row */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {[
-                    { label: 'Total de contatos',  value: fmtN(crmDash.contacts?.total ?? 0),          color: '#60a5fa' },
-                    { label: 'Negócios ativos',    value: fmtN((crmDash.deals?.total ?? 0) - (crmDash.deals?.won_count ?? 0) - (crmDash.deals?.lost_count ?? 0)), color: '#a78bfa' },
-                    { label: 'Pipeline',           value: fmtR(crmDash.deals?.pipeline_total ?? 0),    color: '#f59e0b' },
-                    { label: 'Receita gerada',     value: fmtR(crmDash.deals?.won ?? 0),               color: '#34d399' },
-                  ].map(k => (
-                    <div key={k.label} className="rounded-2xl px-4 py-4"
-                      style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                      <p className="text-2xl font-bold mb-1 text-white">{k.value}</p>
-                      <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{k.label}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Funil por etapa */}
-                <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  <p className="text-xs font-semibold uppercase tracking-wider mb-5" style={{ color: 'rgba(100,116,139,0.45)' }}>
-                    Pipeline por etapa
-                  </p>
-                  <div className="space-y-3">
-                    {(crmDash.byStage || []).filter((s: any) => s.stage !== 'perdido').map((s: any) => {
-                      const cfg = stageCfg(s.stage);
-                      const maxVal = Math.max(...(crmDash.byStage || []).map((x: any) => x.value), 1);
-                      return (
-                        <div key={s.stage} className="flex items-center gap-3">
-                          <span className="text-xs w-20 flex-shrink-0" style={{ color: cfg.color }}>{cfg.label}</span>
-                          <div className="flex-1 h-5 rounded-md overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                            <div className="h-full rounded-md transition-all duration-500"
-                              style={{ width: `${s.value > 0 ? Math.max((s.value / maxVal) * 100, 4) : 0}%`, background: `${cfg.color}30`, borderRight: s.value > 0 ? `2px solid ${cfg.color}` : 'none' }} />
-                          </div>
-                          <div className="text-right flex-shrink-0 w-28">
-                            <span className="text-xs font-semibold text-white">{fmtR(s.value)}</span>
-                            <span className="text-[10px] ml-2" style={{ color: 'rgba(100,116,139,0.45)' }}>{s.count} neg.</span>
-                          </div>
-                        </div>
-                      );
-                    })}
+          <div className="space-y-2">
+            {crmContacts.map(c => {
+              const cfg = stageCfg(c.stage);
+              return (
+                <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-xl group"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
+                    style={{ background: 'rgba(255,255,255,0.06)' }}>
+                    {c.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{c.name}</p>
+                    <p className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      {[c.email, c.phone].filter(Boolean).join(' · ') || 'sem contato'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <select value={c.stage} onChange={e => updateContactStage(c.id, e.target.value)}
+                      className="text-xs px-2 py-1 rounded-md outline-none cursor-pointer"
+                      style={{ background: `${cfg.color}15`, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
+                      {STAGES_CRM.map(s => <option key={s.id} value={s.id} style={{ background: '#0d0d22', color: s.color }}>{s.label}</option>)}
+                    </select>
+                    <button onClick={() => openEditContact(c)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}><Pencil size={13} /></button>
+                    <button onClick={() => deleteContact(c.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg" style={{ color: 'rgba(248,113,113,0.6)' }}><Trash2 size={13} /></button>
                   </div>
                 </div>
-
-                {/* Leads do marketing */}
-                <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(52,211,153,0.08)' }}>
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(52,211,153,0.1)' }}>
-                      <Zap size={16} style={{ color: '#34d399' }} />
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">Leads do marketing</p>
-                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>Contatos gerados por campanhas</p>
-                    </div>
-                    <div className="ml-auto">
-                      <span className="text-2xl font-bold" style={{ color: '#34d399' }}>{fmtN(crmDash.contacts?.from_marketing ?? 0)}</span>
-                    </div>
-                  </div>
-                  <p className="text-xs mt-3 pl-11" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                    O marketing gera os leads — o comercial fecha os negócios.
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* ── LEADS ── */}
-            {crmTab === 'leads' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>{crmContacts.length} contatos</p>
-                  <button onClick={openNewContact}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:opacity-90"
-                    style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                    <UserPlus size={14} />
-                    Novo contato
-                  </button>
-                </div>
-
-                {crmContacts.length === 0 ? (
-                  <div className="text-center py-16 rounded-2xl" style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
-                    <Users size={32} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.3)' }} />
-                    <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum contato ainda</p>
-                    <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.25)' }}>Adicione leads manualmente ou eles virão do marketing</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {crmContacts.map(c => {
-                      const cfg = stageCfg(c.stage);
-                      return (
-                        <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-xl group"
-                          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                          <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
-                            style={{ background: 'rgba(255,255,255,0.06)' }}>
-                            {c.name.charAt(0).toUpperCase()}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{c.name}</p>
-                            <p className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                              {[c.email, c.phone].filter(Boolean).join(' · ') || 'sem contato'}
-                            </p>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <select value={c.stage}
-                              onChange={e => updateContactStage(c.id, e.target.value)}
-                              className="text-xs px-2 py-1 rounded-md outline-none cursor-pointer"
-                              style={{ ...selectStyle, color: cfg.color, background: `${cfg.color}15`, border: `1px solid ${cfg.color}30` }}>
-                              {STAGES_CRM.map(s => <option key={s.id} value={s.id} style={{ background: '#0d0d22', color: s.color }}>{s.label}</option>)}
-                            </select>
-                            <button onClick={() => openEditContact(c)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
-                              style={{ color: 'rgba(100,116,139,0.6)' }}>
-                              <Pencil size={13} />
-                            </button>
-                            <button onClick={() => deleteContact(c.id)}
-                              className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
-                              style={{ color: 'rgba(248,113,113,0.6)' }}>
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* ── PIPELINE ── */}
-            {crmTab === 'pipeline' && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>{crmDeals.length} negócios</p>
-                  <button onClick={openNewDeal}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-all hover:opacity-90"
-                    style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                    <Plus size={14} />
-                    Novo negócio
-                  </button>
-                </div>
-
-                {crmDeals.length === 0 ? (
-                  <div className="text-center py-16 rounded-2xl" style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
-                    <Kanban size={32} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.3)' }} />
-                    <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum negócio no pipeline</p>
-                  </div>
-                ) : (
-                  <div className="space-y-6">
-                    {STAGES_CRM.map(stage => {
-                      const stageDeals = crmDeals.filter(d => d.stage === stage.id);
-                      if (stageDeals.length === 0) return null;
-                      const stageTotal = stageDeals.reduce((sum, d) => sum + (d.value || 0), 0);
-                      return (
-                        <div key={stage.id}>
-                          <div className="flex items-center gap-2 mb-2">
-                            <div className="w-2 h-2 rounded-full" style={{ background: stage.color }} />
-                            <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: stage.color }}>{stage.label}</span>
-                            <span className="text-xs ml-1" style={{ color: 'rgba(100,116,139,0.4)' }}>{stageDeals.length} · {fmtR(stageTotal)}</span>
-                          </div>
-                          <div className="space-y-2">
-                            {stageDeals.map(d => (
-                              <div key={d.id} className="flex items-center gap-4 px-4 py-3 rounded-xl group"
-                                style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${stage.color}18` }}>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-white">{d.title}</p>
-                                  {d.contact_name && (
-                                    <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                                      <Phone size={10} />
-                                      {d.contact_name}
-                                    </p>
-                                  )}
-                                </div>
-                                <div className="flex items-center gap-3 flex-shrink-0">
-                                  <div className="text-right">
-                                    <p className="text-sm font-semibold" style={{ color: stage.id === 'fechado' ? '#34d399' : 'white' }}>
-                                      {fmtR(d.value || 0)}
-                                    </p>
-                                    <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{d.probability}%</p>
-                                  </div>
-                                  <button onClick={() => openEditDeal(d)}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
-                                    style={{ color: 'rgba(100,116,139,0.6)' }}>
-                                    <Pencil size={13} />
-                                  </button>
-                                  <button onClick={() => deleteDeal(d.id)}
-                                    className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
-                                    style={{ color: 'rgba(248,113,113,0.6)' }}>
-                                    <Trash2 size={13} />
-                                  </button>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* Contact modal */}
-        {contactModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-            <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold text-white">{editingContact ? 'Editar contato' : 'Novo contato'}</h3>
-                <button onClick={() => setContactModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
-              </div>
-              {(['name', 'email', 'phone'] as const).map(field => (
-                <input key={field} value={contactForm[field]} onChange={e => setContactForm(p => ({ ...p, [field]: e.target.value }))}
-                  placeholder={{ name: 'Nome *', email: 'E-mail', phone: 'Telefone' }[field]}
-                  className={inputCls} style={inputStyle} />
-              ))}
-              <select value={contactForm.source} onChange={e => setContactForm(p => ({ ...p, source: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={selectStyle}>
-                <option value="manual">Manual</option>
-                <option value="marketing">Marketing</option>
-                <option value="indicacao">Indicação</option>
-                <option value="evento">Evento</option>
-              </select>
-              <textarea value={contactForm.notes} onChange={e => setContactForm(p => ({ ...p, notes: e.target.value }))}
-                placeholder="Observações" rows={2}
-                className={inputCls} style={inputStyle} />
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => setContactModal(false)} className="flex-1 py-2 rounded-lg text-sm" style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>Cancelar</button>
-                <button onClick={saveContact} disabled={savingContact || !contactForm.name.trim()}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
-                  style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
-                  {savingContact ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
-            </div>
+              );
+            })}
           </div>
         )}
+      </div>
+    );
+  }
 
-        {/* Deal modal */}
-        {dealModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
-            <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)' }}>
-              <div className="flex items-center justify-between">
-                <h3 className="text-base font-semibold text-white">{editingDeal ? 'Editar negócio' : 'Novo negócio'}</h3>
-                <button onClick={() => setDealModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
-              </div>
-              <input value={dealForm.title} onChange={e => setDealForm(p => ({ ...p, title: e.target.value }))}
-                placeholder="Título do negócio *" className={inputCls} style={inputStyle} />
-              <div className="grid grid-cols-2 gap-3">
-                <input value={dealForm.value} onChange={e => setDealForm(p => ({ ...p, value: e.target.value }))}
-                  placeholder="Valor (R$)" type="number" className={inputCls} style={inputStyle} />
-                <input value={dealForm.probability} onChange={e => setDealForm(p => ({ ...p, probability: e.target.value }))}
-                  placeholder="Probabilidade %" type="number" min="0" max="100" className={inputCls} style={inputStyle} />
-              </div>
-              <select value={dealForm.stage} onChange={e => setDealForm(p => ({ ...p, stage: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={selectStyle}>
-                {STAGES_CRM.map(s => <option key={s.id} value={s.id} style={{ background: '#0d0d22' }}>{s.label}</option>)}
-              </select>
-              <select value={dealForm.client_contact_id} onChange={e => setDealForm(p => ({ ...p, client_contact_id: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={selectStyle}>
-                <option value="">Nenhum contato vinculado</option>
-                {crmContacts.map(c => <option key={c.id} value={String(c.id)} style={{ background: '#0d0d22' }}>{c.name}</option>)}
-              </select>
-              <textarea value={dealForm.notes} onChange={e => setDealForm(p => ({ ...p, notes: e.target.value }))}
-                placeholder="Observações" rows={2} className={inputCls} style={inputStyle} />
-              <div className="flex gap-2 pt-2">
-                <button onClick={() => setDealModal(false)} className="flex-1 py-2 rounded-lg text-sm" style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>Cancelar</button>
-                <button onClick={saveDeal} disabled={savingDeal || !dealForm.title.trim()}
-                  className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
-                  style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
-                  {savingDeal ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
-            </div>
+  function PageCrmPipeline() {
+    if (crmLoading) return <CrmSpinner />;
+    return (
+      <div className="space-y-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-2xl font-semibold text-white mb-1">Pipeline</h2>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>{crmDeals.length} negócios em aberto</p>
+          </div>
+          <button onClick={openNewDeal}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white flex-shrink-0"
+            style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}>
+            <Plus size={14} /> Novo negócio
+          </button>
+        </div>
+        {crmDeals.length === 0 ? (
+          <div className="text-center py-16 rounded-2xl" style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
+            <Kanban size={32} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.3)' }} />
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum negócio no pipeline</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {STAGES_CRM.map(stage => {
+              const stageDeals = crmDeals.filter(d => d.stage === stage.id);
+              if (stageDeals.length === 0) return null;
+              const stageTotal = stageDeals.reduce((sum, d) => sum + (d.value || 0), 0);
+              return (
+                <div key={stage.id}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2 h-2 rounded-full" style={{ background: stage.color }} />
+                    <span className="text-xs font-semibold uppercase tracking-wider" style={{ color: stage.color }}>{stage.label}</span>
+                    <span className="text-xs ml-1" style={{ color: 'rgba(100,116,139,0.4)' }}>{stageDeals.length} · {fmtR(stageTotal)}</span>
+                  </div>
+                  <div className="space-y-2">
+                    {stageDeals.map(d => (
+                      <div key={d.id} className="flex items-center gap-4 px-4 py-3 rounded-xl group"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: `1px solid ${stage.color}18` }}>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white">{d.title}</p>
+                          {d.contact_name && (
+                            <p className="text-xs mt-0.5 flex items-center gap-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                              <Phone size={10} />{d.contact_name}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          <div className="text-right">
+                            <p className="text-sm font-semibold" style={{ color: stage.id === 'fechado' ? '#34d399' : 'white' }}>{fmtR(d.value || 0)}</p>
+                            <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{d.probability}%</p>
+                          </div>
+                          <button onClick={() => openEditDeal(d)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}><Pencil size={13} /></button>
+                          <button onClick={() => deleteDeal(d.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg" style={{ color: 'rgba(248,113,113,0.6)' }}><Trash2 size={13} /></button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -1355,7 +1207,9 @@ export default function ClientPortal() {
     aprovacoes:     <PageAprovacoes />,
     feed:           <PageFeed />,
     campanhas:      <PageCampanhas />,
-    comercial: <PageComercial />,
+    crm_dashboard:  <PageCrmDashboard />,
+    crm_contatos:   <PageCrmContatos />,
+    crm_pipeline:   <PageCrmPipeline />,
   };
 
   return (
@@ -1484,6 +1338,79 @@ export default function ClientPortal() {
                   <button onClick={handleComment} disabled={sendingComment || !comment.trim()} className="btn-primary px-3"><Send size={13} /></button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CRM — Contact modal */}
+      {contactModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-white">{editingContact ? 'Editar contato' : 'Novo contato'}</h3>
+              <button onClick={() => setContactModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
+            </div>
+            {(['name', 'email', 'phone'] as const).map(field => (
+              <input key={field} value={contactForm[field]} onChange={e => setContactForm(p => ({ ...p, [field]: e.target.value }))}
+                placeholder={{ name: 'Nome *', email: 'E-mail', phone: 'Telefone' }[field]}
+                className={crmInputCls} style={crmInputStyle} />
+            ))}
+            <select value={contactForm.source} onChange={e => setContactForm(p => ({ ...p, source: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={crmSelectStyle}>
+              <option value="manual">Manual</option>
+              <option value="marketing">Marketing</option>
+              <option value="indicacao">Indicação</option>
+              <option value="evento">Evento</option>
+            </select>
+            <textarea value={contactForm.notes} onChange={e => setContactForm(p => ({ ...p, notes: e.target.value }))}
+              placeholder="Observações" rows={2} className={crmInputCls} style={crmInputStyle} />
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setContactModal(false)} className="flex-1 py-2 rounded-lg text-sm" style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>Cancelar</button>
+              <button onClick={saveContact} disabled={savingContact || !contactForm.name.trim()}
+                className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
+                style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                {savingContact ? 'Salvando…' : 'Salvar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CRM — Deal modal */}
+      {dealModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-white">{editingDeal ? 'Editar negócio' : 'Novo negócio'}</h3>
+              <button onClick={() => setDealModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
+            </div>
+            <input value={dealForm.title} onChange={e => setDealForm(p => ({ ...p, title: e.target.value }))}
+              placeholder="Título do negócio *" className={crmInputCls} style={crmInputStyle} />
+            <div className="grid grid-cols-2 gap-3">
+              <input value={dealForm.value} onChange={e => setDealForm(p => ({ ...p, value: e.target.value }))}
+                placeholder="Valor (R$)" type="number" className={crmInputCls} style={crmInputStyle} />
+              <input value={dealForm.probability} onChange={e => setDealForm(p => ({ ...p, probability: e.target.value }))}
+                placeholder="Probabilidade %" type="number" min="0" max="100" className={crmInputCls} style={crmInputStyle} />
+            </div>
+            <select value={dealForm.stage} onChange={e => setDealForm(p => ({ ...p, stage: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={crmSelectStyle}>
+              {STAGES_CRM.map(s => <option key={s.id} value={s.id} style={{ background: '#0d0d22' }}>{s.label}</option>)}
+            </select>
+            <select value={dealForm.client_contact_id} onChange={e => setDealForm(p => ({ ...p, client_contact_id: e.target.value }))}
+              className="w-full px-3 py-2 rounded-lg text-sm outline-none" style={crmSelectStyle}>
+              <option value="">Nenhum contato vinculado</option>
+              {crmContacts.map(c => <option key={c.id} value={String(c.id)} style={{ background: '#0d0d22' }}>{c.name}</option>)}
+            </select>
+            <textarea value={dealForm.notes} onChange={e => setDealForm(p => ({ ...p, notes: e.target.value }))}
+              placeholder="Observações" rows={2} className={crmInputCls} style={crmInputStyle} />
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setDealModal(false)} className="flex-1 py-2 rounded-lg text-sm" style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>Cancelar</button>
+              <button onClick={saveDeal} disabled={savingDeal || !dealForm.title.trim()}
+                className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
+                style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                {savingDeal ? 'Salvando…' : 'Salvar'}
+              </button>
             </div>
           </div>
         </div>
