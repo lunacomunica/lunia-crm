@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, Trash2, ChevronDown, FileImage, Calendar, Clock, CheckCircle2, RotateCcw, Send, Eye, Plus, Zap, Check, Upload, ChevronLeft, ChevronRight, Play, Image as ImageIcon, Video } from 'lucide-react';
+import { X, Trash2, ChevronDown, FileImage, Calendar, Clock, CheckCircle2, RotateCcw, Send, Eye, Plus, Zap, Check, Upload, ChevronLeft, ChevronRight, Play, Pause, Image as ImageIcon, Video, AlertTriangle } from 'lucide-react';
 import { contentApi, usersApi, uploadApi, tasksApi } from '../../api/client';
 import { ContentPiece, ContentStatus } from '../../types';
 
@@ -249,7 +249,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   );
   const [creatingFlow, setCreatingFlow] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', assigned_to: '' });
+  const [newTask, setNewTask] = useState({ title: '', assigned_to: '', due_date: '', priority: 'alta' });
   const [savingTask, setSavingTask] = useState(false);
 
   useEffect(() => {
@@ -335,13 +335,22 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
       assigned_to: newTask.assigned_to ? Number(newTask.assigned_to) : null,
       content_piece_id: post.id,
       agency_client_id: post.agency_client_id,
-      priority: 'alta',
+      priority: newTask.priority,
+      due_date: newTask.due_date || null,
       stage: 'geral',
     });
     setTasks(prev => [...prev, r.data]);
-    setNewTask({ title: '', assigned_to: '' });
+    setNewTask({ title: '', assigned_to: '', due_date: '', priority: 'alta' });
     setShowTaskForm(false);
     setSavingTask(false);
+  };
+
+  const handleTaskAction = async (id: number, action: 'start' | 'pause' | 'complete') => {
+    if (action === 'start') await tasksApi.start(id);
+    else if (action === 'pause') await tasksApi.pause(id);
+    else await tasksApi.complete(id);
+    const r = await contentApi.getTasks(post.id);
+    setTasks(r.data || []);
   };
 
   const handleCreateFlow = async () => {
@@ -548,7 +557,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                     <Zap size={11} /> Criar fluxo
                   </button>
                 )}
-                <button onClick={() => { setShowTaskForm(true); setNewTask({ title: '', assigned_to: '' }); }}
+                <button onClick={() => { setShowTaskForm(true); setNewTask({ title: '', assigned_to: '', due_date: '', priority: 'alta' }); }}
                   className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
                   style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
@@ -569,27 +578,60 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
               <div className="space-y-2">
                 {tasks.map((t: any) => {
                   const sc = TASK_STATUS_CFG[t.status] || TASK_STATUS_CFG.a_fazer;
+                  const isRunning = t.status === 'em_andamento';
+                  const isDone = t.status === 'concluida';
+                  const PRIORITY_COLOR: Record<string, string> = { urgente: '#f87171', alta: '#fb923c', media: '#facc15', baixa: '#94a3b8' };
+                  const pColor = PRIORITY_COLOR[t.priority] || '#94a3b8';
                   return (
                     <div key={t.id} className="rounded-xl px-3 py-2.5"
-                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div className="flex items-center gap-3">
-                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sc.color }} />
-                        <p className="text-xs font-medium text-white flex-1 truncate">{t.title}</p>
-                        <span className="text-[10px] font-medium flex-shrink-0" style={{ color: sc.color }}>{sc.label}</span>
+                      style={{ background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isDone ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.05)'}`, opacity: isDone ? 0.7 : 1 }}>
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: sc.color }} />
+                        <p className="text-xs font-medium text-white flex-1 truncate" style={{ textDecoration: isDone ? 'line-through' : 'none' }}>{t.title}</p>
+                        {t.priority && t.priority !== 'media' && (
+                          <AlertTriangle size={9} style={{ color: pColor, flexShrink: 0 }} />
+                        )}
+                        {!isDone && (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            {isRunning ? (
+                              <button onClick={() => handleTaskAction(t.id, 'pause')} title="Pausar"
+                                className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
+                                style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
+                                <Pause size={9} />
+                              </button>
+                            ) : (
+                              <button onClick={() => handleTaskAction(t.id, 'start')} title="Iniciar"
+                                className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
+                                style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>
+                                <Play size={9} />
+                              </button>
+                            )}
+                            <button onClick={() => handleTaskAction(t.id, 'complete')} title="Concluir"
+                              className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
+                              style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
+                              <Check size={9} />
+                            </button>
+                          </div>
+                        )}
                       </div>
-                      <div className="mt-2 ml-5">
-                        <select
-                          value={t.assigned_to || ''}
+                      <div className="mt-1.5 flex items-center gap-2 ml-3.5">
+                        <select value={t.assigned_to || ''}
                           onChange={async e => {
                             const uid = e.target.value ? Number(e.target.value) : null;
                             await tasksApi.update(t.id, { assigned_to: uid });
                             setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assigned_to: uid, assignee_name: users.find((u: any) => u.id === uid)?.name || null } : x));
                           }}
-                          className="text-[11px] rounded-lg px-2 py-1 outline-none w-full"
-                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: t.assigned_to ? 'rgba(148,163,184,0.9)' : 'rgba(100,116,139,0.45)', cursor: 'pointer' }}>
+                          className="text-[11px] rounded-lg px-2 py-1 outline-none flex-1"
+                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: t.assigned_to ? 'rgba(148,163,184,0.8)' : 'rgba(100,116,139,0.4)', cursor: 'pointer' }}>
                           <option value="">Sem responsável</option>
                           {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
                         </select>
+                        {t.due_date && (
+                          <span className="text-[10px] flex-shrink-0 flex items-center gap-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                            <Calendar size={9} />{t.due_date.slice(0,10)}
+                          </span>
+                        )}
+                        <span className="text-[10px] flex-shrink-0" style={{ color: sc.color }}>{sc.label}</span>
                       </div>
                     </div>
                   );
@@ -604,15 +646,25 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                 <input
                   value={newTask.title}
                   onChange={e => setNewTask(n => ({ ...n, title: e.target.value }))}
-                  onKeyDown={e => e.key === 'Enter' && handleAddTask()}
                   placeholder="Título da tarefa…"
                   autoFocus
                   className="w-full px-3 py-2 rounded-lg text-xs text-white outline-none"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
                 />
-                <select
-                  value={newTask.assigned_to}
-                  onChange={e => setNewTask(n => ({ ...n, assigned_to: e.target.value }))}
+                <div className="grid grid-cols-2 gap-2">
+                  <select value={newTask.priority} onChange={e => setNewTask(n => ({ ...n, priority: e.target.value }))}
+                    className="px-3 py-2 rounded-lg text-xs outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.9)', cursor: 'pointer' }}>
+                    <option value="urgente">Urgente</option>
+                    <option value="alta">Alta</option>
+                    <option value="media">Média</option>
+                    <option value="baixa">Baixa</option>
+                  </select>
+                  <input type="date" value={newTask.due_date} onChange={e => setNewTask(n => ({ ...n, due_date: e.target.value }))}
+                    className="px-3 py-2 rounded-lg text-xs outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.9)' }} />
+                </div>
+                <select value={newTask.assigned_to} onChange={e => setNewTask(n => ({ ...n, assigned_to: e.target.value }))}
                   className="w-full px-3 py-2 rounded-lg text-xs outline-none"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: newTask.assigned_to ? 'rgba(148,163,184,0.9)' : 'rgba(100,116,139,0.45)', cursor: 'pointer' }}>
                   <option value="">Sem responsável</option>
