@@ -351,6 +351,9 @@ const migrations = [
   "ALTER TABLE content_pieces ADD COLUMN batch_id INTEGER REFERENCES feed_batches(id) ON DELETE SET NULL",
   "ALTER TABLE content_pieces ADD COLUMN copy_text TEXT DEFAULT ''",
   "ALTER TABLE content_pieces ADD COLUMN media_files TEXT DEFAULT '[]'",
+  "ALTER TABLE content_pieces ADD COLUMN copy_hook TEXT DEFAULT ''",
+  "ALTER TABLE content_pieces ADD COLUMN copy_cta TEXT DEFAULT ''",
+  "ALTER TABLE content_pieces ADD COLUMN post_references TEXT DEFAULT '[]'",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

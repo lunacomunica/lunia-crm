@@ -362,7 +362,7 @@ export default function Production() {
       {/* Template modal */}
       {templateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }} onClick={() => setTemplateModal(false)}>
-          <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#0d0d22', border: '1px solid rgba(167,139,250,0.2)' }} onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#0d0d22', border: '1px solid rgba(167,139,250,0.2)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(167,139,250,0.1)' }}>
               <h3 className="text-base font-semibold text-white">{editingTemplate ? 'Editar template' : 'Novo template'}</h3>
               <div className="flex items-center gap-2">
@@ -394,10 +394,10 @@ export default function Production() {
                       <span className="text-sm font-medium" style={{ color: s.active ? '#e2e8f0' : 'rgba(100,116,139,0.4)' }}>{s.label}</span>
                     </div>
                     {s.active && (
-                      <div className="pl-7">
+                      <div className="mt-2">
                         <label className="text-[10px] mb-1 block" style={{ color: 'rgba(100,116,139,0.5)' }}>Responsável padrão</label>
                         <select value={s.assigned_to} onChange={e => setTplStages(prev => prev.map((st, j) => j === i ? { ...st, assigned_to: e.target.value } : st))}
-                          className="input-dark w-full text-xs py-1.5">
+                          className="input-dark w-full text-sm">
                           <option value="">Sem responsável padrão</option>
                           {users.map(u => <option key={u.id} value={u.id}>{u.name}{u.job_title ? ` — ${u.job_title}` : ''}</option>)}
                         </select>

@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { X, Trash2, ChevronDown, FileImage, Calendar, Clock, CheckCircle2, RotateCcw, Send, Eye, Plus, Zap, Check, Upload, ChevronLeft, ChevronRight, Play, Pause, Image as ImageIcon, Video, AlertTriangle } from 'lucide-react';
+import { X, Trash2, ChevronDown, FileImage, Calendar, Clock, CheckCircle2, RotateCcw, Send, Eye, Plus, Zap, Check, Upload, ChevronLeft, ChevronRight, Play, Pause, Image as ImageIcon, Video, AlertTriangle, Link, ExternalLink } from 'lucide-react';
 import { contentApi, usersApi, uploadApi, tasksApi } from '../../api/client';
 import { ContentPiece, ContentStatus } from '../../types';
 
@@ -225,8 +225,16 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
     status: post.status,
     caption: post.caption || '',
     objective: post.objective || '',
-    copy_text: post.copy_text || '',
+    copy_text: (post as any).copy_text || '',
+    copy_hook: (post as any).copy_hook || '',
+    copy_cta: (post as any).copy_cta || '',
   });
+
+  const [references, setReferences] = useState<{ url: string; label: string }[]>(() => {
+    try { return JSON.parse((post as any).post_references || '[]'); } catch { return []; }
+  });
+  const [newRef, setNewRef] = useState('');
+  const [newRefLabel, setNewRefLabel] = useState('');
 
   // Parse existing media_files, fall back to media_url for legacy posts
   const [mediaFiles, setMediaFiles] = useState<MediaFile[]>(() => {
@@ -302,6 +310,12 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
     });
   };
 
+  const addRef = () => {
+    if (!newRef.trim()) return;
+    setReferences(prev => [...prev, { url: newRef.trim(), label: newRefLabel.trim() }]);
+    setNewRef(''); setNewRefLabel('');
+  };
+
   const handleSave = async () => {
     setSaving(true);
     const r = await contentApi.update(post.id, {
@@ -309,8 +323,8 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
       agency_client_id: post.agency_client_id,
       batch_id: (post as any).batch_id,
       media_files: JSON.stringify(mediaFiles),
-      // Keep media_url as first image URL for backward compat with thumbnails
       media_url: carouselImages[0]?.url || reelsVideo?.url || '',
+      post_references: JSON.stringify(references),
     });
     setSaving(false);
     onUpdated(r.data);
@@ -535,12 +549,73 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
               placeholder="Texto do post para publicação…" />
           </div>
 
-          {/* Copy & Referências */}
-          <div>
-            <label className={labelCls} style={labelStyle}>Copy & Referências</label>
-            <textarea value={form.copy_text} onChange={e => setForm(f => ({ ...f, copy_text: e.target.value }))}
-              rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none' }}
-              placeholder="Briefing para o designer: copies, referências visuais, orientações de estilo…" />
+          {/* Copy */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.1)' }}>
+            <div className="px-4 py-2.5" style={{ background: 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(59,130,246,0.7)' }}>Copy</span>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className={labelCls} style={labelStyle}>Hook / Título</label>
+                <input value={form.copy_hook} onChange={e => setForm(f => ({ ...f, copy_hook: e.target.value }))}
+                  className={inputCls} style={inputStyle} placeholder="Frase de abertura que prende a atenção…" />
+              </div>
+              <div>
+                <label className={labelCls} style={labelStyle}>Corpo</label>
+                <textarea value={form.copy_text} onChange={e => setForm(f => ({ ...f, copy_text: e.target.value }))}
+                  rows={3} className={inputCls} style={{ ...inputStyle, resize: 'none' }}
+                  placeholder="Desenvolvimento do texto…" />
+              </div>
+              <div>
+                <label className={labelCls} style={labelStyle}>CTA</label>
+                <input value={form.copy_cta} onChange={e => setForm(f => ({ ...f, copy_cta: e.target.value }))}
+                  className={inputCls} style={inputStyle} placeholder="Chamada para ação final…" />
+              </div>
+            </div>
+          </div>
+
+          {/* Referências */}
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(167,139,250,0.12)' }}>
+            <div className="px-4 py-2.5" style={{ background: 'rgba(167,139,250,0.04)', borderBottom: '1px solid rgba(167,139,250,0.08)' }}>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(167,139,250,0.7)' }}>Referências</span>
+            </div>
+            <div className="p-4 space-y-2">
+              {references.map((r, i) => (
+                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl group"
+                  style={{ background: 'rgba(167,139,250,0.05)', border: '1px solid rgba(167,139,250,0.1)' }}>
+                  <Link size={11} style={{ color: 'rgba(167,139,250,0.6)', flexShrink: 0 }} />
+                  <div className="flex-1 min-w-0">
+                    {r.label && <p className="text-xs font-medium text-white truncate">{r.label}</p>}
+                    <a href={r.url} target="_blank" rel="noreferrer"
+                      className="text-[11px] truncate block hover:underline"
+                      style={{ color: 'rgba(167,139,250,0.7)' }} onClick={e => e.stopPropagation()}>
+                      {r.url}
+                    </a>
+                  </div>
+                  <button onClick={() => setReferences(prev => prev.filter((_, j) => j !== i))}
+                    className="opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity flex-shrink-0"
+                    style={{ color: 'rgba(100,116,139,0.5)' }}>
+                    <X size={11} />
+                  </button>
+                </div>
+              ))}
+              <div className="space-y-2 pt-1">
+                <input value={newRefLabel} onChange={e => setNewRefLabel(e.target.value)}
+                  className={inputCls} style={{ ...inputStyle, fontSize: 12 }}
+                  placeholder="Nome / descrição (opcional)" />
+                <div className="flex gap-2">
+                  <input value={newRef} onChange={e => setNewRef(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && addRef()}
+                    className={`${inputCls} flex-1`} style={{ ...inputStyle, fontSize: 12 }}
+                    placeholder="https://…" />
+                  <button onClick={addRef} disabled={!newRef.trim()}
+                    className="px-3 rounded-xl text-xs font-medium disabled:opacity-30 flex-shrink-0"
+                    style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
+                    <Plus size={13} />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Produção interna */}
