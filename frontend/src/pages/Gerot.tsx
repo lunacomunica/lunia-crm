@@ -81,7 +81,7 @@ function ElapsedTimer({ startedAt, baseMinutes }: { startedAt: string; baseMinut
 
 const EMPTY_FORM = {
   title: '', description: '', assigned_to: '', agency_client_id: '',
-  priority: 'media', due_date: '', estimated_minutes: '',
+  priority: 'media', due_date: '', est_hours: '', est_minutes: '',
 };
 
 export default function Gerot() {
@@ -114,10 +114,8 @@ export default function Gerot() {
 
   useEffect(() => {
     agencyClientsApi.list().then(r => setClients(r.data));
-    if (isAdmin) {
-      fetch('/api/users', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } })
-        .then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
-    }
+    fetch('/api/users', { headers: { Authorization: `Bearer ${localStorage.getItem('lunia_token')}` } })
+      .then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
   }, []);
 
   const handleStart = async (id: number) => {
@@ -154,11 +152,13 @@ export default function Gerot() {
   const handleCreate = async () => {
     if (!form.title) return;
     setSaving(true);
+    const estimated_minutes = (Number(form.est_hours || 0) * 60) + Number(form.est_minutes || 0) || null;
     const r = await tasksApi.create({
-      ...form,
+      title: form.title, description: form.description,
       assigned_to: form.assigned_to || null,
       agency_client_id: form.agency_client_id || null,
-      estimated_minutes: form.estimated_minutes ? Number(form.estimated_minutes) : null,
+      priority: form.priority, due_date: form.due_date || null,
+      estimated_minutes,
     });
     setTasks(prev => [r.data, ...prev]);
     setModal(false);
@@ -465,7 +465,7 @@ export default function Gerot() {
                     {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
-                {isAdmin && users.length > 0 && (
+                {users.length > 0 && (
                   <div>
                     <label className="label-dark">Responsável</label>
                     <select value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}
@@ -477,9 +477,26 @@ export default function Gerot() {
                 )}
               </div>
               <div>
-                <label className="label-dark">Tempo estimado (min)</label>
-                <input type="number" value={form.estimated_minutes} onChange={e => setForm(f => ({ ...f, estimated_minutes: e.target.value }))}
-                  placeholder="Ex: 60" className="input-dark w-full mt-1 text-sm" min="1" />
+                <label className="label-dark">Tempo estimado</label>
+                <div className="flex gap-2 mt-1">
+                  <div className="relative flex-1">
+                    <input type="number" value={form.est_hours} onChange={e => setForm(f => ({ ...f, est_hours: e.target.value }))}
+                      placeholder="0" className="input-dark w-full text-sm pr-8" min="0" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                      style={{ color: 'rgba(100,116,139,0.5)' }}>h</span>
+                  </div>
+                  <div className="relative flex-1">
+                    <input type="number" value={form.est_minutes} onChange={e => setForm(f => ({ ...f, est_minutes: e.target.value }))}
+                      placeholder="0" className="input-dark w-full text-sm pr-10" min="0" max="59" />
+                    <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs pointer-events-none"
+                      style={{ color: 'rgba(100,116,139,0.5)' }}>min</span>
+                  </div>
+                </div>
+                {(form.est_hours || form.est_minutes) && (
+                  <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.45)' }}>
+                    = {fmtTime((Number(form.est_hours || 0) * 60) + Number(form.est_minutes || 0))}
+                  </p>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button onClick={() => setModal(false)} className="btn-ghost flex-1 justify-center">Cancelar</button>
