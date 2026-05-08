@@ -40,6 +40,61 @@ router.delete('/batches/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+// ── Production overview (all batches with workflow status) ───────────────────
+router.get('/batches/production', (req, res) => {
+  const rows = db.prepare(`
+    SELECT
+      fb.id, fb.name, fb.month, fb.year, fb.agency_client_id,
+      ac.name as client_name, ac.logo as client_logo,
+      COUNT(DISTINCT cp.id) as post_count,
+      COUNT(DISTINCT t.id) as task_count,
+      SUM(CASE WHEN t.status = 'concluida' THEN 1 ELSE 0 END) as tasks_done,
+      SUM(CASE WHEN t.status != 'concluida' THEN 1 ELSE 0 END) as tasks_open
+    FROM feed_batches fb
+    LEFT JOIN agency_clients ac ON ac.id = fb.agency_client_id
+    LEFT JOIN content_pieces cp ON cp.batch_id = fb.id AND cp.tenant_id = fb.tenant_id
+    LEFT JOIN tasks t ON t.content_piece_id = cp.id
+      AND t.stage IN ('copy','design','edicao','revisao')
+      AND t.tenant_id = fb.tenant_id
+    WHERE fb.tenant_id = ?
+    GROUP BY fb.id
+    ORDER BY ac.name ASC, fb.year DESC, fb.month DESC
+  `).all(req.user.tenant_id);
+  res.json(rows);
+});
+
+// ── Bulk workflow (apply to multiple batches) ────────────────────────────────
+router.post('/batches/bulk-workflow', (req, res) => {
+  const { batch_ids, stages } = req.body as { batch_ids: number[]; stages: { stage: string; label: string; active: boolean; assigned_to?: number; due_date?: string }[] };
+  if (!batch_ids?.length || !stages?.length) return res.status(400).json({ error: 'batch_ids e stages obrigatórios' });
+
+  let created = 0;
+  for (const batchId of batch_ids) {
+    const batch = db.prepare('SELECT * FROM feed_batches WHERE id = ? AND tenant_id = ?').get(batchId, req.user.tenant_id) as any;
+    if (!batch) continue;
+    const posts = db.prepare('SELECT * FROM content_pieces WHERE batch_id = ? AND tenant_id = ?').all(batchId, req.user.tenant_id) as any[];
+    for (const post of posts) {
+      for (const s of stages) {
+        if (!s.active) continue;
+        const exists = db.prepare('SELECT id FROM tasks WHERE content_piece_id = ? AND stage = ? AND tenant_id = ?').get(post.id, s.stage, req.user.tenant_id);
+        if (exists) continue;
+        db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, content_piece_id, agency_client_id, priority, stage, status, due_date) VALUES (?, ?, ?, ?, ?, ?, 'alta', ?, 'a_fazer', ?)`).run(
+          req.user.tenant_id,
+          `${s.label}: ${post.title}`,
+          s.assigned_to || null,
+          req.user.id,
+          post.id,
+          post.agency_client_id,
+          s.stage,
+          s.due_date || null
+        );
+        created++;
+      }
+    }
+  }
+  res.json({ created });
+});
+
 router.post('/batches/:id/workflow', (req, res) => {
   const batch = db.prepare('SELECT * FROM feed_batches WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id) as any;
   if (!batch) return res.status(404).json({ error: 'Feed não encontrado' });

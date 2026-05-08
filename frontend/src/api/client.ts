@@ -86,6 +86,15 @@ export const contentApi = {
   getTasks: (id: number) => api.get(`/content/${id}/tasks`),
   createWorkflow: (id: number, stages: any[]) => api.post(`/content/${id}/workflow`, { stages }),
   createBatchWorkflow: (batchId: number, stages: any[]) => api.post(`/content/batches/${batchId}/workflow`, { stages }),
+  productionBatches: () => api.get('/content/batches/production'),
+  bulkWorkflow: (batch_ids: number[], stages: any[]) => api.post('/content/batches/bulk-workflow', { batch_ids, stages }),
+};
+
+export const workflowTemplatesApi = {
+  list: () => api.get('/workflow-templates'),
+  create: (data: { name: string; stages: any[] }) => api.post('/workflow-templates', data),
+  update: (id: number, data: { name: string; stages: any[] }) => api.put(`/workflow-templates/${id}`, data),
+  delete: (id: number) => api.delete(`/workflow-templates/${id}`),
 };
 
 export const campaignsApi = {

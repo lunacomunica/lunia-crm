@@ -325,6 +325,14 @@ db.exec(`
     content TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now'))
   );
+
+  CREATE TABLE IF NOT EXISTS workflow_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    stages TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // Migrations: add tenant_id to existing tables if upgrading

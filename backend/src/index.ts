@@ -25,6 +25,7 @@ import tasksRouter from './routes/tasks.js';
 import clientPortalRouter from './routes/client-portal.js';
 import clientCrmRouter from './routes/client-crm.js';
 import uploadRouter from './routes/upload.js';
+import workflowTemplatesRouter from './routes/workflow-templates.js';
 import { authMiddleware } from './middleware/auth.js';
 import db from './db.js';
 
@@ -110,6 +111,7 @@ app.use('/api/upload', authMiddleware, uploadRouter);
 app.use('/api/tasks', authMiddleware, tasksRouter);
 app.use('/api/client-portal', authMiddleware, clientPortalRouter);
 app.use('/api/client-crm', authMiddleware, clientCrmRouter);
+app.use('/api/workflow-templates', authMiddleware, workflowTemplatesRouter);
 
 app.get('/privacy', (_req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
