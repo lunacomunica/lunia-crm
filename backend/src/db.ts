@@ -150,6 +150,17 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS feed_batches (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    month INTEGER,
+    year INTEGER,
+    order_num INTEGER DEFAULT 1,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id INTEGER NOT NULL DEFAULT 1,
@@ -329,6 +340,7 @@ const migrations = [
   "ALTER TABLE users ADD COLUMN job_title TEXT",
   "ALTER TABLE tasks ADD COLUMN stage TEXT DEFAULT 'geral'",
   "ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL",
+  "ALTER TABLE content_pieces ADD COLUMN batch_id INTEGER REFERENCES feed_batches(id) ON DELETE SET NULL",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

@@ -80,6 +80,9 @@ export const contentApi = {
   updateStatus: (id: number, status: string, comment?: string) => api.patch(`/content/${id}/status`, { status, comment }),
   addComment: (id: number, message: string) => api.post(`/content/${id}/comments`, { message }),
   delete: (id: number) => api.delete(`/content/${id}`),
+  listBatches: (params?: Record<string, string>) => api.get('/content/batches', { params }),
+  createBatch: (data: any) => api.post('/content/batches', data),
+  deleteBatch: (id: number) => api.delete(`/content/batches/${id}`),
 };
 
 export const campaignsApi = {
