@@ -353,6 +353,9 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   const [calMonthOffset, setCalMonthOffset] = useState(0);
   const [calMode, setCalMode] = useState<'semana' | 'mes'>('semana');
   const [showDone, setShowDone] = useState(false);
+  const [expandedUsers, setExpandedUsers] = useState<Set<number>>(new Set());
+  const [allTeamTasks, setAllTeamTasks] = useState<Task[]>([]);
+  const [loadingTeamTasks, setLoadingTeamTasks] = useState(false);
   const today = new Date();
 
   // Split tasks between mine and team
@@ -377,6 +380,19 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   useEffect(() => {
     tasksApi.teamOverview().then(r => setOverview(r.data));
   }, [tasks]);
+
+  useEffect(() => {
+    if (view === 'time') {
+      setLoadingTeamTasks(true);
+      tasksApi.list({}).then(r => { setAllTeamTasks(r.data); setLoadingTeamTasks(false); });
+    }
+  }, [view]);
+
+  const toggleUser = (uid: number) => setExpandedUsers(prev => {
+    const next = new Set(prev);
+    next.has(uid) ? next.delete(uid) : next.add(uid);
+    return next;
+  });
 
   const totalOpen     = overview?.team?.reduce((s: number, m: any) => s + m.tasks_open, 0) ?? 0;
   const totalDone     = overview?.team?.reduce((s: number, m: any) => s + m.tasks_done_week, 0) ?? 0;
@@ -744,198 +760,191 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
       {/* ── TIME view ──────────────────────────────────────────────────────── */}
       {view === 'time' && (
         <>
-
-
           {/* Summary stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        {[
-          { icon: CheckSquare,  label: 'Tarefas abertas',    value: totalOpen,                                  color: '#60a5fa' },
-          { icon: CheckCircle2, label: 'Concluídas semana',  value: totalDone,                                  color: '#34d399' },
-          { icon: Timer,        label: 'Horas esta semana',  value: totalMinutes > 0 ? fmtTime(totalMinutes) : '—', color: '#a78bfa' },
-          { icon: AlertTriangle,label: 'Atrasadas',          value: totalOverdue,                               color: totalOverdue > 0 ? '#f87171' : '#64748b' },
-        ].map(s => (
-          <div key={s.label} className="rounded-2xl px-4 py-4"
-            style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.08)' }}>
-            <s.icon size={16} className="mb-2" style={{ color: s.color }} />
-            <p className="text-xl font-bold text-white">{s.value}</p>
-            <p className="text-[10px] mt-0.5 leading-tight" style={{ color: 'rgba(100,116,139,0.5)' }}>{s.label}</p>
-          </div>
-        ))}
-      </div>
-
-      {/* Team members */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>
-            Equipe agora
-          </p>
-          <button onClick={onOpenModal} className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3">
-            <Plus size={13} /> Nova tarefa
-          </button>
-        </div>
-        {loading || !overview ? (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {overview.team?.map((member: any) => (
-              <div key={member.id} className="flex items-center gap-4 px-4 py-3 rounded-2xl"
-                style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: member.active_task ? '1px solid rgba(59,130,246,0.2)' : '1px solid rgba(59,130,246,0.07)' }}>
-                {/* Avatar */}
-                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
-                  {member.name.charAt(0)}
-                </div>
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <p className="text-sm font-medium text-white">{member.name}</p>
-                    {member.job_title && <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{member.job_title}</span>}
-                    {member.overdue_tasks > 0 && (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
-                        {member.overdue_tasks} atrasada{member.overdue_tasks > 1 ? 's' : ''}
-                      </span>
-                    )}
-                  </div>
-                  {member.active_task ? (
-                    <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(59,130,246,0.7)' }}>
-                      ▶ {member.active_task}
-                    </p>
-                  ) : (
-                    <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.35)' }}>
-                      Sem tarefa ativa
-                    </p>
-                  )}
-                </div>
-                {/* Stats */}
-                <div className="flex items-center gap-4 flex-shrink-0 text-right">
-                  <div>
-                    <p className="text-sm font-semibold text-white">{member.tasks_today}</p>
-                    <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>hoje</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: '#34d399' }}>{member.tasks_done_week}</p>
-                    <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>semana</p>
-                  </div>
-                  {member.minutes_week > 0 && (
-                    <div className="hidden sm:block">
-                      <p className="text-sm font-semibold" style={{ color: '#a78bfa' }}>{fmtTime(member.minutes_week)}</p>
-                      <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>registrado</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Bottlenecks */}
-      {overview?.bottlenecks?.length > 0 && (
-        <div className="mb-8">
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#f87171' }}>
-            Gargalos — {overview.bottlenecks.length} tarefa{overview.bottlenecks.length > 1 ? 's' : ''} atrasada{overview.bottlenecks.length > 1 ? 's' : ''}
-          </p>
-          <div className="space-y-2">
-            {overview.bottlenecks.map((b: any) => {
-              const cfg = PRIORITY_CFG[b.priority as keyof typeof PRIORITY_CFG] || PRIORITY_CFG.media;
-              return (
-                <div key={b.id} className="flex items-center gap-3 px-4 py-3 rounded-xl"
-                  style={{ background: 'rgba(248,113,113,0.05)', border: '1px solid rgba(248,113,113,0.15)' }}>
-                  <AlertTriangle size={13} style={{ color: '#f87171', flexShrink: 0 }} />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-white truncate">{b.title}</p>
-                    <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                      {b.assigned_name || 'Sem responsável'} {b.client_name ? `· ${b.client_name}` : ''}
-                    </p>
-                  </div>
-                  <span className="text-[10px] flex-shrink-0" style={{ color: '#f87171' }}>
-                    {b.days_overdue}d atraso
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Client hours bar */}
-      {overview?.clientHours?.length > 0 && (
-        <div className="mb-8">
-          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>
-            Horas por cliente — últimos 7 dias
-          </p>
-          <div className="space-y-2.5 rounded-2xl p-4"
-            style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.08)' }}>
-            {overview.clientHours.map((c: any) => (
-              <div key={c.client_id} className="flex items-center gap-3">
-                <p className="text-xs w-28 flex-shrink-0 truncate" style={{ color: 'rgba(148,163,184,0.8)' }}>{c.client_name}</p>
-                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(59,130,246,0.08)' }}>
-                  <div className="h-full rounded-full" style={{ width: `${(c.minutes_week / maxMinutes) * 100}%`, background: 'linear-gradient(90deg,#3b82f6,#6366f1)' }} />
-                </div>
-                <p className="text-xs w-12 text-right flex-shrink-0" style={{ color: 'rgba(100,116,139,0.5)' }}>{fmtTime(c.minutes_week)}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Tasks by team member */}
-      <div className="mt-6">
-        <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Tarefas delegadas</p>
-          <button onClick={onOpenModal} className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3">
-            <Plus size={13} /> Nova tarefa
-          </button>
-        </div>
-        {loading ? (
-          <div className="flex justify-center py-8">
-            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
-          </div>
-        ) : teamTasksByUser.length === 0 ? (
-          <div className="text-center py-10 rounded-2xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(59,130,246,0.1)' }}>
-            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma tarefa delegada</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {teamTasksByUser.map(({ user: u, open, done }) => (
-              <div key={u.id} className="rounded-2xl overflow-hidden"
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            {[
+              { icon: CheckSquare,   label: 'Tarefas abertas',   value: totalOpen,                                      color: '#60a5fa' },
+              { icon: CheckCircle2,  label: 'Concluídas semana', value: totalDone,                                      color: '#34d399' },
+              { icon: Timer,         label: 'Horas esta semana', value: totalMinutes > 0 ? fmtTime(totalMinutes) : '—', color: '#a78bfa' },
+              { icon: AlertTriangle, label: 'Atrasadas',         value: totalOverdue, color: totalOverdue > 0 ? '#f87171' : '#64748b' },
+            ].map(s => (
+              <div key={s.label} className="rounded-2xl px-4 py-4"
                 style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.08)' }}>
-                <div className="flex items-center gap-3 px-4 py-3"
-                  style={{ borderBottom: open.length > 0 ? '1px solid rgba(59,130,246,0.06)' : 'none' }}>
-                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                    style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
-                    {u.name.charAt(0)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white">{u.name}</p>
-                    {u.job_title && <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{u.job_title}</p>}
-                  </div>
-                  <div className="flex items-center gap-3 text-right flex-shrink-0">
-                    <div>
-                      <p className="text-sm font-semibold text-white">{open.length}</p>
-                      <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>abertas</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold" style={{ color: '#34d399' }}>{done}</p>
-                      <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>concluídas</p>
-                    </div>
-                  </div>
-                </div>
-                {open.length > 0 && (
-                  <div className="divide-y" style={{ borderColor: 'rgba(59,130,246,0.04)' }}>
-                    {open.map(task => (
-                      <TaskRow key={task.id} task={task} acting={acting} activeTask={activeTask}
-                        onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
-                    ))}
-                  </div>
-                )}
+                <s.icon size={16} className="mb-2" style={{ color: s.color }} />
+                <p className="text-xl font-bold text-white">{s.value}</p>
+                <p className="text-[10px] mt-0.5 leading-tight" style={{ color: 'rgba(100,116,139,0.5)' }}>{s.label}</p>
               </div>
             ))}
           </div>
-        )}
-      </div>
+
+          {/* Per-person accordion */}
+          <div className="mb-8">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                Equipe — {overview?.team?.length ?? 0} pessoas
+              </p>
+              <button onClick={onOpenModal} className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3">
+                <Plus size={13} /> Nova tarefa
+              </button>
+            </div>
+
+            {(loading || loadingTeamTasks || !overview) ? (
+              <div className="flex justify-center py-8">
+                <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {overview.team?.map((member: any) => {
+                  const memberTasks = allTeamTasks.filter(t => t.assigned_to === member.id && t.status !== 'concluida');
+                  const isExpanded = expandedUsers.has(member.id);
+                  const totalForProgress = member.tasks_open + member.tasks_done_week;
+                  const progressPct = totalForProgress > 0 ? Math.round((member.tasks_done_week / totalForProgress) * 100) : 0;
+
+                  return (
+                    <div key={member.id} className="rounded-2xl overflow-hidden"
+                      style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: member.active_task ? '1px solid rgba(59,130,246,0.2)' : '1px solid rgba(59,130,246,0.07)' }}>
+
+                      {/* Header — clickable */}
+                      <button className="w-full flex items-center gap-4 px-4 py-3.5 text-left" onClick={() => toggleUser(member.id)}>
+                        <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                          style={{ background: member.active_task ? 'linear-gradient(135deg,#3b82f6,#6366f1)' : 'rgba(100,116,139,0.18)' }}>
+                          {member.name.charAt(0)}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className="text-sm font-medium text-white">{member.name}</p>
+                            {member.job_title && <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{member.job_title}</span>}
+                          </div>
+                          {member.active_task ? (
+                            <p className="text-[11px] truncate" style={{ color: 'rgba(59,130,246,0.7)' }}>
+                              <span className="inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-middle animate-pulse" style={{ background: '#3b82f6' }} />
+                              {member.active_task}
+                            </p>
+                          ) : (
+                            <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.35)' }}>Sem tarefa ativa</p>
+                          )}
+                          {totalForProgress > 0 && (
+                            <div className="h-1 rounded-full mt-2 overflow-hidden" style={{ background: 'rgba(59,130,246,0.1)' }}>
+                              <div className="h-full rounded-full transition-all" style={{ width: `${progressPct}%`, background: progressPct === 100 ? '#34d399' : 'linear-gradient(90deg,#3b82f6,#6366f1)' }} />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                          {member.overdue_tasks > 0 && (
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-1" style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
+                              <AlertTriangle size={9} /> {member.overdue_tasks}
+                            </span>
+                          )}
+                          <div className="text-right">
+                            <p className="text-sm font-semibold text-white">{member.tasks_open}</p>
+                            <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>abertas</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm font-semibold" style={{ color: '#34d399' }}>{member.tasks_done_week}</p>
+                            <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>semana</p>
+                          </div>
+                          <ChevronRight size={14} style={{ color: 'rgba(100,116,139,0.4)', transform: isExpanded ? 'rotate(90deg)' : 'rotate(0)', transition: 'transform 0.2s', flexShrink: 0 }} />
+                        </div>
+                      </button>
+
+                      {/* Expanded task list */}
+                      {isExpanded && (
+                        <div style={{ borderTop: '1px solid rgba(59,130,246,0.06)' }}>
+                          {memberTasks.length === 0 ? (
+                            <div className="px-4 py-5 text-center">
+                              <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma tarefa aberta</p>
+                            </div>
+                          ) : (
+                            <div className="divide-y" style={{ borderColor: 'rgba(59,130,246,0.04)' }}>
+                              {memberTasks.map(task => {
+                                const cfg = PRIORITY_CFG[task.priority] || PRIORITY_CFG.media;
+                                const isOverdue = !!(task.due_date && new Date(task.due_date + 'T23:59:00') < new Date());
+                                const daysOverdue = isOverdue ? Math.floor((Date.now() - new Date(task.due_date! + 'T23:59:00').getTime()) / 86400000) : 0;
+                                return (
+                                  <div key={task.id} onClick={() => onDetail(task)}
+                                    className="flex items-center gap-3 px-4 py-3 cursor-pointer transition-all"
+                                    style={{ background: 'transparent' }}
+                                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.02)')}
+                                    onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-sm text-white truncate">{task.title}</p>
+                                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                        {task.client_name && <span className="text-[10px]" style={{ color: 'rgba(59,130,246,0.6)' }}>{task.client_name}</span>}
+                                        {task.due_date && (
+                                          <span className="text-[10px]" style={{ color: isOverdue ? '#f87171' : 'rgba(100,116,139,0.5)' }}>
+                                            {isOverdue ? `${daysOverdue}d atraso` : format(new Date(task.due_date + 'T12:00:00'), "d MMM", { locale: ptBR })}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0"
+                                      style={{
+                                        background: task.status === 'em_andamento' ? 'rgba(59,130,246,0.12)' : task.status === 'pausada' ? 'rgba(245,158,11,0.1)' : 'rgba(100,116,139,0.08)',
+                                        color: task.status === 'em_andamento' ? '#60a5fa' : task.status === 'pausada' ? '#f59e0b' : 'rgba(100,116,139,0.5)',
+                                      }}>
+                                      {task.status === 'em_andamento' ? '▶ Ativa' : task.status === 'pausada' ? '⏸ Pausada' : 'A fazer'}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Bottlenecks */}
+          {overview?.bottlenecks?.length > 0 && (
+            <div className="mb-8">
+              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#f87171' }}>
+                Gargalos — {overview.bottlenecks.length} tarefa{overview.bottlenecks.length > 1 ? 's' : ''} atrasada{overview.bottlenecks.length > 1 ? 's' : ''}
+              </p>
+              <div className="space-y-2">
+                {overview.bottlenecks.map((b: any) => (
+                  <div key={b.id} className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                    style={{ background: 'rgba(248,113,113,0.05)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                    <AlertTriangle size={13} style={{ color: '#f87171', flexShrink: 0 }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">{b.title}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                        {b.assigned_name || 'Sem responsável'} {b.client_name ? `· ${b.client_name}` : ''}
+                      </p>
+                    </div>
+                    <span className="text-[10px] flex-shrink-0" style={{ color: '#f87171' }}>{b.days_overdue}d atraso</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Client hours */}
+          {overview?.clientHours?.length > 0 && (
+            <div className="mb-8">
+              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                Horas por cliente — últimos 7 dias
+              </p>
+              <div className="space-y-2.5 rounded-2xl p-4"
+                style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.08)' }}>
+                {overview.clientHours.map((c: any) => (
+                  <div key={c.client_id} className="flex items-center gap-3">
+                    <p className="text-xs w-28 flex-shrink-0 truncate" style={{ color: 'rgba(148,163,184,0.8)' }}>{c.client_name}</p>
+                    <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(59,130,246,0.08)' }}>
+                      <div className="h-full rounded-full" style={{ width: `${(c.minutes_week / maxMinutes) * 100}%`, background: 'linear-gradient(90deg,#3b82f6,#6366f1)' }} />
+                    </div>
+                    <p className="text-xs w-12 text-right flex-shrink-0" style={{ color: 'rgba(100,116,139,0.5)' }}>{fmtTime(c.minutes_week)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </>
       )}
 
