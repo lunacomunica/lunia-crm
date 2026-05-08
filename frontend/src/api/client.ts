@@ -73,6 +73,7 @@ export const agencyClientsApi = {
   create: (data: any) => api.post('/agency-clients', data),
   update: (id: number, data: any) => api.put(`/agency-clients/${id}`, data),
   delete: (id: number) => api.delete(`/agency-clients/${id}`),
+  updateCeoMessage: (id: number, message: string) => api.patch(`/agency-clients/${id}/ceo-message`, { ceo_message: message }),
 };
 
 export const contentApi = {

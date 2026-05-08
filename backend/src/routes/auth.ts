@@ -38,29 +38,35 @@ router.get('/me', authMiddleware, (req, res) => {
 });
 
 router.put('/profile', authMiddleware, (req, res) => {
-  const { name, email, password, avatar, company } = req.body as any;
+  try {
+    const { name, email, password, avatar, company } = req.body as any;
 
-  const updates: string[] = [];
-  const values: any[] = [];
-  if (name) { updates.push('name = ?'); values.push(name); }
-  if (email) { updates.push('email = ?'); values.push(email); }
-  if (avatar !== undefined) { updates.push('avatar = ?'); values.push(avatar); }
-  if (password) { updates.push('password_hash = ?'); values.push(bcrypt.hashSync(password, 10)); }
-  if (updates.length) {
-    values.push(req.user.id);
-    db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    const updates: string[] = [];
+    const values: any[] = [];
+    if (name) { updates.push('name = ?'); values.push(name); }
+    if (email) { updates.push('email = ?'); values.push(email); }
+    if (avatar !== undefined) { updates.push('avatar = ?'); values.push(avatar || null); }
+    if (password) { updates.push('password_hash = ?'); values.push(bcrypt.hashSync(password, 10)); }
+    if (updates.length) {
+      values.push(req.user.id);
+      db.prepare(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+    }
+
+    if (company && typeof company === 'object') {
+      const upsert = db.prepare('INSERT OR REPLACE INTO settings (tenant_id, key, value) VALUES (?, ?, ?)');
+      db.transaction(() => {
+        for (const [k, v] of Object.entries(company)) {
+          if (v !== undefined) upsert.run(req.user.tenant_id, `company_${k}`, v);
+        }
+      })();
+    }
+
+    const updated = db.prepare('SELECT id, name, email, role, avatar FROM users WHERE id = ?').get(req.user.id) as any;
+    const tenant = db.prepare('SELECT name FROM tenants WHERE id = ?').get(req.user.tenant_id) as any;
+    res.json({ ...updated, tenant: tenant?.name });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message || 'Erro ao salvar perfil' });
   }
-
-  if (company && typeof company === 'object') {
-    const upsert = db.prepare('INSERT OR REPLACE INTO settings (tenant_id, key, value) VALUES (?, ?, ?)');
-    db.transaction(() => {
-      for (const [k, v] of Object.entries(company)) upsert.run(req.user.tenant_id, `company_${k}`, v);
-    })();
-  }
-
-  const updated = db.prepare('SELECT id, name, email, role, avatar FROM users WHERE id = ?').get(req.user.id) as any;
-  const tenant = db.prepare('SELECT name FROM tenants WHERE id = ?').get(req.user.tenant_id) as any;
-  res.json({ ...updated, tenant: tenant?.name });
 });
 
 export default router;

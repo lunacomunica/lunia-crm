@@ -476,6 +476,25 @@ export default function ClientPortal() {
   /* ── Pages ─────────────────────────────────────────────────────────────── */
   function PageVisaoGeral() {
     const s = summary;
+    const [editingMsg, setEditingMsg] = useState(false);
+    const [msgDraft, setMsgDraft] = useState(client?.ceo_message || '');
+    const [savingMsg, setSavingMsg] = useState(false);
+
+    const saveMsg = async () => {
+      setSavingMsg(true);
+      await agencyClientsApi.updateCeoMessage(cid, msgDraft);
+      setClient((prev: any) => prev ? { ...prev, ceo_message: msgDraft } : prev);
+      setSavingMsg(false);
+      setEditingMsg(false);
+    };
+
+    const nextScheduled = pieces
+      .filter(p => p.scheduled_date && ['aprovado', 'agendado'].includes(p.status))
+      .sort((a, b) => new Date(a.scheduled_date!).getTime() - new Date(b.scheduled_date!).getTime())[0];
+
+    const pendingApproval = s?.posts?.pending_approval ?? 0;
+    const needsAdjust = s?.posts?.needs_adjustment ?? 0;
+
     const flyItems = [
       { label: 'Conteúdo', color: '#a78bfa', metrics: [
         { label: 'Publicados', value: s?.posts?.published ?? 0 },
@@ -501,12 +520,134 @@ export default function ClientPortal() {
 
     return (
       <div className="space-y-8">
+
+        {/* Header */}
         <div>
-          <h2 className="text-2xl font-semibold text-white mb-1">Visão Geral</h2>
+          <h1 className="text-3xl font-light text-white mb-1">
+            Olá, <span className="font-semibold">{client?.name}</span> 👋
+          </h1>
           <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>
-            {format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })} — Flywheel de crescimento
+            {format(new Date(), "MMMM 'de' yyyy", { locale: ptBR })} — seu negócio está em boas mãos
           </p>
         </div>
+
+        {/* CEO Message */}
+        <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(135deg,#0d0d22,#0f0f28)', border: '1px solid rgba(167,139,250,0.15)' }}>
+          {editingMsg ? (
+            <div className="space-y-4">
+              <textarea
+                value={msgDraft}
+                onChange={e => setMsgDraft(e.target.value)}
+                rows={5}
+                placeholder="Escreva sua mensagem mensal para este cliente…"
+                className="w-full bg-transparent resize-none text-sm leading-relaxed outline-none"
+                style={{ color: 'rgba(226,232,240,0.85)', caretColor: '#a78bfa' }}
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <button onClick={() => { setEditingMsg(false); setMsgDraft(client?.ceo_message || ''); }}
+                  className="text-xs px-3 py-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                  Cancelar
+                </button>
+                <button onClick={saveMsg} disabled={savingMsg}
+                  className="text-xs px-4 py-1.5 rounded-lg font-medium"
+                  style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
+                  {savingMsg ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              {client?.ceo_message ? (
+                <p className="text-sm leading-relaxed whitespace-pre-wrap mb-6"
+                  style={{ color: 'rgba(226,232,240,0.8)', fontStyle: 'italic' }}>
+                  "{client.ceo_message}"
+                </p>
+              ) : isAdmin ? (
+                <p className="text-sm mb-6" style={{ color: 'rgba(100,116,139,0.4)', fontStyle: 'italic' }}>
+                  Clique em editar para escrever sua mensagem mensal para este cliente…
+                </p>
+              ) : (
+                <p className="text-sm mb-6" style={{ color: 'rgba(100,116,139,0.4)', fontStyle: 'italic' }}>
+                  Em breve você receberá uma mensagem personalizada aqui.
+                </p>
+              )}
+
+              {/* Assinatura */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0"
+                    style={{ border: '1px solid rgba(167,139,250,0.3)', boxShadow: '0 0 12px rgba(167,139,250,0.2)' }}>
+                    {user?.avatar ? (
+                      <img src={user.avatar} alt="CEO" className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
+                        style={{ background: 'linear-gradient(135deg,#a78bfa,#6366f1)' }}>
+                        {user?.name?.charAt(0).toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-xs font-semibold text-white">{user?.name || 'Vanessa Raeski'}</p>
+                    <p className="text-[10px]" style={{ color: 'rgba(167,139,250,0.6)' }}>CEO, Luna Comunica</p>
+                  </div>
+                </div>
+                {isAdmin && (
+                  <button onClick={() => setEditingMsg(true)}
+                    className="text-[11px] px-3 py-1.5 rounded-lg transition-colors"
+                    style={{ color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#a78bfa'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(167,139,250,0.3)'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}>
+                    <Pencil size={10} className="inline mr-1" />Editar
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Next delivery */}
+        {nextScheduled && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+            style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)' }}>
+            <Calendar size={14} style={{ color: '#34d399', flexShrink: 0 }} />
+            <p className="text-sm" style={{ color: 'rgba(226,232,240,0.7)' }}>
+              Próxima entrega: <span className="font-medium text-white">{nextScheduled.title}</span>
+              {nextScheduled.scheduled_date && (
+                <span style={{ color: '#34d399' }}>
+                  {' '}— {format(new Date(nextScheduled.scheduled_date), "d 'de' MMMM", { locale: ptBR })}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
+
+        {/* Alerts */}
+        {(pendingApproval > 0 || needsAdjust > 0) && (
+          <div className="flex flex-wrap gap-3">
+            {pendingApproval > 0 && (
+              <button onClick={() => setPage('conteudos')}
+                className="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all"
+                style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.13)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.08)')}>
+                <Clock size={13} style={{ color: '#f59e0b' }} />
+                <span className="text-sm font-medium" style={{ color: '#f59e0b' }}>
+                  {pendingApproval} peça{pendingApproval > 1 ? 's' : ''} aguardando sua aprovação →
+                </span>
+              </button>
+            )}
+            {needsAdjust > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl"
+                style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
+                <RotateCcw size={13} style={{ color: '#f97316' }} />
+                <span className="text-sm" style={{ color: '#f97316' }}>
+                  {needsAdjust} ajuste{needsAdjust > 1 ? 's' : ''} em andamento
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Flywheel */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
@@ -522,28 +663,13 @@ export default function ClientPortal() {
               <div className="space-y-3">
                 {item.metrics.map(m => (
                   <div key={m.label}>
-                    <p className="text-lg font-bold leading-none" style={{ color: 'white' }}>{m.value}</p>
+                    <p className="text-lg font-bold leading-none text-white">{m.value}</p>
                     <p className="text-[10px] mt-1" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
                   </div>
                 ))}
               </div>
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-2xl" style={{ background: `linear-gradient(90deg,${item.color}40,transparent)` }} />
-            </div>
-          ))}
-        </div>
-
-        {/* Status bar */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: 'Ag. aprovação', value: s?.posts?.pending_approval ?? 0, color: '#f59e0b', urgent: (s?.posts?.pending_approval ?? 0) > 0 },
-            { label: 'Ajuste solicitado', value: s?.posts?.needs_adjustment ?? 0, color: '#f97316', urgent: (s?.posts?.needs_adjustment ?? 0) > 0 },
-            { label: 'Campanhas ativas', value: s?.campaigns?.active ?? 0, color: '#34d399', urgent: false },
-            { label: 'Total de peças', value: s?.posts?.total ?? 0, color: '#60a5fa', urgent: false },
-          ].map(stat => (
-            <div key={stat.label} className="rounded-xl px-4 py-3"
-              style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: `1px solid ${stat.urgent ? stat.color + '30' : 'rgba(255,255,255,0.04)'}` }}>
-              <p className="text-2xl font-bold" style={{ color: stat.urgent ? stat.color : 'white' }}>{stat.value}</p>
-              <p className="text-[11px] mt-1" style={{ color: 'rgba(100,116,139,0.5)' }}>{stat.label}</p>
+              <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-2xl"
+                style={{ background: `linear-gradient(90deg,${item.color}40,transparent)` }} />
             </div>
           ))}
         </div>
