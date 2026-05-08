@@ -308,9 +308,29 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   onOpenModal: () => void;
 }) {
   const { user } = useAuth();
+  const [view, setView] = useState<'minhas' | 'time'>('minhas');
   const [overview, setOverview] = useState<any>(null);
   const [showAllTasks, setShowAllTasks] = useState(false);
+  const [myFilter, setMyFilter] = useState<'hoje' | 'semana' | 'todas'>('hoje');
   const today = new Date();
+
+  // Split tasks between mine and team
+  const myTasks = tasks.filter(t => t.assigned_to === user?.id && t.status !== 'concluida');
+  const myDone  = tasks.filter(t => t.assigned_to === user?.id && t.status === 'concluida');
+  const myActiveTask = tasks.find(t => t.assigned_to === user?.id && t.status === 'em_andamento');
+
+  const myFiltered = (() => {
+    if (myFilter === 'hoje') return myTasks.filter(t => !t.due_date || isToday(new Date(t.due_date + 'T12:00:00')) || (new Date(t.created_at) && isToday(new Date(t.created_at))));
+    if (myFilter === 'semana') return myTasks.filter(t => !t.due_date || isThisWeek(new Date(t.due_date + 'T12:00:00'), { weekStartsOn: 1 }));
+    return myTasks;
+  })();
+
+  // Group team tasks by assignee for "Time" view
+  const teamTasksByUser = users.map(u => ({
+    user: u,
+    open: tasks.filter(t => t.assigned_to === u.id && t.status !== 'concluida'),
+    done: tasks.filter(t => t.assigned_to === u.id && t.status === 'concluida').length,
+  })).filter(g => g.open.length > 0 || g.done > 0);
 
   useEffect(() => {
     tasksApi.teamOverview().then(r => setOverview(r.data));
@@ -324,21 +344,108 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
 
   return (
     <div className="p-4 md:p-8 max-w-4xl">
-      {/* Greeting */}
-      <div className="mb-6">
-        <p className="text-sm capitalize mb-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
-          {format(today, "EEEE, d 'de' MMMM", { locale: ptBR })}
-        </p>
-        <h1 className="text-3xl font-light text-white">
-          Oi, <span style={{ color: '#60a5fa' }}>{user?.name?.split(' ')[0]}</span> 👋
-        </h1>
-        <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
-          {(user as any).job_title || 'Alta Gestão'}
-        </p>
+      {/* Greeting + toggle */}
+      <div className="flex items-start justify-between mb-6">
+        <div>
+          <p className="text-sm capitalize mb-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
+            {format(today, "EEEE, d 'de' MMMM", { locale: ptBR })}
+          </p>
+          <h1 className="text-3xl font-light text-white">
+            Oi, <span style={{ color: '#60a5fa' }}>{user?.name?.split(' ')[0]}</span> 👋
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
+            {(user as any).job_title || 'Alta Gestão'}
+          </p>
+        </div>
+        <div className="flex gap-1 p-1 rounded-xl flex-shrink-0"
+          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
+          {(['minhas', 'time'] as const).map(v => (
+            <button key={v} onClick={() => setView(v)}
+              className="px-4 py-1.5 text-sm rounded-lg transition-all"
+              style={{ background: view === v ? 'rgba(59,130,246,0.15)' : 'transparent', color: view === v ? '#e2e8f0' : 'rgba(100,116,139,0.6)', border: view === v ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent' }}>
+              {v === 'minhas' ? 'Minhas tarefas' : 'Time'}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* Summary stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+      {/* ── MINHAS TAREFAS view ─────────────────────────────────────────────── */}
+      {view === 'minhas' && (
+        <>
+          {/* Active task banner */}
+          {myActiveTask && (
+            <div className="flex items-center justify-between px-5 py-3.5 rounded-2xl mb-5"
+              style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.25)' }}>
+              <div className="flex items-center gap-3">
+                <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#3b82f6' }} />
+                <div>
+                  <p className="text-sm font-medium text-white">{myActiveTask.title}</p>
+                  {myActiveTask.client_name && <p className="text-xs" style={{ color: 'rgba(59,130,246,0.6)' }}>{myActiveTask.client_name}</p>}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                {myActiveTask.session_started_at && <ElapsedTimer startedAt={myActiveTask.session_started_at} baseMinutes={myActiveTask.total_minutes} />}
+                <button onClick={() => onPause(myActiveTask.id)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
+                  style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.3)' }}>
+                  <Pause size={12} /> Pausar
+                </button>
+                <button onClick={() => onComplete(myActiveTask.id)} className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
+                  style={{ background: 'rgba(52,211,153,0.15)', color: '#34d399', border: '1px solid rgba(52,211,153,0.3)' }}>
+                  <CheckCircle2 size={12} /> Concluir
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Filter tabs + new task */}
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
+              {(['hoje', 'semana', 'todas'] as const).map(f => (
+                <button key={f} onClick={() => setMyFilter(f)}
+                  className="px-3 py-1.5 text-sm rounded-lg transition-all"
+                  style={{ background: myFilter === f ? 'rgba(59,130,246,0.15)' : 'transparent', color: myFilter === f ? '#e2e8f0' : 'rgba(100,116,139,0.6)', border: myFilter === f ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent' }}>
+                  {f === 'hoje' ? 'Hoje' : f === 'semana' ? 'Esta semana' : 'Todas'}
+                </button>
+              ))}
+            </div>
+            <button onClick={onOpenModal} className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3">
+              <Plus size={13} /> Nova tarefa
+            </button>
+          </div>
+
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+            </div>
+          ) : myFiltered.length === 0 ? (
+            <div className="text-center py-12 rounded-2xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(59,130,246,0.1)' }}>
+              <CheckCircle2 size={28} className="mx-auto mb-2" style={{ color: 'rgba(52,211,153,0.3)' }} />
+              <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhuma tarefa {myFilter === 'hoje' ? 'para hoje' : myFilter === 'semana' ? 'esta semana' : ''}</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {myFiltered.map(task => (
+                <TaskRow key={task.id} task={task} acting={acting} activeTask={myActiveTask}
+                  onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
+              ))}
+            </div>
+          )}
+
+          {myDone.length > 0 && (
+            <p className="text-xs mt-4 text-center" style={{ color: 'rgba(100,116,139,0.4)' }}>
+              {myDone.length} tarefa{myDone.length > 1 ? 's' : ''} concluída{myDone.length > 1 ? 's' : ''} não exibida{myDone.length > 1 ? 's' : ''}
+            </p>
+          )}
+        </>
+      )}
+
+      {/* ── TIME view ──────────────────────────────────────────────────────── */}
+      {view === 'time' && (
+        <>
+
+
+          {/* Summary stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         {[
           { icon: CheckSquare,  label: 'Tarefas abertas',    value: totalOpen,                                  color: '#60a5fa' },
           { icon: CheckCircle2, label: 'Concluídas semana',  value: totalDone,                                  color: '#34d399' },
@@ -472,23 +579,63 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
         </div>
       )}
 
-      {/* All tasks toggle */}
-      <div>
-        <button onClick={() => setShowAllTasks(o => !o)}
-          className="flex items-center gap-2 text-sm mb-4 transition-colors"
-          style={{ color: showAllTasks ? '#60a5fa' : 'rgba(100,116,139,0.5)' }}>
-          <ArrowRight size={14} style={{ transform: showAllTasks ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
-          {showAllTasks ? 'Ocultar tarefas da equipe' : 'Ver todas as tarefas da equipe'}
-        </button>
-        {showAllTasks && (
-          <div className="space-y-2">
-            {tasks.filter(t => t.status !== 'concluida').map(task => (
-              <TaskRow key={task.id} task={task} acting={acting} activeTask={activeTask}
-                onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
+      {/* Tasks by team member */}
+      <div className="mt-6">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Tarefas delegadas</p>
+          <button onClick={onOpenModal} className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3">
+            <Plus size={13} /> Nova tarefa
+          </button>
+        </div>
+        {loading ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+          </div>
+        ) : teamTasksByUser.length === 0 ? (
+          <div className="text-center py-10 rounded-2xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(59,130,246,0.1)' }}>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma tarefa delegada</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {teamTasksByUser.map(({ user: u, open, done }) => (
+              <div key={u.id} className="rounded-2xl overflow-hidden"
+                style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.08)' }}>
+                <div className="flex items-center gap-3 px-4 py-3"
+                  style={{ borderBottom: open.length > 0 ? '1px solid rgba(59,130,246,0.06)' : 'none' }}>
+                  <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                    {u.name.charAt(0)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white">{u.name}</p>
+                    {u.job_title && <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{u.job_title}</p>}
+                  </div>
+                  <div className="flex items-center gap-3 text-right flex-shrink-0">
+                    <div>
+                      <p className="text-sm font-semibold text-white">{open.length}</p>
+                      <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>abertas</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: '#34d399' }}>{done}</p>
+                      <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>concluídas</p>
+                    </div>
+                  </div>
+                </div>
+                {open.length > 0 && (
+                  <div className="divide-y" style={{ borderColor: 'rgba(59,130,246,0.04)' }}>
+                    {open.map(task => (
+                      <TaskRow key={task.id} task={task} acting={acting} activeTask={activeTask}
+                        onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
+                    ))}
+                  </div>
+                )}
+              </div>
             ))}
           </div>
         )}
       </div>
+        </>
+      )}
 
       <DetailPanel detail={detail} acting={acting} isAdmin={true} users={users} onClose={() => setDetail(null)}
         onStart={onStart} onPause={onPause} onComplete={onComplete} onDelete={() => {}} />
