@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
@@ -26,9 +26,10 @@ const comercialItems = [
 ];
 
 const marketingItems = [
-  { path: '/marketing/clients',  label: 'Clientes',     icon: Briefcase },
-  { path: '/marketing/content',  label: 'Conteúdos',    icon: FileImage },
-  { path: '/marketing/traffic',  label: 'Tráfego Pago', icon: Megaphone },
+  { path: '/marketing/production', label: 'Produção',    icon: LayoutGrid },
+  { path: '/marketing/clients',    label: 'Clientes',    icon: Briefcase },
+  { path: '/marketing/content',    label: 'Conteúdos',   icon: FileImage },
+  { path: '/marketing/traffic',    label: 'Tráfego Pago',icon: Megaphone },
 ];
 
 function NavItem({ path, label, icon: Icon }: { path: string; label: string; icon: any }) {

@@ -14,6 +14,7 @@ import MarketingContent from './pages/marketing/Content';
 import ClientPortal from './pages/marketing/ClientPortal';
 import Traffic from './pages/marketing/Traffic';
 import FeedPreview from './pages/marketing/FeedPreview';
+import Production from './pages/marketing/Production';
 import Tenants from './pages/admin/Tenants';
 import Gerot from './pages/Gerot';
 import Login from './pages/Login';
@@ -44,6 +45,7 @@ export default function App() {
             <Route path="instagram" element={<InternalOnly><Instagram /></InternalOnly>} />
             <Route path="funnel" element={<InternalOnly><Funnel /></InternalOnly>} />
             <Route path="products" element={<InternalOnly><Products /></InternalOnly>} />
+            <Route path="marketing/production" element={<Production />} />
             <Route path="marketing/clients" element={<MarketingClients />} />
             <Route path="marketing/content" element={<MarketingContent />} />
             <Route path="marketing/traffic" element={<Traffic />} />

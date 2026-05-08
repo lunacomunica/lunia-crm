@@ -66,6 +66,7 @@ export const notificationsApi = {
 export const agencyClientsApi = {
   list: () => api.get('/agency-clients'),
   get: (id: number) => api.get(`/agency-clients/${id}`),
+  production: () => api.get('/agency-clients/production'),
   create: (data: any) => api.post('/agency-clients', data),
   update: (id: number, data: any) => api.put(`/agency-clients/${id}`, data),
   delete: (id: number) => api.delete(`/agency-clients/${id}`),

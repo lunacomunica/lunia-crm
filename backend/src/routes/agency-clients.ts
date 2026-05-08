@@ -3,6 +3,32 @@ import db from '../db.js';
 
 const router = Router();
 
+/* ── Production overview ─────────────────────────────────────────────── */
+router.get('/production', (req, res) => {
+  const rows = db.prepare(`
+    SELECT
+      ac.id, ac.name, ac.segment, ac.instagram_handle, ac.logo, ac.active,
+      COUNT(DISTINCT cp.id)                                                              AS total_pieces,
+      SUM(CASE WHEN cp.status = 'em_criacao'           THEN 1 ELSE 0 END)              AS em_criacao,
+      SUM(CASE WHEN cp.status = 'em_revisao'           THEN 1 ELSE 0 END)              AS em_revisao,
+      SUM(CASE WHEN cp.status = 'aguardando_aprovacao' THEN 1 ELSE 0 END)              AS aguardando_aprovacao,
+      SUM(CASE WHEN cp.status = 'ajuste_solicitado'    THEN 1 ELSE 0 END)              AS ajuste_solicitado,
+      SUM(CASE WHEN cp.status = 'aprovado'             THEN 1 ELSE 0 END)              AS aprovado,
+      SUM(CASE WHEN cp.status = 'agendado'             THEN 1 ELSE 0 END)              AS agendado,
+      SUM(CASE WHEN cp.status = 'publicado' AND cp.updated_at >= date('now','start of month') THEN 1 ELSE 0 END) AS publicado_mes,
+      COUNT(DISTINCT CASE WHEN t.status NOT IN ('concluida') THEN t.id END)            AS tarefas_abertas,
+      COUNT(DISTINCT CASE WHEN t.status NOT IN ('concluida') AND t.due_date < date('now') THEN t.id END) AS tarefas_atrasadas,
+      MAX(cp.updated_at)                                                                AS ultima_atualizacao
+    FROM agency_clients ac
+    LEFT JOIN content_pieces cp ON cp.agency_client_id = ac.id AND cp.tenant_id = ac.tenant_id
+    LEFT JOIN tasks t ON t.agency_client_id = ac.id AND t.tenant_id = ac.tenant_id
+    WHERE ac.tenant_id = ? AND ac.active = 1
+    GROUP BY ac.id
+    ORDER BY ajuste_solicitado DESC, aguardando_aprovacao DESC, ac.name ASC
+  `).all(req.user.tenant_id);
+  res.json(rows);
+});
+
 router.get('/', (req, res) => {
   const clients = db.prepare(`
     SELECT ac.*, COUNT(cp.id) as content_count,
