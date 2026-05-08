@@ -109,7 +109,12 @@ export default function Gerot() {
   const load = async () => {
     setLoading(true);
     const params: Record<string, string> = {};
-    if (!isTeam) {
+    if (isTeam) {
+      // team: backend restricts to own tasks, no date filter needed
+    } else if (isManager) {
+      // manager: fetch all tasks (frontend handles filtering in ManagerPanel)
+    } else {
+      // admin: apply date + user filters
       if (filter === 'hoje') params.due = 'today';
       if (filter === 'semana') params.due = 'week';
       if (filterUser) params.assigned_to = filterUser;

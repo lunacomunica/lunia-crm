@@ -79,8 +79,8 @@ router.get('/', (req, res) => {
   `;
   const params: any[] = [tid];
 
-  // team/client see only their own tasks
-  const effectiveUser = (req.user.role === 'team' || req.user.role === 'user')
+  // team/client see only their own tasks; managers (role='user') see all
+  const effectiveUser = req.user.role === 'team'
     ? req.user.id : null;
   if (effectiveUser) { q += ' AND t.assigned_to = ?'; params.push(effectiveUser); }
   else if (assigned_to) { q += ' AND t.assigned_to = ?'; params.push(assigned_to); }
