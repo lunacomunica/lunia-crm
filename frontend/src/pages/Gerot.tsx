@@ -348,6 +348,7 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   const [myFilter, setMyFilter] = useState<'hoje' | 'semana' | 'todas'>('hoje');
   const [clientFilter, setClientFilter] = useState('');
   const [calWeekOffset, setCalWeekOffset] = useState(0);
+  const [showDone, setShowDone] = useState(false);
   const today = new Date();
 
   // Split tasks between mine and team
@@ -513,9 +514,34 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
           )}
 
           {myDone.length > 0 && (
-            <p className="text-xs mt-4 text-center" style={{ color: 'rgba(100,116,139,0.4)' }}>
-              {myDone.length} tarefa{myDone.length > 1 ? 's' : ''} concluída{myDone.length > 1 ? 's' : ''} não exibida{myDone.length > 1 ? 's' : ''}
-            </p>
+            <div className="mt-4">
+              <button onClick={() => setShowDone(s => !s)}
+                className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs transition-all"
+                style={{ color: 'rgba(100,116,139,0.5)', background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.06)' }}>
+                <span>{myDone.length} concluída{myDone.length > 1 ? 's' : ''}</span>
+                <span style={{ transform: showDone ? 'rotate(180deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▾</span>
+              </button>
+              {showDone && (
+                <div className="space-y-2 mt-2">
+                  {myDone.map(task => (
+                    <div key={task.id} onClick={() => onDetail(task)}
+                      className="flex items-center gap-4 px-4 py-3 rounded-xl cursor-pointer opacity-50"
+                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.05)' }}>
+                      <CheckCircle2 size={14} style={{ color: '#34d399', flexShrink: 0 }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-white truncate line-through">{task.title}</p>
+                        {task.client_name && <span className="text-[10px]" style={{ color: 'rgba(59,130,246,0.5)' }}>{task.client_name}</span>}
+                      </div>
+                      {task.completed_at && (
+                        <span className="text-[10px] flex-shrink-0" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                          {format(new Date(task.completed_at), "d MMM", { locale: ptBR })}
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           )}
         </>
       )}
