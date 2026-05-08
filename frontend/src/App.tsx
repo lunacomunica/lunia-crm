@@ -57,7 +57,7 @@ export default function App() {
             <Route path="marketing/portal/:clientId" element={<ClientPortal />} />
             <Route path="marketing/feed/:clientId" element={<FeedPreview />} />
             <Route path="gerot" element={<Gerot />} />
-            <Route path="settings" element={<ManagerAndAbove><Settings /></ManagerAndAbove>} />
+            <Route path="settings" element={<NotClient><Settings /></NotClient>} />
             <Route path="admin/tenants" element={<AdminOnly><Tenants /></AdminOnly>} />
             <Route path="agency" element={<AdminOnly><AgencyOverview /></AdminOnly>} />
             <Route path="agency/team" element={<AdminOnly><AgencyTeam /></AdminOnly>} />
@@ -80,6 +80,12 @@ function ManagerAndAbove({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   if (user?.role === 'client') return <Navigate to={user.client_id ? `/marketing/portal/${user.client_id}` : '/login'} replace />;
   if (user?.role === 'team') return <Navigate to="/gerot" replace />;
+  return <>{children}</>;
+}
+
+function NotClient({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === 'client') return <Navigate to={user.client_id ? `/marketing/portal/${user.client_id}` : '/login'} replace />;
   return <>{children}</>;
 }
 

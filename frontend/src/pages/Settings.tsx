@@ -352,7 +352,10 @@ function UsersTab() {
 
 export default function Settings() {
   const { user } = useAuth();
-  const isSuperAdmin = user?.role === 'owner';
+  const isOwner   = user?.role === 'owner';
+  const isManager = user?.role === 'manager';
+  const isTeam    = user?.role === 'team';
+  const isSuperAdmin = isOwner;
   const [tab, setTab] = useState<'profile' | 'api' | 'users' | 'danger'>('profile');
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [webhookInfo, setWebhookInfo] = useState<{ webhookUrl: string; verifyToken: string } | null>(null);
@@ -405,7 +408,12 @@ export default function Settings() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-8 w-full overflow-x-auto rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-        {[{ id: 'profile', label: 'Meu Perfil', icon: User }, { id: 'api', label: 'Integrações API', icon: Zap }, { id: 'users', label: 'Usuários', icon: Users }, ...(isSuperAdmin ? [{ id: 'danger', label: 'Zona de Perigo', icon: AlertTriangle }] : [])].map(t => (
+        {[
+          { id: 'profile', label: 'Meu Perfil',      icon: User,          show: true },
+          { id: 'api',     label: 'Integrações API', icon: Zap,           show: isOwner },
+          { id: 'users',   label: 'Usuários',        icon: Users,         show: isOwner || isManager },
+          { id: 'danger',  label: 'Zona de Perigo',  icon: AlertTriangle, show: isOwner },
+        ].filter(t => t.show).map(t => (
           <button key={t.id} onClick={() => setTab(t.id as any)}
             className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all"
             style={tab === t.id

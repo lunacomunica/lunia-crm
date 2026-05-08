@@ -307,7 +307,7 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
             </div>
             <div className="flex items-center gap-0.5 flex-shrink-0">
               <NotificationBell />
-              {(isOwner || isManager) && (
+              {(isOwner || isManager || isTeam) && (
                 <button onClick={() => navigate('/settings')} title="Configurações"
                   className="p-1.5 rounded-lg transition-colors"
                   style={{ color: 'rgba(100,116,139,0.5)' }}
