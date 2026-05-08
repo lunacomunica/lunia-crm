@@ -387,20 +387,24 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
 
   return (
     <>
-      {/* Backdrop */}
-      <div className="fixed inset-0 z-40 animate-fade"
-        style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}
-        onClick={onClose} />
-
-      {/* Panel */}
-      <div className="fixed top-0 right-0 bottom-0 z-50 flex flex-col w-full max-w-[480px] animate-slide-right"
-        style={{ background: '#07071a', borderLeft: '1px solid rgba(59,130,246,0.12)', boxShadow: '-24px 0 60px rgba(0,0,0,0.7)' }}>
+      {/* Full-screen overlay */}
+      <div className="fixed inset-0 z-50 flex flex-col animate-fade"
+        style={{ background: '#07071a' }}>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 flex-shrink-0"
-          style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
-          <StatusDropdown current={form.status} onChange={handleStatusChange} />
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between px-6 py-4 flex-shrink-0"
+          style={{ borderBottom: '1px solid rgba(59,130,246,0.1)', background: 'rgba(7,7,26,0.95)' }}>
+          <div className="flex items-center gap-3">
+            <button onClick={onClose} className="p-1.5 rounded-lg transition-all mr-1"
+              style={{ color: 'rgba(100,116,139,0.5)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'white')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+              <X size={20} />
+            </button>
+            <h1 className="text-base font-semibold text-white truncate max-w-xs">{form.title || 'Post'}</h1>
+            <StatusDropdown current={form.status} onChange={handleStatusChange} />
+          </div>
+          <div className="flex items-center gap-3">
             {deleting ? (
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ color: 'rgba(148,163,184,0.6)' }}>Excluir?</span>
@@ -414,361 +418,356 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                 style={{ color: 'rgba(100,116,139,0.4)' }}
                 onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)'; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.4)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                <Trash2 size={14} />
+                <Trash2 size={16} />
               </button>
             )}
-            <button onClick={onClose} className="p-1.5 rounded-lg transition-all"
-              style={{ color: 'rgba(100,116,139,0.4)' }}
-              onMouseEnter={e => (e.currentTarget.style.color = 'white')}
-              onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.4)')}>
-              <X size={18} />
+            <button onClick={onClose} className="btn-ghost">Cancelar</button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary">
+              {saving ? 'Salvando…' : 'Salvar'}
             </button>
           </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        {/* Body — two columns */}
+        <div className="flex-1 overflow-hidden flex">
 
-          {/* Title */}
-          <div>
-            <label className={labelCls} style={labelStyle}>Título</label>
-            <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-              className={inputCls} style={inputStyle} placeholder="Título do post" />
-          </div>
+          {/* LEFT column — media + basic info */}
+          <div className="w-[420px] flex-shrink-0 overflow-y-auto px-6 py-6 space-y-5"
+            style={{ borderRight: '1px solid rgba(59,130,246,0.08)' }}>
 
-          {/* Type + Date */}
-          <div className="grid grid-cols-2 gap-3">
+            {/* Title */}
             <div>
-              <label className={labelCls} style={labelStyle}>Tipo</label>
-              <div className="flex rounded-xl overflow-hidden"
-                style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                {POST_TYPES.map(t => (
-                  <button key={t.value}
-                    onClick={() => { setForm(f => ({ ...f, type: t.value })); setMediaFiles([]); }}
-                    className="flex-1 py-2 text-xs font-medium transition-all"
-                    style={{ color: form.type === t.value ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: form.type === t.value ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
-                    {t.label}
-                  </button>
-                ))}
+              <label className={labelCls} style={labelStyle}>Título</label>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                className={inputCls} style={inputStyle} placeholder="Título do post" />
+            </div>
+
+            {/* Type + Date */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls} style={labelStyle}>Tipo</label>
+                <div className="flex rounded-xl overflow-hidden"
+                  style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                  {POST_TYPES.map(t => (
+                    <button key={t.value}
+                      onClick={() => { setForm(f => ({ ...f, type: t.value })); setMediaFiles([]); }}
+                      className="flex-1 py-2 text-xs font-medium transition-all"
+                      style={{ color: form.type === t.value ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: form.type === t.value ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className={labelCls} style={labelStyle}>Data prevista</label>
+                <input type="date" value={form.scheduled_date}
+                  onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                  className={inputCls} style={inputStyle} />
               </div>
             </div>
+
+            {/* Objective */}
             <div>
-              <label className={labelCls} style={labelStyle}>Data prevista</label>
-              <input type="date" value={form.scheduled_date}
-                onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
-                className={inputCls} style={inputStyle} />
+              <label className={labelCls} style={labelStyle}>Objetivo</label>
+              <select value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))}
+                className={inputCls} style={{ ...inputStyle, cursor: 'pointer' }}>
+                <option value="">Selecionar objetivo</option>
+                {OBJECTIVES.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
+            </div>
+
+            {/* MÍDIA */}
+            <div>
+              <label className={labelCls} style={labelStyle}>Mídia</label>
+
+              {(form.type === 'estatico' || form.type === 'carrossel') && (
+                <div className="space-y-3">
+                  {carouselImages.length > 0 && (
+                    <CarouselViewer
+                      images={carouselImages}
+                      onRemove={i => {
+                        const imgOnly = mediaFiles.filter(f => f.type === 'image');
+                        const toRemove = imgOnly[i];
+                        setMediaFiles(prev => prev.filter(f => f !== toRemove));
+                      }}
+                    />
+                  )}
+                  {(form.type === 'carrossel' || carouselImages.length === 0) && (
+                    <DropZone
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple={form.type === 'carrossel'}
+                      label={form.type === 'carrossel' ? 'Adicionar imagens ao carrossel' : 'Subir imagem'}
+                      icon={ImageIcon}
+                      uploading={uploading === 'images'}
+                      onFiles={files => uploadFiles(files, 'images')}
+                    />
+                  )}
+                  {form.type === 'estatico' && carouselImages.length > 0 && (
+                    <button onClick={() => setMediaFiles(prev => prev.filter(f => f.type !== 'image'))}
+                      className="text-xs flex items-center gap-1.5 transition-opacity hover:opacity-70"
+                      style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      <Upload size={10} /> Trocar imagem
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {form.type === 'reels' && (
+                <div className="space-y-3">
+                  {reelsVideo ? (
+                    <ReelsViewer
+                      video={reelsVideo}
+                      cover={reelsCover ?? undefined}
+                      onRemoveVideo={removeVideoForReels}
+                      onRemoveCover={removeCoverForReels}
+                    />
+                  ) : (
+                    <DropZone
+                      accept="video/mp4,video/quicktime,video/webm"
+                      multiple={false}
+                      label="Subir vídeo do Reels"
+                      icon={Video}
+                      uploading={uploading === 'video'}
+                      onFiles={files => uploadFiles(files, 'video')}
+                    />
+                  )}
+                  {reelsVideo && !reelsCover && (
+                    <DropZone
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple={false}
+                      label="Adicionar capa (opcional)"
+                      icon={ImageIcon}
+                      uploading={uploading === 'cover'}
+                      onFiles={files => uploadFiles(files, 'cover')}
+                    />
+                  )}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* ── MÍDIA ─────────────────────────────────────────────────────── */}
-          <div>
-            <label className={labelCls} style={labelStyle}>Mídia</label>
+          {/* RIGHT column — copy, legenda, referências, produção */}
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
 
-            {/* ESTÁTICO / CARROSSEL */}
-            {(form.type === 'estatico' || form.type === 'carrossel') && (
-              <div className="space-y-3">
-                {carouselImages.length > 0 && (
-                  <CarouselViewer
-                    images={carouselImages}
-                    onRemove={i => {
-                      const imgOnly = mediaFiles.filter(f => f.type === 'image');
-                      const toRemove = imgOnly[i];
-                      setMediaFiles(prev => prev.filter(f => f !== toRemove));
-                    }}
-                  />
-                )}
-                {(form.type === 'carrossel' || carouselImages.length === 0) && (
-                  <DropZone
-                    accept="image/jpeg,image/png,image/webp,image/gif"
-                    multiple={form.type === 'carrossel'}
-                    label={form.type === 'carrossel' ? 'Adicionar imagens ao carrossel' : 'Subir imagem'}
-                    icon={ImageIcon}
-                    uploading={uploading === 'images'}
-                    onFiles={files => uploadFiles(files, 'images')}
-                  />
-                )}
-                {form.type === 'estatico' && carouselImages.length > 0 && (
-                  <button onClick={() => setMediaFiles(prev => prev.filter(f => f.type !== 'image'))}
-                    className="text-xs flex items-center gap-1.5 transition-opacity hover:opacity-70"
-                    style={{ color: 'rgba(100,116,139,0.5)' }}>
-                    <Upload size={10} /> Trocar imagem
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* REELS */}
-            {form.type === 'reels' && (
-              <div className="space-y-3">
-                {reelsVideo ? (
-                  <ReelsViewer
-                    video={reelsVideo}
-                    cover={reelsCover ?? undefined}
-                    onRemoveVideo={removeVideoForReels}
-                    onRemoveCover={removeCoverForReels}
-                  />
-                ) : (
-                  <DropZone
-                    accept="video/mp4,video/quicktime,video/webm"
-                    multiple={false}
-                    label="Subir vídeo do Reels"
-                    icon={Video}
-                    uploading={uploading === 'video'}
-                    onFiles={files => uploadFiles(files, 'video')}
-                  />
-                )}
-                {reelsVideo && !reelsCover && (
-                  <DropZone
-                    accept="image/jpeg,image/png,image/webp"
-                    multiple={false}
-                    label="Adicionar capa (opcional)"
-                    icon={ImageIcon}
-                    uploading={uploading === 'cover'}
-                    onFiles={files => uploadFiles(files, 'cover')}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Objective */}
-          <div>
-            <label className={labelCls} style={labelStyle}>Objetivo</label>
-            <select value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))}
-              className={inputCls} style={{ ...inputStyle, cursor: 'pointer' }}>
-              <option value="">Selecionar objetivo</option>
-              {OBJECTIVES.map(o => <option key={o} value={o}>{o}</option>)}
-            </select>
-          </div>
-
-          {/* Caption */}
-          <div>
-            <label className={labelCls} style={labelStyle}>Legenda</label>
-            <textarea value={form.caption} onChange={e => setForm(f => ({ ...f, caption: e.target.value }))}
-              rows={3} className={inputCls} style={{ ...inputStyle, resize: 'none' }}
-              placeholder="Texto do post para publicação…" />
-          </div>
-
-          {/* Copy */}
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.1)' }}>
-            <div className="px-4 py-2.5" style={{ background: 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(59,130,246,0.7)' }}>Copy</span>
+            {/* Caption */}
+            <div>
+              <label className={labelCls} style={labelStyle}>Legenda</label>
+              <textarea value={form.caption} onChange={e => setForm(f => ({ ...f, caption: e.target.value }))}
+                rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none' }}
+                placeholder="Texto do post para publicação…" />
             </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className={labelCls} style={labelStyle}>Hook / Título</label>
-                <input value={form.copy_hook} onChange={e => setForm(f => ({ ...f, copy_hook: e.target.value }))}
-                  className={inputCls} style={inputStyle} placeholder="Frase de abertura que prende a atenção…" />
+
+            {/* Copy */}
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.1)' }}>
+              <div className="px-4 py-2.5" style={{ background: 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(59,130,246,0.7)' }}>Copy</span>
               </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>Corpo</label>
-                <textarea value={form.copy_text} onChange={e => setForm(f => ({ ...f, copy_text: e.target.value }))}
-                  rows={3} className={inputCls} style={{ ...inputStyle, resize: 'none' }}
-                  placeholder="Desenvolvimento do texto…" />
-              </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>CTA</label>
-                <input value={form.copy_cta} onChange={e => setForm(f => ({ ...f, copy_cta: e.target.value }))}
-                  className={inputCls} style={inputStyle} placeholder="Chamada para ação final…" />
+              <div className="p-4 space-y-3">
+                <div>
+                  <label className={labelCls} style={labelStyle}>Hook / Título</label>
+                  <input value={form.copy_hook} onChange={e => setForm(f => ({ ...f, copy_hook: e.target.value }))}
+                    className={inputCls} style={inputStyle} placeholder="Frase de abertura que prende a atenção…" />
+                </div>
+                <div>
+                  <label className={labelCls} style={labelStyle}>Corpo</label>
+                  <textarea value={form.copy_text} onChange={e => setForm(f => ({ ...f, copy_text: e.target.value }))}
+                    rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none' }}
+                    placeholder="Desenvolvimento do texto…" />
+                </div>
+                <div>
+                  <label className={labelCls} style={labelStyle}>CTA</label>
+                  <input value={form.copy_cta} onChange={e => setForm(f => ({ ...f, copy_cta: e.target.value }))}
+                    className={inputCls} style={inputStyle} placeholder="Chamada para ação final…" />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* Referências */}
-          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(167,139,250,0.12)' }}>
-            <div className="px-4 py-2.5" style={{ background: 'rgba(167,139,250,0.04)', borderBottom: '1px solid rgba(167,139,250,0.08)' }}>
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(167,139,250,0.7)' }}>Referências</span>
-            </div>
-            <div className="p-4 space-y-2">
-              {references.map((r, i) => (
-                <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl group"
-                  style={{ background: 'rgba(167,139,250,0.05)', border: '1px solid rgba(167,139,250,0.1)' }}>
-                  <Link size={11} style={{ color: 'rgba(167,139,250,0.6)', flexShrink: 0 }} />
-                  <div className="flex-1 min-w-0">
-                    {r.label && <p className="text-xs font-medium text-white truncate">{r.label}</p>}
-                    <a href={r.url} target="_blank" rel="noreferrer"
-                      className="text-[11px] truncate block hover:underline"
-                      style={{ color: 'rgba(167,139,250,0.7)' }} onClick={e => e.stopPropagation()}>
-                      {r.url}
-                    </a>
+            {/* Referências */}
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(167,139,250,0.12)' }}>
+              <div className="px-4 py-2.5" style={{ background: 'rgba(167,139,250,0.04)', borderBottom: '1px solid rgba(167,139,250,0.08)' }}>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(167,139,250,0.7)' }}>Referências</span>
+              </div>
+              <div className="p-4 space-y-2">
+                {references.map((r, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-2 rounded-xl group"
+                    style={{ background: 'rgba(167,139,250,0.05)', border: '1px solid rgba(167,139,250,0.1)' }}>
+                    <Link size={11} style={{ color: 'rgba(167,139,250,0.6)', flexShrink: 0 }} />
+                    <div className="flex-1 min-w-0">
+                      {r.label && <p className="text-xs font-medium text-white truncate">{r.label}</p>}
+                      <a href={r.url} target="_blank" rel="noreferrer"
+                        className="text-[11px] truncate block hover:underline"
+                        style={{ color: 'rgba(167,139,250,0.7)' }} onClick={e => e.stopPropagation()}>
+                        {r.url}
+                      </a>
+                    </div>
+                    <button onClick={() => setReferences(prev => prev.filter((_, j) => j !== i))}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity flex-shrink-0"
+                      style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      <X size={11} />
+                    </button>
                   </div>
-                  <button onClick={() => setReferences(prev => prev.filter((_, j) => j !== i))}
-                    className="opacity-0 group-hover:opacity-100 p-1 rounded transition-opacity flex-shrink-0"
-                    style={{ color: 'rgba(100,116,139,0.5)' }}>
-                    <X size={11} />
-                  </button>
-                </div>
-              ))}
-              <div className="space-y-2 pt-1">
-                <input value={newRefLabel} onChange={e => setNewRefLabel(e.target.value)}
-                  className={inputCls} style={{ ...inputStyle, fontSize: 12 }}
-                  placeholder="Nome / descrição (opcional)" />
-                <div className="flex gap-2">
-                  <input value={newRef} onChange={e => setNewRef(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addRef()}
-                    className={`${inputCls} flex-1`} style={{ ...inputStyle, fontSize: 12 }}
-                    placeholder="https://…" />
-                  <button onClick={addRef} disabled={!newRef.trim()}
-                    className="px-3 rounded-xl text-xs font-medium disabled:opacity-30 flex-shrink-0"
-                    style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
-                    <Plus size={13} />
-                  </button>
+                ))}
+                <div className="space-y-2 pt-1">
+                  <input value={newRefLabel} onChange={e => setNewRefLabel(e.target.value)}
+                    className={inputCls} style={{ ...inputStyle, fontSize: 12 }}
+                    placeholder="Nome / descrição (opcional)" />
+                  <div className="flex gap-2">
+                    <input value={newRef} onChange={e => setNewRef(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && addRef()}
+                      className={`${inputCls} flex-1`} style={{ ...inputStyle, fontSize: 12 }}
+                      placeholder="https://…" />
+                    <button onClick={addRef} disabled={!newRef.trim()}
+                      className="px-3 rounded-xl text-xs font-medium disabled:opacity-30 flex-shrink-0"
+                      style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
+                      <Plus size={13} />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Produção interna */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <label className={labelCls} style={{ ...labelStyle, marginBottom: 0 }}>Produção Interna</label>
-              <div className="flex items-center gap-2">
-                {tasks.length === 0 && (
-                  <button onClick={() => setWorkflowModal(true)}
+            {/* Produção interna */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className={labelCls} style={{ ...labelStyle, marginBottom: 0 }}>Produção Interna</label>
+                <div className="flex items-center gap-2">
+                  {tasks.length === 0 && (
+                    <button onClick={() => setWorkflowModal(true)}
+                      className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
+                      style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}>
+                      <Zap size={11} /> Criar fluxo
+                    </button>
+                  )}
+                  <button onClick={() => { setShowTaskForm(true); setNewTask({ title: '', assigned_to: '', due_date: '', priority: 'alta' }); }}
                     className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
                     style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
                     onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}>
-                    <Zap size={11} /> Criar fluxo
+                    <Plus size={11} /> Task
                   </button>
-                )}
-                <button onClick={() => { setShowTaskForm(true); setNewTask({ title: '', assigned_to: '', due_date: '', priority: 'alta' }); }}
-                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
-                  style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}>
-                  <Plus size={11} /> Task
-                </button>
+                </div>
               </div>
-            </div>
 
-            {tasks.length === 0 ? (
-              <div className="rounded-xl px-4 py-6 text-center"
-                style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(59,130,246,0.12)' }}>
-                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                  Clique em "Criar fluxo" para gerar as tarefas de Copy → Design → Edição → Revisão
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {tasks.map((t: any) => {
-                  const sc = TASK_STATUS_CFG[t.status] || TASK_STATUS_CFG.a_fazer;
-                  const isRunning = t.status === 'em_andamento';
-                  const isDone = t.status === 'concluida';
-                  const PRIORITY_COLOR: Record<string, string> = { urgente: '#f87171', alta: '#fb923c', media: '#facc15', baixa: '#94a3b8' };
-                  const pColor = PRIORITY_COLOR[t.priority] || '#94a3b8';
-                  return (
-                    <div key={t.id} className="rounded-xl px-3 py-2.5"
-                      style={{ background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isDone ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.05)'}`, opacity: isDone ? 0.7 : 1 }}>
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: sc.color }} />
-                        <p className="text-xs font-medium text-white flex-1 truncate" style={{ textDecoration: isDone ? 'line-through' : 'none' }}>{t.title}</p>
-                        {t.priority && t.priority !== 'media' && (
-                          <AlertTriangle size={9} style={{ color: pColor, flexShrink: 0 }} />
-                        )}
-                        {!isDone && (
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            {isRunning ? (
-                              <button onClick={() => handleTaskAction(t.id, 'pause')} title="Pausar"
+              {tasks.length === 0 ? (
+                <div className="rounded-xl px-4 py-6 text-center"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px dashed rgba(59,130,246,0.12)' }}>
+                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                    Clique em "Criar fluxo" para gerar as tarefas de Copy → Design → Edição → Revisão
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {tasks.map((t: any) => {
+                    const sc = TASK_STATUS_CFG[t.status] || TASK_STATUS_CFG.a_fazer;
+                    const isRunning = t.status === 'em_andamento';
+                    const isDone = t.status === 'concluida';
+                    const PRIORITY_COLOR: Record<string, string> = { urgente: '#f87171', alta: '#fb923c', media: '#facc15', baixa: '#94a3b8' };
+                    const pColor = PRIORITY_COLOR[t.priority] || '#94a3b8';
+                    return (
+                      <div key={t.id} className="rounded-xl px-3 py-2.5"
+                        style={{ background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isDone ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.05)'}`, opacity: isDone ? 0.7 : 1 }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: sc.color }} />
+                          <p className="text-xs font-medium text-white flex-1 truncate" style={{ textDecoration: isDone ? 'line-through' : 'none' }}>{t.title}</p>
+                          {t.priority && t.priority !== 'media' && (
+                            <AlertTriangle size={9} style={{ color: pColor, flexShrink: 0 }} />
+                          )}
+                          {!isDone && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              {isRunning ? (
+                                <button onClick={() => handleTaskAction(t.id, 'pause')} title="Pausar"
+                                  className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
+                                  style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
+                                  <Pause size={9} />
+                                </button>
+                              ) : (
+                                <button onClick={() => handleTaskAction(t.id, 'start')} title="Iniciar"
+                                  className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
+                                  style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>
+                                  <Play size={9} />
+                                </button>
+                              )}
+                              <button onClick={() => handleTaskAction(t.id, 'complete')} title="Concluir"
                                 className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
-                                style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
-                                <Pause size={9} />
+                                style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
+                                <Check size={9} />
                               </button>
-                            ) : (
-                              <button onClick={() => handleTaskAction(t.id, 'start')} title="Iniciar"
-                                className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
-                                style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>
-                                <Play size={9} />
-                              </button>
-                            )}
-                            <button onClick={() => handleTaskAction(t.id, 'complete')} title="Concluir"
-                              className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
-                              style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
-                              <Check size={9} />
-                            </button>
-                          </div>
-                        )}
+                            </div>
+                          )}
+                        </div>
+                        <div className="mt-1.5 flex items-center gap-2 ml-3.5">
+                          <select value={t.assigned_to || ''}
+                            onChange={async e => {
+                              const uid = e.target.value ? Number(e.target.value) : null;
+                              await tasksApi.update(t.id, { assigned_to: uid });
+                              setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assigned_to: uid, assignee_name: users.find((u: any) => u.id === uid)?.name || null } : x));
+                            }}
+                            className="text-[11px] rounded-lg px-2 py-1 outline-none flex-1"
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: t.assigned_to ? 'rgba(148,163,184,0.8)' : 'rgba(100,116,139,0.4)', cursor: 'pointer' }}>
+                            <option value="">Sem responsável</option>
+                            {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                          </select>
+                          {t.due_date && (
+                            <span className="text-[10px] flex-shrink-0 flex items-center gap-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                              <Calendar size={9} />{t.due_date.slice(0,10)}
+                            </span>
+                          )}
+                          <span className="text-[10px] flex-shrink-0" style={{ color: sc.color }}>{sc.label}</span>
+                        </div>
                       </div>
-                      <div className="mt-1.5 flex items-center gap-2 ml-3.5">
-                        <select value={t.assigned_to || ''}
-                          onChange={async e => {
-                            const uid = e.target.value ? Number(e.target.value) : null;
-                            await tasksApi.update(t.id, { assigned_to: uid });
-                            setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assigned_to: uid, assignee_name: users.find((u: any) => u.id === uid)?.name || null } : x));
-                          }}
-                          className="text-[11px] rounded-lg px-2 py-1 outline-none flex-1"
-                          style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: t.assigned_to ? 'rgba(148,163,184,0.8)' : 'rgba(100,116,139,0.4)', cursor: 'pointer' }}>
-                          <option value="">Sem responsável</option>
-                          {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                        </select>
-                        {t.due_date && (
-                          <span className="text-[10px] flex-shrink-0 flex items-center gap-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                            <Calendar size={9} />{t.due_date.slice(0,10)}
-                          </span>
-                        )}
-                        <span className="text-[10px] flex-shrink-0" style={{ color: sc.color }}>{sc.label}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+                    );
+                  })}
+                </div>
+              )}
 
-            {/* Inline new task form */}
-            {showTaskForm && (
-              <div className="rounded-xl p-3 mt-2 space-y-2"
-                style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                <input
-                  value={newTask.title}
-                  onChange={e => setNewTask(n => ({ ...n, title: e.target.value }))}
-                  placeholder="Título da tarefa…"
-                  autoFocus
-                  className="w-full px-3 py-2 rounded-lg text-xs text-white outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
-                />
-                <div className="grid grid-cols-2 gap-2">
-                  <select value={newTask.priority} onChange={e => setNewTask(n => ({ ...n, priority: e.target.value }))}
-                    className="px-3 py-2 rounded-lg text-xs outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.9)', cursor: 'pointer' }}>
-                    <option value="urgente">Urgente</option>
-                    <option value="alta">Alta</option>
-                    <option value="media">Média</option>
-                    <option value="baixa">Baixa</option>
+              {showTaskForm && (
+                <div className="rounded-xl p-3 mt-2 space-y-2"
+                  style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                  <input
+                    value={newTask.title}
+                    onChange={e => setNewTask(n => ({ ...n, title: e.target.value }))}
+                    placeholder="Título da tarefa…"
+                    autoFocus
+                    className="w-full px-3 py-2 rounded-lg text-xs text-white outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <select value={newTask.priority} onChange={e => setNewTask(n => ({ ...n, priority: e.target.value }))}
+                      className="px-3 py-2 rounded-lg text-xs outline-none"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.9)', cursor: 'pointer' }}>
+                      <option value="urgente">Urgente</option>
+                      <option value="alta">Alta</option>
+                      <option value="media">Média</option>
+                      <option value="baixa">Baixa</option>
+                    </select>
+                    <input type="date" value={newTask.due_date} onChange={e => setNewTask(n => ({ ...n, due_date: e.target.value }))}
+                      className="px-3 py-2 rounded-lg text-xs outline-none"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.9)' }} />
+                  </div>
+                  <select value={newTask.assigned_to} onChange={e => setNewTask(n => ({ ...n, assigned_to: e.target.value }))}
+                    className="w-full px-3 py-2 rounded-lg text-xs outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: newTask.assigned_to ? 'rgba(148,163,184,0.9)' : 'rgba(100,116,139,0.45)', cursor: 'pointer' }}>
+                    <option value="">Sem responsável</option>
+                    {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
                   </select>
-                  <input type="date" value={newTask.due_date} onChange={e => setNewTask(n => ({ ...n, due_date: e.target.value }))}
-                    className="px-3 py-2 rounded-lg text-xs outline-none"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.9)' }} />
+                  <div className="flex gap-2">
+                    <button onClick={() => setShowTaskForm(false)}
+                      className="flex-1 py-1.5 rounded-lg text-xs"
+                      style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      Cancelar
+                    </button>
+                    <button onClick={handleAddTask} disabled={savingTask || !newTask.title.trim()}
+                      className="flex-1 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-40"
+                      style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                      {savingTask ? 'Criando…' : 'Criar'}
+                    </button>
+                  </div>
                 </div>
-                <select value={newTask.assigned_to} onChange={e => setNewTask(n => ({ ...n, assigned_to: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg text-xs outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: newTask.assigned_to ? 'rgba(148,163,184,0.9)' : 'rgba(100,116,139,0.45)', cursor: 'pointer' }}>
-                  <option value="">Sem responsável</option>
-                  {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
-                </select>
-                <div className="flex gap-2">
-                  <button onClick={() => setShowTaskForm(false)}
-                    className="flex-1 py-1.5 rounded-lg text-xs"
-                    style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    Cancelar
-                  </button>
-                  <button onClick={handleAddTask} disabled={savingTask || !newTask.title.trim()}
-                    className="flex-1 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-40"
-                    style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
-                    {savingTask ? 'Criando…' : 'Criar'}
-                  </button>
-                </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
-
-        {/* Footer */}
-        <div className="flex gap-3 px-5 py-4 flex-shrink-0"
-          style={{ borderTop: '1px solid rgba(59,130,246,0.08)' }}>
-          <button onClick={onClose} className="btn-ghost flex-1 justify-center">Cancelar</button>
-          <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 justify-center">
-            {saving ? 'Salvando…' : 'Salvar'}
-          </button>
         </div>
       </div>
 
