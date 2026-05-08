@@ -194,7 +194,7 @@ function ProfileTab() {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = { owner: 'Owner', manager: 'Usuário', team: 'Time', client: 'Cliente' };
+const ROLE_LABEL: Record<string, string> = { owner: 'Proprietária', manager: 'Gestão', team: 'Time', client: 'Cliente' };
 const ROLE_BADGE: Record<string, string> = { owner: 'badge-blue', manager: 'badge-slate', team: 'badge-purple', client: 'badge-amber' };
 
 function UsersTab() {
@@ -313,27 +313,13 @@ function UsersTab() {
               <div>
                 <label className="label-dark">Papel</label>
                 <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value, agency_client_id: '' })} className="input-dark" style={{ cursor: 'pointer' }}>
-                  <option value="manager">Usuário</option>
-                  <option value="team">Time (só Marketing)</option>
-                  <option value="owner">Admin</option>
-                  <option value="client">Cliente (portal externo)</option>
+                  <option value="manager">Gestão</option>
+                  <option value="team">Time</option>
+                  <option value="client">Cliente</option>
                 </select>
               </div>
               {(form.role === 'team' || form.role === 'manager') && (
-                <div>
-                  <label className="label-dark">Função</label>
-                  <select value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} className="input-dark" style={{ cursor: 'pointer' }}>
-                    <option value="">Selecione a função</option>
-                    <option value="Gestora de Projetos">Gestora de Projetos</option>
-                    <option value="Designer">Designer</option>
-                    <option value="Redatora">Redatora</option>
-                    <option value="Planejamento">Planejamento</option>
-                    <option value="Audiovisual">Audiovisual</option>
-                    <option value="Gestora de Tráfego">Gestora de Tráfego</option>
-                    <option value="Webdesigner">Webdesigner</option>
-                    <option value="Social Media">Social Media</option>
-                  </select>
-                </div>
+                <Field label="Função" id="u-job" value={form.job_title} onChange={v => setForm({ ...form, job_title: v })} placeholder="Ex: Designer, Gestora de Tráfego…" />
               )}
               {form.role === 'client' && (
                 <div>
