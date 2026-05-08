@@ -82,6 +82,8 @@ router.post('/batches/bulk-create', (req, res) => {
     if (tpl) { try { templateStages = JSON.parse(tpl.stages); } catch {} }
   }
 
+  const batchDueDate = new Date(Number(year), Number(month), 0).toISOString().slice(0, 10);
+
   const created: any[] = [];
   const skipped: number[] = [];
 
@@ -106,8 +108,8 @@ router.post('/batches/bulk-create', (req, res) => {
       if (templateStages) {
         for (const s of templateStages) {
           if (!s.active) continue;
-          db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, content_piece_id, agency_client_id, priority, stage, status) VALUES (?, ?, ?, ?, ?, ?, 'alta', ?, 'a_fazer')`)
-            .run(req.user.tenant_id, `${s.label}: ${postTitle}`, s.assigned_to || null, req.user.id, postsCreated[postsCreated.length - 1], clientId, s.stage);
+          db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, content_piece_id, agency_client_id, priority, stage, status, due_date) VALUES (?, ?, ?, ?, ?, ?, 'alta', ?, 'a_fazer', ?)`)
+            .run(req.user.tenant_id, `${s.label}: ${postTitle}`, s.assigned_to || null, req.user.id, postsCreated[postsCreated.length - 1], clientId, s.stage, s.due_date || batchDueDate);
         }
       }
     }
@@ -134,6 +136,7 @@ router.post('/batches/bulk-workflow', (req, res) => {
     if (template_id) {
       db.prepare('UPDATE feed_batches SET default_template_id = ? WHERE id = ? AND tenant_id = ?').run(template_id, batchId, req.user.tenant_id);
     }
+    const fallbackDue = new Date(Number(batch.year), Number(batch.month), 0).toISOString().slice(0, 10);
     const posts = db.prepare('SELECT * FROM content_pieces WHERE batch_id = ? AND tenant_id = ?').all(batchId, req.user.tenant_id) as any[];
     for (const post of posts) {
       for (const s of stages) {
@@ -148,7 +151,7 @@ router.post('/batches/bulk-workflow', (req, res) => {
           post.id,
           post.agency_client_id,
           s.stage,
-          s.due_date || null
+          s.due_date || fallbackDue
         );
         created++;
       }
@@ -238,7 +241,7 @@ router.post('/', (req, res) => {
   // Auto-apply template if feed has one
   if (batch_id) {
     const batch = db.prepare(`
-      SELECT fb.default_template_id, wt.stages as template_stages
+      SELECT fb.default_template_id, fb.month, fb.year, wt.stages as template_stages
       FROM feed_batches fb
       LEFT JOIN workflow_templates wt ON wt.id = fb.default_template_id
       WHERE fb.id = ? AND fb.tenant_id = ?
@@ -247,6 +250,7 @@ router.post('/', (req, res) => {
     if (batch?.default_template_id && batch?.template_stages) {
       try {
         const stages = JSON.parse(batch.template_stages);
+        const fallbackDue = new Date(Number(batch.year), Number(batch.month), 0).toISOString().slice(0, 10);
         for (const s of stages) {
           if (!s.active) continue;
           db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, content_piece_id, agency_client_id, priority, stage, status, due_date) VALUES (?, ?, ?, ?, ?, ?, 'alta', ?, 'a_fazer', ?)`).run(
@@ -257,7 +261,7 @@ router.post('/', (req, res) => {
             newPostId,
             agency_client_id,
             s.stage,
-            s.due_date || null
+            s.due_date || fallbackDue
           );
         }
       } catch {}

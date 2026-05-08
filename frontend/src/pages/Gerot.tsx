@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import {
   Play, Pause, CheckCircle2, Plus, X, Clock, Calendar,
   FileImage, Megaphone, Timer, Trash2, Send, ArrowRight, Zap, AlertTriangle, CheckSquare,
-  LayoutList, Columns, ChevronDown
+  LayoutList, CalendarDays, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { tasksApi, agencyClientsApi, contentApi } from '../api/client';
 import PostDetailPanel from './marketing/PostDetailPanel';
@@ -342,11 +342,12 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   onOpenModal: () => void;
 }) {
   const { user } = useAuth();
-  const [view, setView] = useState<'minhas' | 'kanban' | 'time'>('minhas');
+  const [view, setView] = useState<'minhas' | 'calendario' | 'time'>('minhas');
   const [overview, setOverview] = useState<any>(null);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [myFilter, setMyFilter] = useState<'hoje' | 'semana' | 'todas'>('hoje');
   const [clientFilter, setClientFilter] = useState('');
+  const [calWeekOffset, setCalWeekOffset] = useState(0);
   const today = new Date();
 
   // Split tasks between mine and team
@@ -378,7 +379,7 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   const maxMinutes    = Math.max(...(overview?.clientHours?.map((c: any) => c.minutes_week) ?? [1]), 1);
 
   return (
-    <div className="p-4 md:p-8 max-w-4xl">
+    <div className="p-4 md:p-8">
       {/* Greeting + toggle */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -394,7 +395,7 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
         </div>
         <div className="flex gap-1 p-1 rounded-xl flex-shrink-0"
           style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
-          {([['minhas', 'Minhas tarefas', LayoutList], ['kanban', 'Kanban', Columns], ['time', 'Time', CheckSquare]] as const).map(([v, label, Icon]) => (
+          {([['minhas', 'Minhas tarefas', LayoutList], ['calendario', 'Calendário', CalendarDays], ['time', 'Time', CheckSquare]] as const).map(([v, label, Icon]) => (
             <button key={v} onClick={() => setView(v)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-all"
               style={{ background: view === v ? 'rgba(59,130,246,0.15)' : 'transparent', color: view === v ? '#e2e8f0' : 'rgba(100,116,139,0.6)', border: view === v ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent' }}>
@@ -432,16 +433,32 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
             </div>
           )}
 
-          {/* Filter tabs + new task */}
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
-              {(['hoje', 'semana', 'todas'] as const).map(f => (
-                <button key={f} onClick={() => setMyFilter(f)}
-                  className="px-3 py-1.5 text-sm rounded-lg transition-all"
-                  style={{ background: myFilter === f ? 'rgba(59,130,246,0.15)' : 'transparent', color: myFilter === f ? '#e2e8f0' : 'rgba(100,116,139,0.6)', border: myFilter === f ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent' }}>
-                  {f === 'hoje' ? 'Hoje' : f === 'semana' ? 'Esta semana' : 'Todas'}
-                </button>
-              ))}
+          {/* Filter tabs + client filter + new task */}
+          <div className="flex items-center gap-2 justify-between mb-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
+                {(['hoje', 'semana', 'todas'] as const).map(f => (
+                  <button key={f} onClick={() => setMyFilter(f)}
+                    className="px-3 py-1.5 text-sm rounded-lg transition-all"
+                    style={{ background: myFilter === f ? 'rgba(59,130,246,0.15)' : 'transparent', color: myFilter === f ? '#e2e8f0' : 'rgba(100,116,139,0.6)', border: myFilter === f ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent' }}>
+                    {f === 'hoje' ? 'Hoje' : f === 'semana' ? 'Esta semana' : 'Todas'}
+                  </button>
+                ))}
+              </div>
+              {(() => {
+                const clientsInTasks = Array.from(new Map(
+                  myTasks.filter(t => t.client_name).map(t => [t.agency_client_id, t.client_name])
+                ).entries());
+                if (clientsInTasks.length < 2) return null;
+                return (
+                  <select value={clientFilter} onChange={e => setClientFilter(e.target.value)}
+                    className="text-sm px-3 py-1.5 rounded-xl outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.12)', color: clientFilter ? '#e2e8f0' : 'rgba(100,116,139,0.5)', cursor: 'pointer' }}>
+                    <option value="">Todos os clientes</option>
+                    {clientsInTasks.map(([id, name]) => <option key={String(id)} value={String(id)}>{name}</option>)}
+                  </select>
+                );
+              })()}
             </div>
             <button onClick={onOpenModal} className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3">
               <Plus size={13} /> Nova tarefa
@@ -502,73 +519,97 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
         </>
       )}
 
-      {/* ── KANBAN view ────────────────────────────────────────────────────── */}
-      {view === 'kanban' && (() => {
-        const STAGES_KANBAN = [
-          { key: 'copy',    label: 'Copy',    color: '#60a5fa' },
-          { key: 'design',  label: 'Design',  color: '#a78bfa' },
-          { key: 'edicao',  label: 'Edição',  color: '#f59e0b' },
-          { key: 'revisao', label: 'Revisão', color: '#34d399' },
-          { key: 'geral',   label: 'Geral',   color: '#94a3b8' },
-        ];
-        // Deduplicate clients from tasks for filter
+      {/* ── CALENDÁRIO view ────────────────────────────────────────────────── */}
+      {view === 'calendario' && (() => {
+        const msDay = 86400000;
+        const now = new Date();
+        // Monday of current week + offset
+        const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+        const monday = new Date(now.getTime() - dayOfWeek * msDay + calWeekOffset * 7 * msDay);
+        monday.setHours(0, 0, 0, 0);
+        const weekDays = Array.from({ length: 7 }, (_, i) => new Date(monday.getTime() + i * msDay));
+        const openTasks = tasks.filter(t => t.status !== 'concluida');
+        const tasksWithDate = openTasks.filter(t => t.due_date);
+        const tasksNoDate = openTasks.filter(t => !t.due_date);
+
         const allClients = Array.from(new Map(
-          tasks.filter(t => t.client_name).map(t => [t.agency_client_id, t.client_name])
+          openTasks.filter(t => t.client_name).map(t => [t.agency_client_id, t.client_name])
         ).entries()).map(([id, name]) => ({ id, name }));
-        const filtered = clientFilter ? tasks.filter(t => String(t.agency_client_id) === clientFilter) : tasks;
-        const openTasks = filtered.filter(t => t.status !== 'concluida');
+        const filtered = clientFilter
+          ? { withDate: tasksWithDate.filter(t => String(t.agency_client_id) === clientFilter), noDate: tasksNoDate.filter(t => String(t.agency_client_id) === clientFilter) }
+          : { withDate: tasksWithDate, noDate: tasksNoDate };
+
+        const weekLabel = `${format(weekDays[0], "d MMM", { locale: ptBR })} – ${format(weekDays[6], "d MMM", { locale: ptBR })}`;
+
         return (
           <div>
-            {/* Client filter */}
-            <div className="flex items-center justify-between mb-4">
-              <select value={clientFilter} onChange={e => setClientFilter(e.target.value)}
-                className="text-sm px-3 py-1.5 rounded-xl outline-none"
-                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.15)', color: clientFilter ? '#e2e8f0' : 'rgba(100,116,139,0.6)', cursor: 'pointer' }}>
-                <option value="">Todos os clientes</option>
-                {allClients.map(c => <option key={String(c.id)} value={String(c.id)}>{c.name}</option>)}
-              </select>
-              <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>{openTasks.length} tarefa{openTasks.length !== 1 ? 's' : ''} abertas</span>
+            {/* Controls */}
+            <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <button onClick={() => setCalWeekOffset(o => o - 1)} className="p-1.5 rounded-lg transition-all"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.1)', color: 'rgba(148,163,184,0.7)' }}>
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-sm font-medium" style={{ color: '#e2e8f0' }}>{weekLabel}</span>
+                <button onClick={() => setCalWeekOffset(o => o + 1)} className="p-1.5 rounded-lg transition-all"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.1)', color: 'rgba(148,163,184,0.7)' }}>
+                  <ChevronRight size={16} />
+                </button>
+                {calWeekOffset !== 0 && (
+                  <button onClick={() => setCalWeekOffset(0)} className="text-xs px-2 py-1 rounded-lg"
+                    style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
+                    Hoje
+                  </button>
+                )}
+              </div>
+              {allClients.length >= 2 && (
+                <select value={clientFilter} onChange={e => setClientFilter(e.target.value)}
+                  className="text-sm px-3 py-1.5 rounded-xl outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.12)', color: clientFilter ? '#e2e8f0' : 'rgba(100,116,139,0.5)', cursor: 'pointer' }}>
+                  <option value="">Todos os clientes</option>
+                  {allClients.map(c => <option key={String(c.id)} value={String(c.id)}>{c.name}</option>)}
+                </select>
+              )}
             </div>
-            {/* Columns */}
-            <div className="flex gap-4 overflow-x-auto pb-4">
-              {STAGES_KANBAN.map(({ key, label, color }) => {
-                const col = openTasks.filter(t => (t.stage || 'geral') === key);
+
+            {/* Week grid */}
+            <div className="grid grid-cols-7 gap-2 mb-6">
+              {weekDays.map(day => {
+                const dateStr = format(day, 'yyyy-MM-dd');
+                const isToday2 = format(day, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
+                const dayTasks = filtered.withDate.filter(t => t.due_date === dateStr);
+                const overdueTasks = filtered.withDate.filter(t => t.due_date! < format(now, 'yyyy-MM-dd'));
+                const isPast = day < new Date(now.setHours(0,0,0,0)) && !isToday2;
                 return (
-                  <div key={key} className="flex-shrink-0 w-64">
-                    <div className="flex items-center gap-2 mb-2 px-1">
-                      <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>{label}</span>
-                      <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>({col.length})</span>
+                  <div key={dateStr} className="rounded-2xl overflow-hidden flex flex-col min-h-[160px]"
+                    style={{ background: isToday2 ? 'rgba(59,130,246,0.06)' : 'rgba(255,255,255,0.02)', border: isToday2 ? '1px solid rgba(59,130,246,0.25)' : '1px solid rgba(59,130,246,0.06)' }}>
+                    {/* Day header */}
+                    <div className="px-2 py-2 text-center" style={{ borderBottom: '1px solid rgba(59,130,246,0.06)' }}>
+                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: isToday2 ? '#60a5fa' : 'rgba(100,116,139,0.5)' }}>
+                        {format(day, 'EEE', { locale: ptBR })}
+                      </p>
+                      <p className="text-sm font-semibold" style={{ color: isToday2 ? '#60a5fa' : isPast ? 'rgba(100,116,139,0.35)' : '#e2e8f0' }}>
+                        {format(day, 'd')}
+                      </p>
                     </div>
-                    <div className="space-y-2">
-                      {col.length === 0 ? (
-                        <div className="rounded-xl px-3 py-6 text-center" style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
-                          <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.3)' }}>Vazio</p>
+                    {/* Tasks */}
+                    <div className="p-1.5 flex-1 space-y-1 overflow-y-auto">
+                      {dayTasks.length === 0 ? (
+                        <div className="h-full flex items-center justify-center py-4">
+                          <span style={{ color: 'rgba(100,116,139,0.2)', fontSize: '10px' }}>—</span>
                         </div>
-                      ) : col.map(task => {
+                      ) : dayTasks.map(task => {
                         const cfg = PRIORITY_CFG[task.priority] || PRIORITY_CFG.media;
-                        const isRunning = task.status === 'em_andamento';
                         return (
-                          <div key={task.id} onClick={() => onDetail(task)}
-                            className="rounded-xl p-3 cursor-pointer transition-all"
-                            style={{ background: isRunning ? 'rgba(59,130,246,0.06)' : 'rgba(255,255,255,0.03)', border: isRunning ? '1px solid rgba(59,130,246,0.2)' : '1px solid rgba(59,130,246,0.08)' }}>
-                            <div className="flex items-start gap-2 mb-2">
-                              <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: cfg.dot }} />
-                              <p className="text-xs font-medium text-white leading-tight">{task.title}</p>
+                          <div key={task.id} onClick={() => onDetail(task)} className="rounded-lg px-2 py-1.5 cursor-pointer transition-all"
+                            style={{ background: task.status === 'em_andamento' ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${cfg.dot}25` }}>
+                            <div className="flex items-start gap-1 mb-0.5">
+                              <div className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0" style={{ background: cfg.dot }} />
+                              <p className="text-[11px] font-medium text-white leading-tight line-clamp-2">{task.title}</p>
                             </div>
-                            <div className="flex items-center justify-between">
-                              <div className="flex items-center gap-1.5 flex-wrap">
-                                {task.client_name && <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa' }}>{task.client_name}</span>}
-                                {task.assigned_name && <span className="text-[9px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{task.assigned_name.split(' ')[0]}</span>}
-                              </div>
-                              <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                                {isRunning
-                                  ? <button onClick={() => onPause(task.id)} className="p-1 rounded" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.1)' }}><Pause size={10} /></button>
-                                  : <button onClick={() => onStart(task.id)} className="p-1 rounded" style={{ color: 'rgba(100,116,139,0.5)' }}><Play size={10} /></button>
-                                }
-                                <button onClick={() => onComplete(task.id)} className="p-1 rounded" style={{ color: 'rgba(100,116,139,0.5)' }}><CheckCircle2 size={10} /></button>
-                              </div>
-                            </div>
+                            {task.client_name && (
+                              <p className="text-[9px] pl-2.5" style={{ color: '#60a5fa' }}>{task.client_name}</p>
+                            )}
                           </div>
                         );
                       })}
@@ -577,6 +618,30 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
                 );
               })}
             </div>
+
+            {/* Tasks without date */}
+            {filtered.noDate.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                  Sem data ({filtered.noDate.length})
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+                  {filtered.noDate.map(task => {
+                    const cfg = PRIORITY_CFG[task.priority] || PRIORITY_CFG.media;
+                    return (
+                      <div key={task.id} onClick={() => onDetail(task)} className="rounded-xl px-3 py-2.5 cursor-pointer transition-all"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.07)' }}>
+                        <div className="flex items-center gap-2">
+                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
+                          <p className="text-xs font-medium text-white truncate">{task.title}</p>
+                        </div>
+                        {task.client_name && <p className="text-[10px] pl-3.5 mt-0.5" style={{ color: 'rgba(59,130,246,0.6)' }}>{task.client_name}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}
