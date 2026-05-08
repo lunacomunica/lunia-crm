@@ -99,8 +99,9 @@ router.get('/:id/tasks', (req, res) => {
     FROM tasks t
     LEFT JOIN users u ON t.assigned_to = u.id
     WHERE t.content_piece_id = ? AND t.tenant_id = ?
-      AND t.stage IN ('copy','design','edicao','revisao')
-    ORDER BY CASE t.stage WHEN 'copy' THEN 1 WHEN 'design' THEN 2 WHEN 'edicao' THEN 3 WHEN 'revisao' THEN 4 END
+    ORDER BY
+      CASE t.stage WHEN 'copy' THEN 1 WHEN 'design' THEN 2 WHEN 'edicao' THEN 3 WHEN 'revisao' THEN 4 ELSE 5 END,
+      t.created_at ASC
   `).all(req.params.id, req.user.tenant_id);
   res.json(tasks);
 });

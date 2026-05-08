@@ -248,6 +248,9 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
     STAGES.map(s => ({ ...s, active: true, assigned_to: '', due_date: '' }))
   );
   const [creatingFlow, setCreatingFlow] = useState(false);
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [newTask, setNewTask] = useState({ title: '', assigned_to: '' });
+  const [savingTask, setSavingTask] = useState(false);
 
   useEffect(() => {
     contentApi.getTasks(post.id).then(r => setTasks(r.data || []));
@@ -322,6 +325,23 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   const handleDelete = async () => {
     await contentApi.delete(post.id);
     onDeleted();
+  };
+
+  const handleAddTask = async () => {
+    if (!newTask.title.trim()) return;
+    setSavingTask(true);
+    const r = await tasksApi.create({
+      title: newTask.title.trim(),
+      assigned_to: newTask.assigned_to ? Number(newTask.assigned_to) : null,
+      content_piece_id: post.id,
+      agency_client_id: post.agency_client_id,
+      priority: 'alta',
+      stage: 'geral',
+    });
+    setTasks(prev => [...prev, r.data]);
+    setNewTask({ title: '', assigned_to: '' });
+    setShowTaskForm(false);
+    setSavingTask(false);
   };
 
   const handleCreateFlow = async () => {
@@ -518,13 +538,24 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
           <div>
             <div className="flex items-center justify-between mb-3">
               <label className={labelCls} style={{ ...labelStyle, marginBottom: 0 }}>Produção Interna</label>
-              <button onClick={() => setWorkflowModal(true)}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
-                style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}>
-                {tasks.length === 0 ? <><Zap size={11} /> Criar fluxo</> : <><Plus size={11} /> Etapa</>}
-              </button>
+              <div className="flex items-center gap-2">
+                {tasks.length === 0 && (
+                  <button onClick={() => setWorkflowModal(true)}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
+                    style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}
+                    onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
+                    onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}>
+                    <Zap size={11} /> Criar fluxo
+                  </button>
+                )}
+                <button onClick={() => { setShowTaskForm(true); setNewTask({ title: '', assigned_to: '' }); }}
+                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
+                  style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}>
+                  <Plus size={11} /> Task
+                </button>
+              </div>
             </div>
 
             {tasks.length === 0 ? (
@@ -563,6 +594,42 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                     </div>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Inline new task form */}
+            {showTaskForm && (
+              <div className="rounded-xl p-3 mt-2 space-y-2"
+                style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                <input
+                  value={newTask.title}
+                  onChange={e => setNewTask(n => ({ ...n, title: e.target.value }))}
+                  onKeyDown={e => e.key === 'Enter' && handleAddTask()}
+                  placeholder="Título da tarefa…"
+                  autoFocus
+                  className="w-full px-3 py-2 rounded-lg text-xs text-white outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}
+                />
+                <select
+                  value={newTask.assigned_to}
+                  onChange={e => setNewTask(n => ({ ...n, assigned_to: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-lg text-xs outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: newTask.assigned_to ? 'rgba(148,163,184,0.9)' : 'rgba(100,116,139,0.45)', cursor: 'pointer' }}>
+                  <option value="">Sem responsável</option>
+                  {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                </select>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowTaskForm(false)}
+                    className="flex-1 py-1.5 rounded-lg text-xs"
+                    style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={handleAddTask} disabled={savingTask || !newTask.title.trim()}
+                    className="flex-1 py-1.5 rounded-lg text-xs font-medium text-white disabled:opacity-40"
+                    style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                    {savingTask ? 'Criando…' : 'Criar'}
+                  </button>
+                </div>
               </div>
             )}
           </div>
