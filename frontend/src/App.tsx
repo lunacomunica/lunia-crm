@@ -10,6 +10,7 @@ import Funnel from './pages/Funnel';
 import Products from './pages/Products';
 import Settings from './pages/Settings';
 import MarketingClients from './pages/marketing/Clients';
+import ClientDetail from './pages/marketing/ClientDetail';
 import MarketingContent from './pages/marketing/Content';
 import ClientPortal from './pages/marketing/ClientPortal';
 import Traffic from './pages/marketing/Traffic';
@@ -47,6 +48,7 @@ export default function App() {
             <Route path="products" element={<InternalOnly><Products /></InternalOnly>} />
             <Route path="marketing/production" element={<Production />} />
             <Route path="marketing/clients" element={<MarketingClients />} />
+            <Route path="marketing/clients/:id" element={<ClientDetail />} />
             <Route path="marketing/content" element={<MarketingContent />} />
             <Route path="marketing/traffic" element={<Traffic />} />
             <Route path="marketing/portal/:clientId" element={<ClientPortal />} />

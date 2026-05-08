@@ -73,7 +73,7 @@ export default function MarketingClients() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {clients.map(c => (
-            <div key={c.id} onClick={() => navigate(`/marketing/content?client=${c.id}`)}
+            <div key={c.id} onClick={() => navigate(`/marketing/clients/${c.id}`)}
               className="card p-5 cursor-pointer group transition-all duration-200 hover:border-blue-500/20"
               style={{ borderColor: c.active ? 'rgba(59,130,246,0.1)' : 'rgba(100,116,139,0.06)' }}>
               <div className="flex items-start justify-between mb-4">
