@@ -348,6 +348,8 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   const [myFilter, setMyFilter] = useState<'hoje' | 'semana' | 'todas'>('hoje');
   const [clientFilter, setClientFilter] = useState('');
   const [calWeekOffset, setCalWeekOffset] = useState(0);
+  const [calMonthOffset, setCalMonthOffset] = useState(0);
+  const [calMode, setCalMode] = useState<'semana' | 'mes'>('semana');
   const [showDone, setShowDone] = useState(false);
   const today = new Date();
 
@@ -550,15 +552,10 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
       {view === 'calendario' && (() => {
         const msDay = 86400000;
         const now = new Date();
-        // Monday of current week + offset
-        const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
-        const monday = new Date(now.getTime() - dayOfWeek * msDay + calWeekOffset * 7 * msDay);
-        monday.setHours(0, 0, 0, 0);
-        const weekDays = Array.from({ length: 7 }, (_, i) => new Date(monday.getTime() + i * msDay));
+        const todayStr = format(now, 'yyyy-MM-dd');
         const openTasks = tasks.filter(t => t.status !== 'concluida');
         const tasksWithDate = openTasks.filter(t => t.due_date);
         const tasksNoDate = openTasks.filter(t => !t.due_date);
-
         const allClients = Array.from(new Map(
           openTasks.filter(t => t.client_name).map(t => [t.agency_client_id, t.client_name])
         ).entries()).map(([id, name]) => ({ id, name }));
@@ -566,24 +563,63 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
           ? { withDate: tasksWithDate.filter(t => String(t.agency_client_id) === clientFilter), noDate: tasksNoDate.filter(t => String(t.agency_client_id) === clientFilter) }
           : { withDate: tasksWithDate, noDate: tasksNoDate };
 
+        // Week mode
+        const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+        const monday = new Date(now.getTime() - dayOfWeek * msDay + calWeekOffset * 7 * msDay);
+        monday.setHours(0, 0, 0, 0);
+        const weekDays = Array.from({ length: 7 }, (_, i) => new Date(monday.getTime() + i * msDay));
         const weekLabel = `${format(weekDays[0], "d MMM", { locale: ptBR })} – ${format(weekDays[6], "d MMM", { locale: ptBR })}`;
+
+        // Month mode
+        const monthRef = new Date(now.getFullYear(), now.getMonth() + calMonthOffset, 1);
+        const monthLabel = format(monthRef, "MMMM yyyy", { locale: ptBR });
+        const firstDayOfMonth = new Date(monthRef.getFullYear(), monthRef.getMonth(), 1);
+        const lastDayOfMonth = new Date(monthRef.getFullYear(), monthRef.getMonth() + 1, 0);
+        const startDow = firstDayOfMonth.getDay() === 0 ? 6 : firstDayOfMonth.getDay() - 1;
+        const gridStart = new Date(firstDayOfMonth.getTime() - startDow * msDay);
+        gridStart.setHours(0, 0, 0, 0);
+        const totalCells = Math.ceil((startDow + lastDayOfMonth.getDate()) / 7) * 7;
+        const monthDays = Array.from({ length: totalCells }, (_, i) => new Date(gridStart.getTime() + i * msDay));
+
+        const taskPill = (task: Task) => {
+          const cfg = PRIORITY_CFG[task.priority] || PRIORITY_CFG.media;
+          return (
+            <div key={task.id} onClick={() => onDetail(task)} className="rounded px-1.5 py-0.5 cursor-pointer truncate"
+              style={{ background: task.status === 'em_andamento' ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.05)', borderLeft: `2px solid ${cfg.dot}` }}>
+              <p className="text-[10px] text-white truncate leading-tight">{task.title}</p>
+            </div>
+          );
+        };
 
         return (
           <div>
             {/* Controls */}
             <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
               <div className="flex items-center gap-2">
-                <button onClick={() => setCalWeekOffset(o => o - 1)} className="p-1.5 rounded-lg transition-all"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.1)', color: 'rgba(148,163,184,0.7)' }}>
-                  <ChevronLeft size={16} />
+                {/* Mode toggle */}
+                <div className="flex gap-1 p-0.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
+                  {(['semana', 'mes'] as const).map(m => (
+                    <button key={m} onClick={() => setCalMode(m)}
+                      className="px-2.5 py-1 text-xs rounded-md transition-all capitalize"
+                      style={{ background: calMode === m ? 'rgba(59,130,246,0.15)' : 'transparent', color: calMode === m ? '#e2e8f0' : 'rgba(100,116,139,0.5)', border: calMode === m ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent' }}>
+                      {m === 'semana' ? 'Semana' : 'Mês'}
+                    </button>
+                  ))}
+                </div>
+                {/* Nav */}
+                <button onClick={() => calMode === 'semana' ? setCalWeekOffset(o => o - 1) : setCalMonthOffset(o => o - 1)}
+                  className="p-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.1)', color: 'rgba(148,163,184,0.7)' }}>
+                  <ChevronLeft size={15} />
                 </button>
-                <span className="text-sm font-medium" style={{ color: '#e2e8f0' }}>{weekLabel}</span>
-                <button onClick={() => setCalWeekOffset(o => o + 1)} className="p-1.5 rounded-lg transition-all"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.1)', color: 'rgba(148,163,184,0.7)' }}>
-                  <ChevronRight size={16} />
+                <span className="text-sm font-medium min-w-32 text-center" style={{ color: '#e2e8f0' }}>
+                  {calMode === 'semana' ? weekLabel : monthLabel}
+                </span>
+                <button onClick={() => calMode === 'semana' ? setCalWeekOffset(o => o + 1) : setCalMonthOffset(o => o + 1)}
+                  className="p-1.5 rounded-lg" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.1)', color: 'rgba(148,163,184,0.7)' }}>
+                  <ChevronRight size={15} />
                 </button>
-                {calWeekOffset !== 0 && (
-                  <button onClick={() => setCalWeekOffset(0)} className="text-xs px-2 py-1 rounded-lg"
+                {(calMode === 'semana' ? calWeekOffset !== 0 : calMonthOffset !== 0) && (
+                  <button onClick={() => { setCalWeekOffset(0); setCalMonthOffset(0); }} className="text-xs px-2 py-1 rounded-lg"
                     style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
                     Hoje
                   </button>
@@ -599,52 +635,82 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
               )}
             </div>
 
-            {/* Week grid */}
-            <div className="grid grid-cols-7 gap-2 mb-6">
-              {weekDays.map(day => {
-                const dateStr = format(day, 'yyyy-MM-dd');
-                const isToday2 = format(day, 'yyyy-MM-dd') === format(now, 'yyyy-MM-dd');
-                const dayTasks = filtered.withDate.filter(t => t.due_date === dateStr);
-                const overdueTasks = filtered.withDate.filter(t => t.due_date! < format(now, 'yyyy-MM-dd'));
-                const isPast = day < new Date(now.setHours(0,0,0,0)) && !isToday2;
-                return (
-                  <div key={dateStr} className="rounded-2xl overflow-hidden flex flex-col min-h-[160px]"
-                    style={{ background: isToday2 ? 'rgba(59,130,246,0.06)' : 'rgba(255,255,255,0.02)', border: isToday2 ? '1px solid rgba(59,130,246,0.25)' : '1px solid rgba(59,130,246,0.06)' }}>
-                    {/* Day header */}
-                    <div className="px-2 py-2 text-center" style={{ borderBottom: '1px solid rgba(59,130,246,0.06)' }}>
-                      <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: isToday2 ? '#60a5fa' : 'rgba(100,116,139,0.5)' }}>
-                        {format(day, 'EEE', { locale: ptBR })}
-                      </p>
-                      <p className="text-sm font-semibold" style={{ color: isToday2 ? '#60a5fa' : isPast ? 'rgba(100,116,139,0.35)' : '#e2e8f0' }}>
-                        {format(day, 'd')}
-                      </p>
+            {/* ── WEEK grid ── */}
+            {calMode === 'semana' && (
+              <div className="grid grid-cols-7 gap-2 mb-6">
+                {weekDays.map(day => {
+                  const dateStr = format(day, 'yyyy-MM-dd');
+                  const isToday2 = dateStr === todayStr;
+                  const isPast = dateStr < todayStr;
+                  const dayTasks = filtered.withDate.filter(t => t.due_date === dateStr);
+                  return (
+                    <div key={dateStr} className="rounded-2xl overflow-hidden flex flex-col min-h-[160px]"
+                      style={{ background: isToday2 ? 'rgba(59,130,246,0.06)' : 'rgba(255,255,255,0.02)', border: isToday2 ? '1px solid rgba(59,130,246,0.25)' : '1px solid rgba(59,130,246,0.06)' }}>
+                      <div className="px-2 py-2 text-center" style={{ borderBottom: '1px solid rgba(59,130,246,0.06)' }}>
+                        <p className="text-[10px] uppercase tracking-wider mb-0.5" style={{ color: isToday2 ? '#60a5fa' : 'rgba(100,116,139,0.5)' }}>{format(day, 'EEE', { locale: ptBR })}</p>
+                        <p className="text-sm font-semibold" style={{ color: isToday2 ? '#60a5fa' : isPast ? 'rgba(100,116,139,0.35)' : '#e2e8f0' }}>{format(day, 'd')}</p>
+                      </div>
+                      <div className="p-1.5 flex-1 space-y-1 overflow-y-auto">
+                        {dayTasks.length === 0
+                          ? <div className="h-full flex items-center justify-center py-4"><span style={{ color: 'rgba(100,116,139,0.2)', fontSize: '10px' }}>—</span></div>
+                          : dayTasks.map(task => {
+                              const cfg = PRIORITY_CFG[task.priority] || PRIORITY_CFG.media;
+                              return (
+                                <div key={task.id} onClick={() => onDetail(task)} className="rounded-lg px-2 py-1.5 cursor-pointer"
+                                  style={{ background: task.status === 'em_andamento' ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${cfg.dot}25` }}>
+                                  <div className="flex items-start gap-1 mb-0.5">
+                                    <div className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0" style={{ background: cfg.dot }} />
+                                    <p className="text-[11px] font-medium text-white leading-tight line-clamp-2">{task.title}</p>
+                                  </div>
+                                  {task.client_name && <p className="text-[9px] pl-2.5" style={{ color: '#60a5fa' }}>{task.client_name}</p>}
+                                </div>
+                              );
+                            })
+                        }
+                      </div>
                     </div>
-                    {/* Tasks */}
-                    <div className="p-1.5 flex-1 space-y-1 overflow-y-auto">
-                      {dayTasks.length === 0 ? (
-                        <div className="h-full flex items-center justify-center py-4">
-                          <span style={{ color: 'rgba(100,116,139,0.2)', fontSize: '10px' }}>—</span>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* ── MONTH grid ── */}
+            {calMode === 'mes' && (
+              <div className="mb-6">
+                {/* Day-of-week headers */}
+                <div className="grid grid-cols-7 gap-1 mb-1">
+                  {['Seg','Ter','Qua','Qui','Sex','Sáb','Dom'].map(d => (
+                    <div key={d} className="text-center py-1">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.4)' }}>{d}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {monthDays.map(day => {
+                    const dateStr = format(day, 'yyyy-MM-dd');
+                    const isToday2 = dateStr === todayStr;
+                    const inMonth = day.getMonth() === monthRef.getMonth();
+                    const isPast = dateStr < todayStr;
+                    const dayTasks = filtered.withDate.filter(t => t.due_date === dateStr);
+                    return (
+                      <div key={dateStr} className="rounded-xl p-1.5 min-h-[80px] flex flex-col"
+                        style={{ background: isToday2 ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.02)', border: isToday2 ? '1px solid rgba(59,130,246,0.3)' : '1px solid rgba(59,130,246,0.05)', opacity: inMonth ? 1 : 0.35 }}>
+                        <p className="text-xs font-semibold mb-1 text-right pr-0.5"
+                          style={{ color: isToday2 ? '#60a5fa' : isPast && inMonth ? 'rgba(100,116,139,0.4)' : 'rgba(148,163,184,0.7)' }}>
+                          {format(day, 'd')}
+                        </p>
+                        <div className="space-y-0.5 flex-1 overflow-hidden">
+                          {dayTasks.slice(0, 3).map(task => taskPill(task))}
+                          {dayTasks.length > 3 && (
+                            <p className="text-[9px] pl-1" style={{ color: 'rgba(100,116,139,0.5)' }}>+{dayTasks.length - 3} mais</p>
+                          )}
                         </div>
-                      ) : dayTasks.map(task => {
-                        const cfg = PRIORITY_CFG[task.priority] || PRIORITY_CFG.media;
-                        return (
-                          <div key={task.id} onClick={() => onDetail(task)} className="rounded-lg px-2 py-1.5 cursor-pointer transition-all"
-                            style={{ background: task.status === 'em_andamento' ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)', border: `1px solid ${cfg.dot}25` }}>
-                            <div className="flex items-start gap-1 mb-0.5">
-                              <div className="w-1.5 h-1.5 rounded-full mt-1 flex-shrink-0" style={{ background: cfg.dot }} />
-                              <p className="text-[11px] font-medium text-white leading-tight line-clamp-2">{task.title}</p>
-                            </div>
-                            {task.client_name && (
-                              <p className="text-[9px] pl-2.5" style={{ color: '#60a5fa' }}>{task.client_name}</p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Tasks without date */}
             {filtered.noDate.length > 0 && (
@@ -656,7 +722,7 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
                   {filtered.noDate.map(task => {
                     const cfg = PRIORITY_CFG[task.priority] || PRIORITY_CFG.media;
                     return (
-                      <div key={task.id} onClick={() => onDetail(task)} className="rounded-xl px-3 py-2.5 cursor-pointer transition-all"
+                      <div key={task.id} onClick={() => onDetail(task)} className="rounded-xl px-3 py-2.5 cursor-pointer"
                         style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.07)' }}>
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
