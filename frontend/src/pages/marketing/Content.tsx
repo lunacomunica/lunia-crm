@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, X, Trash2, FileImage, ChevronDown, ChevronRight, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye } from 'lucide-react';
+import { Plus, X, Trash2, FileImage, ChevronDown, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye, List, CalendarDays, LayoutGrid } from 'lucide-react';
 import { contentApi, agencyClientsApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
-import { format } from 'date-fns';
+import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const STATUS_CONFIG: Record<ContentStatus, { label: string; color: string; bg: string; border: string; icon: any }> = {
@@ -14,21 +14,11 @@ const STATUS_CONFIG: Record<ContentStatus, { label: string; color: string; bg: s
   agendado:             { label: 'Agendado',          color: '#a78bfa', bg: 'rgba(167,139,250,0.08)', border: 'rgba(167,139,250,0.2)', icon: Calendar },
   publicado:            { label: 'Publicado',         color: '#10b981', bg: 'rgba(16,185,129,0.08)',  border: 'rgba(16,185,129,0.2)',  icon: Send },
 };
-
 const STATUS_ORDER: ContentStatus[] = ['em_criacao','em_revisao','aguardando_aprovacao','aprovado','ajuste_solicitado','agendado','publicado'];
 const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-interface FeedBatch {
-  id: number;
-  name: string;
-  client_name: string;
-  agency_client_id: number;
-  month: number;
-  year: number;
-  order_num: number;
-  post_count: number;
-  approved_count: number;
-}
+interface FeedBatch { id: number; name: string; agency_client_id: number; month: number; year: number; order_num: number; post_count: number; approved_count: number; }
+type View = 'list' | 'calendar' | 'preview';
 
 function StatusBadge({ status }: { status: ContentStatus }) {
   const cfg = STATUS_CONFIG[status];
@@ -50,7 +40,7 @@ function StatusDropdown({ current, onChange }: { current: ContentStatus; onChang
   }, []);
   return (
     <div ref={ref} className="relative">
-      <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 transition-opacity hover:opacity-80">
+      <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
         <StatusBadge status={current} />
         <ChevronDown size={11} style={{ color: 'rgba(100,116,139,0.5)' }} />
       </button>
@@ -80,108 +70,107 @@ export default function MarketingContent() {
   const [clients, setClients] = useState<AgencyClient[]>([]);
   const [filterClient, setFilterClient] = useState('all');
   const [batches, setBatches] = useState<FeedBatch[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState<Set<number>>(new Set());
-  const [batchPosts, setBatchPosts] = useState<Record<number, ContentPiece[]>>({});
-  const [loadingBatch, setLoadingBatch] = useState<Set<number>>(new Set());
+  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+  const [posts, setPosts] = useState<ContentPiece[]>([]);
+  const [loadingBatches, setLoadingBatches] = useState(false);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [view, setView] = useState<View>('list');
 
   const [batchModal, setBatchModal] = useState(false);
   const [batchForm, setBatchForm] = useState(emptyBatchForm);
   const [savingBatch, setSavingBatch] = useState(false);
-  const [deletingBatch, setDeletingBatch] = useState<number | null>(null);
 
-  const [postModal, setPostModal] = useState<{ batchId: number; piece?: ContentPiece } | null>(null);
+  const [postModal, setPostModal] = useState<{ piece?: ContentPiece } | null>(null);
   const [postForm, setPostForm] = useState(emptyPostForm);
   const [savingPost, setSavingPost] = useState(false);
-  const [deletingPost, setDeletingPost] = useState<{ id: number; batchId: number } | null>(null);
+  const [deletingPost, setDeletingPost] = useState<number | null>(null);
 
-  const loadBatches = (client?: string) => {
-    setLoading(true);
-    const p: Record<string, string> = {};
-    const ef = client ?? filterClient;
-    if (ef !== 'all') p.client_id = ef;
-    contentApi.listBatches(p).then(r => { setBatches(r.data); setLoading(false); });
-  };
+  const selectedBatch = batches.find(b => b.id === selectedBatchId) ?? null;
+  const calMonth = selectedBatch ? new Date(selectedBatch.year, selectedBatch.month - 1, 1) : new Date();
 
   useEffect(() => { agencyClientsApi.list().then(r => setClients(r.data)); }, []);
-  useEffect(() => { loadBatches(); setExpanded(new Set()); setBatchPosts({}); }, [filterClient]);
 
-  const toggleBatch = async (id: number) => {
-    const next = new Set(expanded);
-    if (next.has(id)) { next.delete(id); setExpanded(next); return; }
-    next.add(id); setExpanded(next);
-    if (!batchPosts[id]) {
-      setLoadingBatch(l => new Set(l).add(id));
-      const r = await contentApi.list({ batch_id: String(id) });
-      setBatchPosts(p => ({ ...p, [id]: r.data }));
-      setLoadingBatch(l => { const n = new Set(l); n.delete(id); return n; });
-    }
-  };
-
-  const refreshBatchPosts = async (batchId: number) => {
-    const r = await contentApi.list({ batch_id: String(batchId) });
-    setBatchPosts(p => ({ ...p, [batchId]: r.data }));
-  };
-
-  const openNewPost = (batchId: number) => {
-    if (!expanded.has(batchId)) toggleBatch(batchId);
-    setPostModal({ batchId });
-    setPostForm(emptyPostForm);
-  };
-
-  const openEditPost = (batchId: number, piece: ContentPiece) => {
-    setPostModal({ batchId, piece });
-    setPostForm({
-      title: piece.title,
-      scheduled_date: piece.scheduled_date ? piece.scheduled_date.slice(0, 10) : '',
-      media_url: piece.media_url || '',
-      caption: piece.caption || '',
-      objective: piece.objective || '',
-      status: piece.status,
+  useEffect(() => {
+    if (filterClient === 'all') { setBatches([]); setSelectedBatchId(null); setPosts([]); return; }
+    setLoadingBatches(true);
+    contentApi.listBatches({ client_id: filterClient }).then(r => {
+      setBatches(r.data);
+      setSelectedBatchId(r.data.length > 0 ? r.data[0].id : null);
+      setLoadingBatches(false);
     });
+  }, [filterClient]);
+
+  useEffect(() => {
+    if (!selectedBatchId) { setPosts([]); return; }
+    setLoadingPosts(true);
+    contentApi.list({ batch_id: String(selectedBatchId) }).then(r => {
+      setPosts(r.data);
+      setLoadingPosts(false);
+    });
+  }, [selectedBatchId]);
+
+  const reloadPosts = async () => {
+    if (!selectedBatchId) return;
+    const r = await contentApi.list({ batch_id: String(selectedBatchId) });
+    setPosts(r.data);
+  };
+  const reloadBatches = async () => {
+    if (filterClient === 'all') return;
+    const r = await contentApi.listBatches({ client_id: filterClient });
+    setBatches(r.data);
   };
 
   const handleSaveBatch = async () => {
     if (!batchForm.agency_client_id || !batchForm.month) return;
     setSavingBatch(true);
-    await contentApi.createBatch({ agency_client_id: Number(batchForm.agency_client_id), month: Number(batchForm.month), year: Number(batchForm.year) });
-    setSavingBatch(false); setBatchModal(false); loadBatches();
-  };
-
-  const handleDeleteBatch = async (id: number) => {
-    await contentApi.deleteBatch(id);
-    setDeletingBatch(null);
-    setBatches(b => b.filter(x => x.id !== id));
-    setBatchPosts(p => { const n = { ...p }; delete n[id]; return n; });
-    setExpanded(e => { const n = new Set(e); n.delete(id); return n; });
+    const r = await contentApi.createBatch({ agency_client_id: Number(batchForm.agency_client_id), month: Number(batchForm.month), year: Number(batchForm.year) });
+    setSavingBatch(false); setBatchModal(false);
+    if (filterClient === batchForm.agency_client_id || filterClient === 'all') {
+      const br = await contentApi.listBatches({ client_id: batchForm.agency_client_id });
+      setBatches(br.data);
+      setSelectedBatchId(r.data.id);
+      setFilterClient(batchForm.agency_client_id);
+    }
   };
 
   const handleSavePost = async () => {
-    if (!postModal || !postForm.title.trim()) return;
-    const { batchId, piece } = postModal;
-    const batch = batches.find(b => b.id === batchId);
-    if (!batch) return;
+    if (!postModal || !postForm.title.trim() || !selectedBatchId) return;
     setSavingPost(true);
-    const data = { ...postForm, type: 'post', agency_client_id: batch.agency_client_id, batch_id: batchId };
-    if (piece) await contentApi.update(piece.id, data);
+    const data = { ...postForm, type: 'post', agency_client_id: Number(filterClient), batch_id: selectedBatchId };
+    if (postModal.piece) await contentApi.update(postModal.piece.id, data);
     else await contentApi.create(data);
     setSavingPost(false); setPostModal(null);
-    await refreshBatchPosts(batchId);
-    loadBatches();
+    await reloadPosts(); reloadBatches();
   };
 
-  const handleDeletePost = async (id: number, batchId: number) => {
-    await contentApi.delete(id);
-    setDeletingPost(null);
-    setBatchPosts(p => ({ ...p, [batchId]: (p[batchId] || []).filter(x => x.id !== id) }));
-    loadBatches();
+  const handleStatusChange = async (id: number, status: ContentStatus) => {
+    await contentApi.updateStatus(id, status);
+    setPosts(prev => prev.map(p => p.id === id ? { ...p, status } : p));
+    reloadBatches();
   };
 
-  const handleStatusChange = async (pieceId: number, batchId: number, status: ContentStatus) => {
-    await contentApi.updateStatus(pieceId, status);
-    setBatchPosts(p => ({ ...p, [batchId]: (p[batchId] || []).map(x => x.id === pieceId ? { ...x, status } : x) }));
-    loadBatches();
+  const handleDeletePost = async (id: number) => {
+    await contentApi.delete(id); setDeletingPost(null);
+    setPosts(prev => prev.filter(p => p.id !== id));
+    reloadBatches();
   };
+
+  const openNewPost = () => { setPostModal({}); setPostForm(emptyPostForm); };
+  const openEditPost = (p: ContentPiece) => {
+    setPostModal({ piece: p });
+    setPostForm({ title: p.title, scheduled_date: p.scheduled_date?.slice(0, 10) || '', media_url: p.media_url || '', caption: p.caption || '', objective: p.objective || '', status: p.status });
+  };
+
+  // Calendar helpers
+  const calDays = eachDayOfInterval({ start: startOfMonth(calMonth), end: endOfMonth(calMonth) });
+  const calStartDay = startOfMonth(calMonth).getDay();
+  const byDay = (day: Date) => posts.filter(p => p.scheduled_date && isSameDay(new Date(p.scheduled_date + 'T12:00:00'), day));
+
+  const sortedPosts = [...posts].sort((a, b) => {
+    if (!a.scheduled_date) return 1;
+    if (!b.scheduled_date) return -1;
+    return a.scheduled_date.localeCompare(b.scheduled_date);
+  });
 
   return (
     <div className="p-4 md:p-8 animate-fade-up">
@@ -189,169 +178,263 @@ export default function MarketingContent() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="section-label mb-1">Marketing</p>
-          <h1 className="text-3xl font-extralight text-white tracking-tight" style={{ textShadow: '0 0 30px rgba(59,130,246,0.2)' }}>
-            Feed
-          </h1>
-          <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.7)' }}>
-            {batches.length} {batches.length === 1 ? 'feed' : 'feeds'}
-          </p>
+          <h1 className="text-3xl font-extralight text-white tracking-tight" style={{ textShadow: '0 0 30px rgba(59,130,246,0.2)' }}>Feed</h1>
         </div>
         <button onClick={() => { setBatchForm(emptyBatchForm); setBatchModal(true); }} className="btn-primary">
           <Plus size={15} /> Novo Feed
         </button>
       </div>
 
-      {/* Filter */}
-      <div className="mb-6">
+      {/* Client filter */}
+      <div className="mb-5">
         <select value={filterClient} onChange={e => setFilterClient(e.target.value)} style={selectStyle}>
-          <option value="all">Todos os clientes</option>
+          <option value="all">Selecione um cliente</option>
           {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       </div>
 
-      {/* Content */}
-      {loading ? (
-        <div className="flex justify-center py-20">
-          <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
-            style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
-        </div>
-      ) : batches.length === 0 ? (
+      {/* No client selected */}
+      {filterClient === 'all' && (
         <div className="card p-16 text-center">
-          <FileImage size={36} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.2)' }} />
-          <p className="text-sm mb-4" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum feed cadastrado ainda</p>
-          <button onClick={() => { setBatchForm(emptyBatchForm); setBatchModal(true); }} className="btn-primary mx-auto">
-            <Plus size={14} /> Criar primeiro feed
-          </button>
+          <LayoutGrid size={36} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.2)' }} />
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Selecione um cliente para ver e gerenciar o feed</p>
         </div>
-      ) : (
-        <div className="space-y-3">
-          {batches.map(batch => {
-            const isOpen = expanded.has(batch.id);
-            const posts = batchPosts[batch.id] || [];
-            const isLoadingPosts = loadingBatch.has(batch.id);
-            const pct = batch.post_count > 0 ? Math.round((batch.approved_count / batch.post_count) * 100) : 0;
+      )}
 
-            return (
-              <div key={batch.id} className="card overflow-hidden">
-                {/* Batch header */}
-                <div className="flex items-center gap-3 px-5 py-4 cursor-pointer select-none transition-colors"
-                  onClick={() => toggleBatch(batch.id)}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.015)')}
-                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                  <div className="flex-shrink-0" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                    {isOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-                  </div>
-                  <div className="flex-1 min-w-0 flex items-center gap-3 flex-wrap">
-                    <span className="text-white font-medium text-sm">{batch.name}</span>
-                    {filterClient === 'all' && (
-                      <span className="badge badge-slate text-[10px]">{batch.client_name}</span>
-                    )}
-                    <span className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                      {batch.post_count} {batch.post_count === 1 ? 'post' : 'posts'}
-                    </span>
-                    {batch.post_count > 0 && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
-                          <div className="h-full rounded-full transition-all duration-300"
-                            style={{ width: `${pct}%`, background: pct === 100 ? '#10b981' : '#3b82f6' }} />
-                        </div>
-                        <span className="text-[10px]" style={{ color: pct === 100 ? '#10b981' : 'rgba(100,116,139,0.5)' }}>
-                          {batch.approved_count}/{batch.post_count}
+      {/* Client selected */}
+      {filterClient !== 'all' && (
+        <>
+          {loadingBatches ? (
+            <div className="flex justify-center py-12">
+              <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
+                style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+            </div>
+          ) : batches.length === 0 ? (
+            <div className="card p-16 text-center">
+              <FileImage size={36} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.2)' }} />
+              <p className="text-sm mb-4" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum feed criado para este cliente</p>
+              <button onClick={() => { setBatchForm({ ...emptyBatchForm, agency_client_id: filterClient }); setBatchModal(true); }}
+                className="btn-primary mx-auto"><Plus size={14} /> Criar primeiro feed</button>
+            </div>
+          ) : (
+            <>
+              {/* Month chips */}
+              <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
+                {batches.map(b => {
+                  const isSelected = b.id === selectedBatchId;
+                  const pct = b.post_count > 0 ? Math.round((b.approved_count / b.post_count) * 100) : 0;
+                  return (
+                    <button key={b.id} onClick={() => setSelectedBatchId(b.id)}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex-shrink-0"
+                      style={isSelected
+                        ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }
+                        : { background: 'rgba(255,255,255,0.03)', color: 'rgba(100,116,139,0.7)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <span>{b.name}</span>
+                      {b.post_count > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: isSelected ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)', color: pct === 100 ? '#10b981' : (isSelected ? '#60a5fa' : 'rgba(100,116,139,0.5)') }}>
+                          {b.approved_count}/{b.post_count}
                         </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                    <button onClick={() => openNewPost(batch.id)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                      style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}
-                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
-                      onMouseLeave={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.08)')}>
-                      <Plus size={12} /> Post
+                      )}
                     </button>
-                    <button onClick={() => setDeletingBatch(batch.id)} className="p-1.5 rounded-lg transition-all"
-                      style={{ color: 'rgba(100,116,139,0.4)' }}
-                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)'; }}
-                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.4)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
+                  );
+                })}
+              </div>
 
-                {/* Posts */}
-                {isOpen && (
-                  <div style={{ borderTop: '1px solid rgba(59,130,246,0.06)' }}>
-                    {isLoadingPosts ? (
-                      <div className="flex justify-center py-6">
-                        <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
-                          style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
-                      </div>
-                    ) : posts.length === 0 ? (
-                      <div className="px-5 py-5 text-center">
-                        <p className="text-xs mb-3" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum post neste feed ainda</p>
-                        <button onClick={() => openNewPost(batch.id)} className="btn-ghost text-xs px-3 py-1.5 mx-auto">
-                          <Plus size={11} /> Adicionar primeiro post
-                        </button>
-                      </div>
-                    ) : (
-                      <>
-                        {posts.map((p, i) => (
-                          <div key={p.id}
-                            className="flex items-center gap-3 px-5 py-3 group transition-colors"
-                            style={{ borderBottom: i < posts.length - 1 ? '1px solid rgba(255,255,255,0.025)' : undefined }}
-                            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.01)')}
-                            onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
-                            {p.media_url ? (
-                              <img src={p.media_url} alt={p.title} className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
-                                style={{ border: '1px solid rgba(59,130,246,0.12)' }} />
-                            ) : (
-                              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                                style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.1)' }}>
-                                <FileImage size={13} style={{ color: 'rgba(59,130,246,0.35)' }} />
-                              </div>
-                            )}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm text-white truncate">{p.title}</p>
-                              {p.scheduled_date && (
-                                <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                                  {format(new Date(p.scheduled_date + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
-                                </p>
-                              )}
-                            </div>
-                            <div onClick={e => e.stopPropagation()}>
-                              <StatusDropdown current={p.status} onChange={s => handleStatusChange(p.id, batch.id, s)} />
-                            </div>
-                            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                              <button onClick={() => openEditPost(batch.id, p)} className="p-1.5 rounded-lg transition-all"
-                                style={{ color: 'rgba(100,116,139,0.5)' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-                              </button>
-                              <button onClick={() => setDeletingPost({ id: p.id, batchId: batch.id })} className="p-1.5 rounded-lg transition-all"
-                                style={{ color: 'rgba(100,116,139,0.5)' }}
-                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
-                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                                <Trash2 size={13} />
-                              </button>
-                            </div>
-                          </div>
-                        ))}
-                        <button onClick={() => openNewPost(batch.id)}
-                          className="w-full flex items-center gap-2 px-5 py-3 text-xs transition-colors"
-                          style={{ color: 'rgba(100,116,139,0.4)', borderTop: '1px solid rgba(255,255,255,0.025)' }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.04)'; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.4)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
-                          <Plus size={13} /> Adicionar post
-                        </button>
-                      </>
-                    )}
-                  </div>
+              {/* View toggle + new post */}
+              <div className="flex items-center justify-between mb-5">
+                <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                  {([
+                    { id: 'list' as View, icon: List, label: 'Lista' },
+                    { id: 'calendar' as View, icon: CalendarDays, label: 'Calendário' },
+                    { id: 'preview' as View, icon: LayoutGrid, label: 'Prévia' },
+                  ]).map(v => (
+                    <button key={v.id} onClick={() => setView(v.id)}
+                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all"
+                      style={{ color: view === v.id ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: view === v.id ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
+                      <v.icon size={13} />{v.label}
+                    </button>
+                  ))}
+                </div>
+                {selectedBatchId && (
+                  <button onClick={openNewPost} className="btn-primary text-xs px-3 py-2">
+                    <Plus size={13} /> Novo Post
+                  </button>
                 )}
               </div>
-            );
-          })}
-        </div>
+
+              {/* Content area */}
+              {loadingPosts ? (
+                <div className="flex justify-center py-12">
+                  <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
+                    style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+                </div>
+              ) : posts.length === 0 ? (
+                <div className="card p-12 text-center">
+                  <FileImage size={32} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.2)' }} />
+                  <p className="text-sm mb-4" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum post neste feed ainda</p>
+                  <button onClick={openNewPost} className="btn-primary mx-auto"><Plus size={14} /> Adicionar post</button>
+                </div>
+              ) : (
+                <>
+                  {/* ── LISTA ── */}
+                  {view === 'list' && (
+                    <div className="card overflow-hidden">
+                      {sortedPosts.map((p, i) => (
+                        <div key={p.id} className="flex items-center gap-3 px-5 py-3 group transition-colors"
+                          style={{ borderBottom: i < sortedPosts.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined }}
+                          onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.01)')}
+                          onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                          <span className="text-[10px] font-mono w-5 flex-shrink-0 text-center" style={{ color: 'rgba(100,116,139,0.35)' }}>
+                            {String(i + 1).padStart(2, '0')}
+                          </span>
+                          {p.media_url ? (
+                            <img src={p.media_url} alt={p.title} className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                              style={{ border: '1px solid rgba(59,130,246,0.12)' }} />
+                          ) : (
+                            <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                              style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.1)' }}>
+                              <FileImage size={14} style={{ color: 'rgba(59,130,246,0.35)' }} />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{p.title}</p>
+                            {p.scheduled_date && (
+                              <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                                {format(new Date(p.scheduled_date + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
+                              </p>
+                            )}
+                          </div>
+                          <div onClick={e => e.stopPropagation()}>
+                            <StatusDropdown current={p.status} onChange={s => handleStatusChange(p.id, s)} />
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            <button onClick={() => openEditPost(p)} className="p-1.5 rounded-lg transition-all"
+                              style={{ color: 'rgba(100,116,139,0.5)' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                            </button>
+                            <button onClick={() => setDeletingPost(p.id)} className="p-1.5 rounded-lg transition-all"
+                              style={{ color: 'rgba(100,116,139,0.5)' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                              <Trash2 size={13} />
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* ── CALENDÁRIO ── */}
+                  {view === 'calendar' && (
+                    <div className="card overflow-hidden">
+                      <div className="px-5 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
+                        <span className="text-sm font-medium text-white capitalize">
+                          {format(calMonth, 'MMMM yyyy', { locale: ptBR })}
+                        </span>
+                        <span className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{posts.length} posts agendados</span>
+                      </div>
+                      <div className="grid grid-cols-7" style={{ borderBottom: '1px solid rgba(59,130,246,0.06)' }}>
+                        {['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(d => (
+                          <div key={d} className="py-2 text-center text-[10px] font-medium uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.4)' }}>{d}</div>
+                        ))}
+                      </div>
+                      <div className="grid grid-cols-7">
+                        {Array.from({ length: calStartDay }).map((_, i) => (
+                          <div key={`e-${i}`} className="min-h-20 p-1.5" style={{ borderRight: '1px solid rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(59,130,246,0.04)' }} />
+                        ))}
+                        {calDays.map(day => {
+                          const dayPosts = byDay(day);
+                          const today = isToday(day);
+                          return (
+                            <div key={day.toISOString()} className="min-h-20 p-1.5 transition-colors"
+                              style={{ borderRight: '1px solid rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(59,130,246,0.04)', background: today ? 'rgba(59,130,246,0.04)' : 'transparent' }}>
+                              <p className="text-[10px] font-medium mb-1 w-5 h-5 flex items-center justify-center rounded-full"
+                                style={{ color: today ? '#fff' : 'rgba(148,163,184,0.5)', background: today ? '#3b82f6' : 'transparent' }}>
+                                {format(day, 'd')}
+                              </p>
+                              <div className="space-y-0.5">
+                                {dayPosts.map(p => {
+                                  const color = STATUS_CONFIG[p.status]?.color || '#94a3b8';
+                                  return (
+                                    <div key={p.id} onClick={() => openEditPost(p)}
+                                      className="flex items-center gap-1 px-1 py-0.5 rounded cursor-pointer text-[9px] truncate hover:opacity-80 transition-opacity"
+                                      style={{ background: `${color}18`, border: `1px solid ${color}28`, color }}>
+                                      <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: color }} />
+                                      {p.title}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── PRÉVIA DO FEED ── */}
+                  {view === 'preview' && (
+                    <div>
+                      <p className="text-xs mb-3" style={{ color: 'rgba(100,116,139,0.45)' }}>
+                        {sortedPosts.length} posts · ordem por data agendada
+                      </p>
+                      <div className="grid grid-cols-3 gap-0.5 rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                        {sortedPosts.map((p, i) => {
+                          const cfg = STATUS_CONFIG[p.status];
+                          return (
+                            <div key={p.id} className="relative group cursor-pointer"
+                              style={{ aspectRatio: '1' }}
+                              onClick={() => openEditPost(p)}>
+                              {p.media_url ? (
+                                <img src={p.media_url} alt={p.title} className="w-full h-full object-cover" />
+                              ) : (
+                                <div className="w-full h-full flex flex-col items-center justify-center gap-2"
+                                  style={{ background: 'rgba(59,130,246,0.06)', borderRight: '1px solid rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                                  <FileImage size={20} style={{ color: 'rgba(59,130,246,0.3)' }} />
+                                  <span className="text-[9px] font-mono" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                                    {String(i + 1).padStart(2, '0')}
+                                  </span>
+                                </div>
+                              )}
+                              {/* Position number */}
+                              <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
+                                style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.8)' }}>
+                                {i + 1}
+                              </div>
+                              {/* Status dot */}
+                              <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
+                                style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.color}` }} />
+                              {/* Hover overlay */}
+                              <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(2px)' }}>
+                                <StatusBadge status={p.status} />
+                                <p className="text-white text-[11px] font-medium text-center px-2 leading-tight line-clamp-2">
+                                  {p.title}
+                                </p>
+                                {p.scheduled_date && (
+                                  <p className="text-[9px]" style={{ color: 'rgba(255,255,255,0.5)' }}>
+                                    {format(new Date(p.scheduled_date + 'T12:00:00'), "d MMM", { locale: ptBR })}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          );
+                        })}
+                        {/* Fill empty cells to complete the last row */}
+                        {Array.from({ length: (3 - (sortedPosts.length % 3)) % 3 }).map((_, i) => (
+                          <div key={`fill-${i}`} style={{ aspectRatio: '1', background: 'rgba(255,255,255,0.015)' }} />
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </>
       )}
 
       {/* Batch Modal */}
@@ -360,10 +443,7 @@ export default function MarketingContent() {
           style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
           <div className="modal-card w-full max-w-md animate-fade-up">
             <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
-              <div>
-                <p className="section-label mb-0.5">Novo</p>
-                <h2 className="text-lg font-light text-white">Criar Feed</h2>
-              </div>
+              <div><p className="section-label mb-0.5">Novo</p><h2 className="text-lg font-light text-white">Criar Feed</h2></div>
               <button onClick={() => setBatchModal(false)} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}><X size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
@@ -411,7 +491,7 @@ export default function MarketingContent() {
               <div>
                 <p className="section-label mb-0.5">{postModal.piece ? 'Editar' : 'Novo'}</p>
                 <h2 className="text-lg font-light text-white">
-                  {postModal.piece ? postModal.piece.title : `Post — ${batches.find(b => b.id === postModal.batchId)?.name}`}
+                  {postModal.piece ? postModal.piece.title : `Post — ${selectedBatch?.name}`}
                 </h2>
               </div>
               <button onClick={() => setPostModal(null)} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}><X size={18} /></button>
@@ -456,28 +536,7 @@ export default function MarketingContent() {
         </div>
       )}
 
-      {/* Delete batch confirm */}
-      {deletingBatch !== null && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-fade"
-          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
-          <div className="modal-card w-full max-w-sm p-6 animate-fade-up">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
-              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
-              <Trash2 size={16} className="icon-red" />
-            </div>
-            <h3 className="text-white font-medium mb-2">Excluir feed?</h3>
-            <p className="text-sm mb-5" style={{ color: 'rgba(148,163,184,0.55)' }}>
-              Os posts dentro do feed serão desvinculados mas não excluídos.
-            </p>
-            <div className="flex gap-3">
-              <button onClick={() => setDeletingBatch(null)} className="btn-ghost flex-1 justify-center">Cancelar</button>
-              <button onClick={() => handleDeleteBatch(deletingBatch)} className="btn-danger flex-1 justify-center">Excluir</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete post confirm */}
+      {/* Delete confirm */}
       {deletingPost !== null && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-fade"
           style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
@@ -490,7 +549,7 @@ export default function MarketingContent() {
             <p className="text-sm mb-5" style={{ color: 'rgba(148,163,184,0.55)' }}>Esta ação não pode ser desfeita.</p>
             <div className="flex gap-3">
               <button onClick={() => setDeletingPost(null)} className="btn-ghost flex-1 justify-center">Cancelar</button>
-              <button onClick={() => handleDeletePost(deletingPost.id, deletingPost.batchId)} className="btn-danger flex-1 justify-center">Excluir</button>
+              <button onClick={() => handleDeletePost(deletingPost)} className="btn-danger flex-1 justify-center">Excluir</button>
             </div>
           </div>
         </div>
