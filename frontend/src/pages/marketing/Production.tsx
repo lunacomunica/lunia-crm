@@ -83,7 +83,7 @@ export default function Production() {
   const [bulkYear, setBulkYear] = useState(new Date().getFullYear());
   const [bulkTemplate, setBulkTemplate] = useState<number | ''>('');
   const [bulkClients, setBulkClients] = useState<Set<number>>(new Set());
-  const [bulkPostCount, setBulkPostCount] = useState(0);
+  const [bulkPostCounts, setBulkPostCounts] = useState<Record<number, number>>({});
   const [allClientsList, setAllClientsList] = useState<{ id: number; name: string }[]>([]);
   const [creatingBulk, setCreatingBulk] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ created: number; skipped: number } | null>(null);
@@ -185,7 +185,7 @@ export default function Production() {
     setBulkYear(new Date().getFullYear());
     setBulkTemplate('');
     setBulkClients(new Set(allClientsList.map(c => c.id)));
-    setBulkPostCount(0);
+    setBulkPostCounts({});
     setBulkResult(null);
     setBulkModal(true);
   };
@@ -207,11 +207,10 @@ export default function Production() {
     if (bulkClients.size === 0) return;
     setCreatingBulk(true);
     const r = await contentApi.bulkCreateBatches({
-      client_ids: Array.from(bulkClients),
+      clients: Array.from(bulkClients).map(id => ({ id, post_count: bulkPostCounts[id] || 0 })),
       month: bulkMonth,
       year: bulkYear,
       default_template_id: bulkTemplate ? Number(bulkTemplate) : undefined,
-      post_count: bulkPostCount > 0 ? bulkPostCount : undefined,
     });
     setBulkResult({ created: r.data.created.length, skipped: r.data.skipped.length });
     setCreatingBulk(false);
@@ -446,7 +445,6 @@ export default function Production() {
                 <p className="text-white font-semibold">Feeds criados com sucesso!</p>
                 <p className="text-sm" style={{ color: 'rgba(100,116,139,0.6)' }}>
                   {bulkResult.created} feed{bulkResult.created !== 1 ? 's' : ''} criado{bulkResult.created !== 1 ? 's' : ''}
-                  {bulkPostCount > 0 && ` · ${bulkResult.created * bulkPostCount} posts`}
                   {bulkResult.skipped > 0 && ` · ${bulkResult.skipped} já existia${bulkResult.skipped !== 1 ? 'm' : ''}`}
                 </p>
                 <button onClick={() => setBulkModal(false)}
@@ -485,20 +483,7 @@ export default function Production() {
                     </select>
                   </div>
 
-                  {/* Post count */}
-                  <div>
-                    <label className="text-xs mb-1.5 block font-semibold uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                      Posts por feed <span style={{ color: 'rgba(100,116,139,0.35)' }}>(opcional — 0 = não criar posts agora)</span>
-                    </label>
-                    <input
-                      type="number" min={0} max={60} value={bulkPostCount}
-                      onChange={e => setBulkPostCount(Math.max(0, Math.min(60, Number(e.target.value))))}
-                      className="input-dark w-full"
-                      placeholder="0"
-                    />
-                  </div>
-
-                  {/* Client list */}
+                  {/* Client list with per-client post count */}
                   <div>
                     <div className="flex items-center justify-between mb-2">
                       <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.5)' }}>
@@ -510,17 +495,32 @@ export default function Production() {
                         {bulkClients.size === allClientsList.length ? 'Desmarcar todos' : 'Selecionar todos'}
                       </button>
                     </div>
-                    <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                    <div className="space-y-1.5 max-h-72 overflow-y-auto">
                       {allClientsList.map(c => (
-                        <button key={c.id} onClick={() => toggleBulkClient(c.id)}
-                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all"
+                        <div key={c.id} className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all"
                           style={{ background: bulkClients.has(c.id) ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.02)', border: bulkClients.has(c.id) ? '1px solid rgba(59,130,246,0.2)' : '1px solid rgba(255,255,255,0.05)' }}>
-                          <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
-                            style={{ background: bulkClients.has(c.id) ? '#3b82f6' : 'rgba(255,255,255,0.05)', border: bulkClients.has(c.id) ? 'none' : '1px solid rgba(255,255,255,0.12)' }}>
-                            {bulkClients.has(c.id) && <Check size={10} color="white" />}
-                          </div>
-                          <span className="text-sm text-white truncate">{c.name}</span>
-                        </button>
+                          <button onClick={() => toggleBulkClient(c.id)} className="flex items-center gap-3 flex-1 min-w-0 text-left">
+                            <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                              style={{ background: bulkClients.has(c.id) ? '#3b82f6' : 'rgba(255,255,255,0.05)', border: bulkClients.has(c.id) ? 'none' : '1px solid rgba(255,255,255,0.12)' }}>
+                              {bulkClients.has(c.id) && <Check size={10} color="white" />}
+                            </div>
+                            <span className="text-sm text-white truncate">{c.name}</span>
+                          </button>
+                          {bulkClients.has(c.id) && (
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>posts</span>
+                              <input
+                                type="number" min={0} max={60}
+                                value={bulkPostCounts[c.id] ?? ''}
+                                placeholder="0"
+                                onClick={e => e.stopPropagation()}
+                                onChange={e => setBulkPostCounts(prev => ({ ...prev, [c.id]: Math.max(0, Math.min(60, Number(e.target.value))) }))}
+                                className="w-14 text-center text-sm rounded-lg px-2 py-1 outline-none"
+                                style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(59,130,246,0.2)', color: '#e2e8f0' }}
+                              />
+                            </div>
+                          )}
+                        </div>
                       ))}
                     </div>
                   </div>

@@ -68,16 +68,16 @@ router.get('/batches/production', (req, res) => {
 
 // ── Bulk create feeds for multiple clients ───────────────────────────────────
 router.post('/batches/bulk-create', (req, res) => {
-  const { client_ids, month, year, default_template_id, post_count = 0 } = req.body as {
-    client_ids: number[]; month: number; year: number; default_template_id?: number; post_count?: number;
+  const { clients, month, year, default_template_id } = req.body as {
+    clients: { id: number; post_count?: number }[]; month: number; year: number; default_template_id?: number;
   };
-  if (!client_ids?.length || !month || !year) return res.status(400).json({ error: 'client_ids, month e year obrigatórios' });
+  if (!clients?.length || !month || !year) return res.status(400).json({ error: 'clients, month e year obrigatórios' });
 
   const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
   // Load template stages once if needed
   let templateStages: any[] | null = null;
-  if (default_template_id && post_count > 0) {
+  if (default_template_id) {
     const tpl = db.prepare('SELECT stages FROM workflow_templates WHERE id = ? AND tenant_id = ?').get(default_template_id, req.user.tenant_id) as any;
     if (tpl) { try { templateStages = JSON.parse(tpl.stages); } catch {} }
   }
@@ -87,7 +87,9 @@ router.post('/batches/bulk-create', (req, res) => {
   const created: any[] = [];
   const skipped: number[] = [];
 
-  for (const clientId of client_ids) {
+  for (const client of clients) {
+    const clientId = client.id;
+    const postCount = client.post_count || 0;
     const existing = db.prepare('SELECT id FROM feed_batches WHERE tenant_id=? AND agency_client_id=? AND month=? AND year=?').get(req.user.tenant_id, clientId, month, year) as any;
     if (existing) { skipped.push(clientId); continue; }
     const orderNum = ((db.prepare('SELECT COUNT(*) as c FROM feed_batches WHERE tenant_id=? AND agency_client_id=?').get(req.user.tenant_id, clientId) as any).c as number) + 1;
@@ -98,7 +100,7 @@ router.post('/batches/bulk-create', (req, res) => {
 
     // Create posts
     const postsCreated: number[] = [];
-    for (let i = 1; i <= post_count; i++) {
+    for (let i = 1; i <= postCount; i++) {
       const postTitle = `Post ${i}`;
       const postResult = db.prepare(`INSERT INTO content_pieces (tenant_id, agency_client_id, title, type, status, batch_id, created_by) VALUES (?, ?, ?, 'estatico', 'em_criacao', ?, ?)`)
         .run(req.user.tenant_id, clientId, postTitle, batchId, req.user.id);
