@@ -471,7 +471,7 @@ export default function Gerot() {
                     <select value={form.assigned_to} onChange={e => setForm(f => ({ ...f, assigned_to: e.target.value }))}
                       className="input-dark w-full mt-1 text-sm">
                       <option value="">Sem responsável</option>
-                      {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                      {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}{u.job_title ? ` — ${u.job_title}` : ''}</option>)}
                     </select>
                   </div>
                 )}

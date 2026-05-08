@@ -203,7 +203,7 @@ function UsersTab() {
   const [agencyClients, setAgencyClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', agency_client_id: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', agency_client_id: '', job_title: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -215,7 +215,7 @@ function UsersTab() {
     setSaving(true); setError('');
     try {
       await usersApi.create(form);
-      setModal(false); setForm({ name: '', email: '', password: '', role: 'user', agency_client_id: '' }); load();
+      setModal(false); setForm({ name: '', email: '', password: '', role: 'user', agency_client_id: '', job_title: '' }); load();
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erro ao criar usuário');
     }
@@ -267,6 +267,7 @@ function UsersTab() {
                       </div>
                       <div>
                         <p className="text-sm font-medium text-white">{u.name}</p>
+                        {u.job_title && <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{u.job_title}</p>}
                         {u.id === me?.id && <p className="text-[10px]" style={{ color: 'rgba(59,130,246,0.6)' }}>você</p>}
                       </div>
                     </div>
@@ -318,6 +319,22 @@ function UsersTab() {
                   <option value="client">Cliente (portal externo)</option>
                 </select>
               </div>
+              {(form.role === 'team' || form.role === 'user') && (
+                <div>
+                  <label className="label-dark">Função</label>
+                  <select value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} className="input-dark" style={{ cursor: 'pointer' }}>
+                    <option value="">Selecione a função</option>
+                    <option value="Gestora de Projetos">Gestora de Projetos</option>
+                    <option value="Designer">Designer</option>
+                    <option value="Redatora">Redatora</option>
+                    <option value="Planejamento">Planejamento</option>
+                    <option value="Audiovisual">Audiovisual</option>
+                    <option value="Gestora de Tráfego">Gestora de Tráfego</option>
+                    <option value="Webdesigner">Webdesigner</option>
+                    <option value="Social Media">Social Media</option>
+                  </select>
+                </div>
+              )}
               {form.role === 'client' && (
                 <div>
                   <label className="label-dark">Cliente vinculado *</label>
