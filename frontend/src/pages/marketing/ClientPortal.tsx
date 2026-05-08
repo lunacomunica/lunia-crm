@@ -48,7 +48,7 @@ const CAMPAIGN_STATUS_CFG: Record<string, { label: string; color: string; bg: st
 
 const TYPE_LABEL: Record<string, string> = { post: 'Post', reels: 'Reels', story: 'Story', carrossel: 'Carrossel' };
 
-type PageId = 'visao' | 'posicionamento' | 'metas' | 'aprovacoes' | 'feed' | 'campanhas' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline' | 'crm_mensagens' | 'crm_config';
+type PageId = 'visao' | 'produtos' | 'metas' | 'conteudos' | 'performance' | 'trafico' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline' | 'crm_conversas';
 
 const STAGES_CRM = [
   { id: 'novo',       label: 'Novo',        color: '#94a3b8' },
@@ -87,27 +87,26 @@ function PortalSidebar({
     {
       label: 'Negócio',
       items: [
-        { id: 'visao' as PageId,          label: 'Visão Geral',      icon: LayoutDashboard, badge: 0 },
-        { id: 'posicionamento' as PageId, label: 'Posicionamento',   icon: Star,            badge: 0 },
-        { id: 'metas' as PageId,          label: 'Metas',            icon: Target,          badge: 0 },
+        { id: 'visao'    as PageId, label: 'Visão Geral', icon: LayoutDashboard, badge: 0 },
+        { id: 'produtos' as PageId, label: 'Produtos',    icon: Briefcase,       badge: 0 },
+        { id: 'metas'    as PageId, label: 'Metas',       icon: Target,          badge: 0 },
       ],
     },
     {
       label: 'Marketing',
       items: [
-        { id: 'aprovacoes' as PageId, label: 'Aprovações',    icon: CheckCircle2, badge: pendingCount },
-        { id: 'feed' as PageId,       label: 'Prévia do Feed', icon: Grid3x3,     badge: 0 },
-        { id: 'campanhas' as PageId,  label: 'Campanhas',     icon: Megaphone,   badge: activeCampaignsCount },
+        { id: 'conteudos'   as PageId, label: 'Conteúdos',   icon: Grid3x3,   badge: pendingCount },
+        { id: 'performance' as PageId, label: 'Performance',  icon: BarChart3, badge: 0 },
+        { id: 'trafico'     as PageId, label: 'Tráfego',      icon: Megaphone, badge: activeCampaignsCount },
       ],
     },
     {
       label: 'Comercial',
       items: [
-        { id: 'crm_dashboard'  as PageId, label: 'Dashboard',      icon: LayoutDashboard, badge: 0 },
-        { id: 'crm_contatos'   as PageId, label: 'Contatos',        icon: Users,           badge: 0 },
-        { id: 'crm_pipeline'   as PageId, label: 'Pipeline',        icon: Kanban,          badge: 0 },
-        { id: 'crm_mensagens'  as PageId, label: 'Mensagens',       icon: MessageSquare,   badge: 0 },
-        { id: 'crm_config'     as PageId, label: 'Configurações',   icon: Settings,        badge: 0 },
+        { id: 'crm_dashboard'  as PageId, label: 'Dashboard',  icon: LayoutDashboard, badge: 0 },
+        { id: 'crm_pipeline'   as PageId, label: 'Pipeline',   icon: Kanban,          badge: 0 },
+        { id: 'crm_contatos'   as PageId, label: 'Contatos',   icon: Users,           badge: 0 },
+        { id: 'crm_conversas'  as PageId, label: 'Conversas',  icon: MessageSquare,   badge: 0 },
       ],
     },
   ];
@@ -159,7 +158,7 @@ function PortalSidebar({
                       </span>
                       {item.badge > 0 && (
                         <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: item.id === 'aprovacoes' ? 'rgba(245,158,11,0.2)' : 'rgba(52,211,153,0.15)', color: item.id === 'aprovacoes' ? '#f59e0b' : '#34d399' }}>
+                          style={{ background: item.id === 'conteudos' ? 'rgba(245,158,11,0.2)' : 'rgba(52,211,153,0.15)', color: item.id === 'conteudos' ? '#f59e0b' : '#34d399' }}>
                           {item.badge}
                         </span>
                       )}
@@ -297,14 +296,14 @@ export default function ClientPortal() {
   };
 
   useEffect(() => {
-    if ((page === 'crm_dashboard' || page === 'crm_contatos' || page === 'crm_pipeline') && !crmDash && !crmLoading) {
+    if ((page === 'crm_dashboard' || page === 'crm_contatos' || page === 'crm_pipeline' || page === 'crm_conversas') && !crmDash && !crmLoading) {
       loadCrm();
     }
-    if (page === 'crm_mensagens' && convs.length === 0 && !convLoading) {
+    if (page === 'crm_conversas' && convs.length === 0 && !convLoading) {
       setConvLoading(true);
       conversationsApi.list().then(r => { setConvs(r.data); setConvLoading(false); });
     }
-    if (page === 'crm_config' && user) {
+    if (page === 'visao' && user) {
       setProfileForm({ name: user.name || '', avatar: user.avatar || '' });
     }
   }, [page]);
@@ -842,62 +841,81 @@ export default function ClientPortal() {
     );
   }
 
-  function PageAprovacoes() {
-    return pieces.length === 0 ? (
-      <div className="text-center py-24">
-        <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
-        <p className="text-white font-medium mb-1">Nenhum conteúdo ainda</p>
-        <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Os conteúdos para aprovação aparecerão aqui.</p>
-      </div>
-    ) : (
+  function PageConteudos() {
+    const [tab, setTab] = useState<'feed' | 'aprovar'>('aprovar');
+    const pending = pieces.filter(p => p.status === 'aguardando_aprovacao');
+    const displayed = tab === 'aprovar' ? pending : feedDisplayed;
+
+    return (
       <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-semibold text-white mb-1">Aprovações</h2>
-          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>
-            {pendingCount > 0 ? `${pendingCount} peça${pendingCount > 1 ? 's' : ''} aguardando sua aprovação` : 'Tudo aprovado por aqui'}
-          </p>
+        <div className="flex items-end justify-between flex-wrap gap-3">
+          <div>
+            <h2 className="text-2xl font-semibold text-white mb-1">Conteúdos</h2>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>
+              {pendingCount > 0 ? `${pendingCount} peça${pendingCount > 1 ? 's' : ''} aguardando aprovação` : 'Feed e aprovações'}
+            </p>
+          </div>
+          <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            {(['aprovar', 'feed'] as const).map(t => (
+              <button key={t} onClick={() => setTab(t)}
+                className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={tab === t
+                  ? { background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }
+                  : { color: 'rgba(100,116,139,0.6)' }}>
+                {t === 'aprovar' ? `Para aprovar${pendingCount > 0 ? ` (${pendingCount})` : ''}` : 'Feed completo'}
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {pieces.map(p => (
-            <div key={p.id} onClick={() => openDetail(p)}
-              className="rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200"
-              style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: p.status === 'aguardando_aprovacao' ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.04)' }}>
-              <div className="relative aspect-square overflow-hidden" style={{ background: 'rgba(59,130,246,0.03)' }}>
-                {p.media_url ? (
-                  <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                ) : (
-                  <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                    <FileImage size={32} style={{ color: 'rgba(59,130,246,0.15)' }} />
+
+        {displayed.length === 0 ? (
+          <div className="text-center py-24">
+            <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
+            <p className="text-white font-medium mb-1">{tab === 'aprovar' ? 'Nenhuma aprovação pendente' : 'Nenhum conteúdo ainda'}</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {displayed.map(p => (
+              <div key={p.id} onClick={() => openDetail(p)}
+                className="rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200"
+                style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: p.status === 'aguardando_aprovacao' ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.04)' }}>
+                <div className="relative aspect-square overflow-hidden" style={{ background: 'rgba(59,130,246,0.03)' }}>
+                  {p.media_url ? (
+                    <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-2">
+                      <FileImage size={32} style={{ color: 'rgba(59,130,246,0.15)' }} />
+                    </div>
+                  )}
+                  <div className="absolute top-2 right-2">
+                    <span className="text-xs px-2 py-0.5 rounded-md" style={{ background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(4px)' }}>
+                      {TYPE_LABEL[p.type] || p.type}
+                    </span>
                   </div>
-                )}
-                <div className="absolute top-2 right-2">
-                  <span className="text-xs px-2 py-0.5 rounded-md" style={{ background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(4px)' }}>
-                    {TYPE_LABEL[p.type] || p.type}
-                  </span>
+                </div>
+                <div className="p-4">
+                  <p className="text-sm font-medium text-white mb-2 truncate">{p.title}</p>
+                  {p.scheduled_date && (
+                    <p className="flex items-center gap-1 text-xs mb-3" style={{ color: 'rgba(100,116,139,0.45)' }}>
+                      <Calendar size={10} />{format(new Date(p.scheduled_date), "d 'de' MMM", { locale: ptBR })}
+                    </p>
+                  )}
+                  <StatusBadge status={p.status} />
                 </div>
               </div>
-              <div className="p-4">
-                <p className="text-sm font-medium text-white mb-2 truncate">{p.title}</p>
-                {p.scheduled_date && (
-                  <p className="flex items-center gap-1 text-xs mb-3" style={{ color: 'rgba(100,116,139,0.45)' }}>
-                    <Calendar size={10} />{format(new Date(p.scheduled_date), "d 'de' MMM", { locale: ptBR })}
-                  </p>
-                )}
-                <StatusBadge status={p.status} />
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   }
 
-  function PageCampanhas() {
+  function PageTrafico() {
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-semibold text-white mb-1">Campanhas</h2>
-          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Performance de tráfego pago</p>
+          <h2 className="text-2xl font-semibold text-white mb-1">Tráfego Pago</h2>
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Campanhas e criativos</p>
         </div>
         {campaigns.length > 0 && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -1034,6 +1052,85 @@ export default function ClientPortal() {
     return (
       <div className="flex items-center justify-center py-16">
         <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+      </div>
+    );
+  }
+
+  function PageProdutos() {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-semibold text-white mb-1">Produtos</h2>
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Catálogo e ofertas do seu negócio</p>
+        </div>
+        <div className="flex flex-col items-center justify-center py-24 rounded-2xl"
+          style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
+          <Briefcase size={40} className="mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
+          <p className="text-white font-medium mb-1">Em breve</p>
+          <p className="text-sm text-center max-w-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+            Cadastre seus produtos e serviços para vincular às campanhas e metas.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  function PagePerformance() {
+    const publishedCount = pieces.filter(p => p.status === 'publicado' || p.status === 'agendado').length;
+    const approvedCount  = pieces.filter(p => p.status === 'aprovado').length;
+    const pendingApproval = pieces.filter(p => p.status === 'aguardando_aprovacao').length;
+    const adjustCount    = pieces.filter(p => p.status === 'ajuste_solicitado').length;
+
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-2xl font-semibold text-white mb-1">Performance</h2>
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Resultados de conteúdo e tráfego pago</p>
+        </div>
+
+        {/* Conteúdo orgânico */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Conteúdo orgânico</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            {[
+              { label: 'Publicados / Agendados', value: publishedCount, color: '#34d399' },
+              { label: 'Aprovados',              value: approvedCount,  color: '#60a5fa' },
+              { label: 'Aguardando aprovação',   value: pendingApproval, color: '#f59e0b' },
+              { label: 'Pedidos de ajuste',      value: adjustCount,    color: '#f97316' },
+            ].map(m => (
+              <div key={m.label} className="rounded-xl px-4 py-4"
+                style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                <p className="text-2xl font-bold mb-1" style={{ color: m.color }}>{m.value}</p>
+                <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Tráfego pago */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Tráfego pago</p>
+          {campaigns.length === 0 ? (
+            <div className="text-center py-10 rounded-2xl" style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
+              <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma campanha cadastrada</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Total investido',  value: fmtR(totalSpent) },
+                { label: 'Impressões',       value: fmtN(totalImpressions) },
+                { label: 'Conversões',       value: fmtN(totalConversions) },
+                { label: 'ROAS geral',       value: overallRoas > 0 ? `${overallRoas.toFixed(1)}x` : '—' },
+              ].map(m => (
+                <div key={m.label} className="rounded-xl px-4 py-4"
+                  style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <p className="text-2xl font-bold text-white mb-1">{m.value}</p>
+                  <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
@@ -1289,7 +1386,7 @@ export default function ClientPortal() {
     );
   }
 
-  function PageCrmMensagens() {
+  function PageCrmConversas() {
     const openConv = async (c: any) => {
       setActiveConv(c);
       const r = await conversationsApi.getMessages(c.id);
@@ -1474,17 +1571,16 @@ export default function ClientPortal() {
   }
 
   const pageComponents: Record<PageId, JSX.Element> = {
-    visao:          <PageVisaoGeral />,
-    posicionamento: <PagePosicionamento />,
-    metas:          <PageMetas />,
-    aprovacoes:     <PageAprovacoes />,
-    feed:           <PageFeed />,
-    campanhas:      <PageCampanhas />,
-    crm_dashboard:  <PageCrmDashboard />,
-    crm_contatos:   <PageCrmContatos />,
-    crm_pipeline:   <PageCrmPipeline />,
-    crm_mensagens:  <PageCrmMensagens />,
-    crm_config:     <PageCrmConfig />,
+    visao:         <PageVisaoGeral />,
+    produtos:      <PageProdutos />,
+    metas:         <PageMetas />,
+    conteudos:     <PageConteudos />,
+    performance:   <PagePerformance />,
+    trafico:       <PageTrafico />,
+    crm_dashboard: <PageCrmDashboard />,
+    crm_contatos:  <PageCrmContatos />,
+    crm_pipeline:  <PageCrmPipeline />,
+    crm_conversas: <PageCrmConversas />,
   };
 
   return (
@@ -1506,7 +1602,7 @@ export default function ClientPortal() {
           <p className="font-semibold text-white text-sm">{client?.name}</p>
         </div>
 
-        <div className={page === 'crm_pipeline' || page === 'crm_mensagens'
+        <div className={page === 'crm_pipeline' || page === 'crm_conversas'
           ? 'p-6 md:p-8 h-[calc(100vh-56px)] flex flex-col'
           : 'p-6 md:p-10 max-w-4xl'}>
           {pageComponents[page]}
