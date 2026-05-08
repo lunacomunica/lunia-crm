@@ -5,10 +5,11 @@ import {
   Target, TrendingUp, Users, Zap, Star, DollarSign,
   FileImage, Megaphone, CheckSquare, Save, ExternalLink,
   Clock, CheckCircle2, RotateCcw, Calendar, ChevronDown, ChevronLeft, ChevronRight, Send,
-  List, CalendarDays, LayoutGrid
+  List, CalendarDays, LayoutGrid,
+  Image, Video, MousePointerClick, Link, FileText
 } from 'lucide-react';
 import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi } from '../../api/client';
-import { ContentStatus } from '../../types';
+import { ContentStatus, Campaign, CampaignCreative, CampaignPlatform, CampaignStatus, CampaignObjective, CreativeType, CreativeStatus } from '../../types';
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -88,16 +89,60 @@ function StatusDropdown({ current, onChange }: { current: ContentStatus; onChang
   );
 }
 
-const CAMP_STATUS: Record<string, { label: string; color: string }> = {
-  rascunho:  { label: 'Rascunho',  color: '#94a3b8' },
-  ativa:     { label: 'Ativa',     color: '#34d399' },
-  pausada:   { label: 'Pausada',   color: '#f59e0b' },
-  encerrada: { label: 'Encerrada', color: '#64748b' },
+const CAMP_PLATFORM: Record<CampaignPlatform, { label: string; color: string; bg: string }> = {
+  meta:     { label: 'Meta Ads',     color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
+  google:   { label: 'Google Ads',   color: '#f87171', bg: 'rgba(239,68,68,0.12)' },
+  tiktok:   { label: 'TikTok Ads',   color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  linkedin: { label: 'LinkedIn Ads', color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
+};
+
+const CAMP_STATUS: Record<CampaignStatus, { label: string; color: string; bg: string; border: string }> = {
+  rascunho:  { label: 'Rascunho',  color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.2)' },
+  ativa:     { label: 'Ativa',     color: '#34d399', bg: 'rgba(52,211,153,0.1)',   border: 'rgba(52,211,153,0.25)' },
+  pausada:   { label: 'Pausada',   color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.25)' },
+  encerrada: { label: 'Encerrada', color: '#64748b', bg: 'rgba(100,116,139,0.08)', border: 'rgba(100,116,139,0.2)' },
+};
+
+const CAMP_OBJECTIVE: Record<CampaignObjective, string> = {
+  conversao:      'Conversão',
+  trafego:        'Tráfego',
+  reconhecimento: 'Reconhecimento',
+  leads:          'Geração de Leads',
+  vendas:         'Vendas',
+};
+
+const CAMP_CREATIVE_TYPE: Record<CreativeType, { label: string; icon: any }> = {
+  image:    { label: 'Imagem',    icon: Image },
+  video:    { label: 'Vídeo',     icon: Video },
+  carousel: { label: 'Carrossel', icon: LayoutGrid },
+};
+
+const CAMP_CREATIVE_STATUS: Record<CreativeStatus, { label: string; color: string }> = {
+  ativo:     { label: 'Ativo',     color: '#34d399' },
+  pausado:   { label: 'Pausado',   color: '#f59e0b' },
+  reprovado: { label: 'Reprovado', color: '#f87171' },
 };
 
 const GOAL_ICONS: Record<string, any> = { target: Target, trending: TrendingUp, users: Users, zap: Zap, star: Star, dollar: DollarSign };
 const fmtR = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 const fmtN = (v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v);
+
+const ctr = (clicks: number, impr: number) => impr > 0 ? ((clicks / impr) * 100).toFixed(2) + '%' : '—';
+const cpl = (spent: number, conv: number) => conv > 0 ? fmtR(spent / conv) : '—';
+const roasCalc = (rev: number, spent: number) => spent > 0 && rev > 0 ? (rev / spent).toFixed(2) + 'x' : '—';
+
+const emptyCampForm = {
+  name: '', platform: 'meta' as CampaignPlatform, status: 'rascunho' as CampaignStatus,
+  objective: 'trafego' as CampaignObjective, budget: '', spent: '', revenue: '',
+  impressions: '', clicks: '', conversions: '', target_audience: '', utm_link: '',
+  start_date: '', end_date: '', notes: '',
+};
+
+const emptyCreativeForm = {
+  title: '', type: 'image' as CreativeType, media_url: '', headline: '', description: '',
+  cta: '', status: 'ativo' as CreativeStatus,
+  impressions: '', clicks: '', conversions: '', spend: '',
+};
 
 const inputCls = "w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none focus:ring-1 focus:ring-blue-500/40 transition-all";
 const inputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'white' };
@@ -143,6 +188,17 @@ export default function ClientDetail() {
   const [contentView, setContentView] = useState<ContentView>('list');
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+
+  const [campDetail, setCampDetail] = useState<Campaign | null>(null);
+  const [campModal, setCampModal] = useState(false);
+  const [editingCamp, setEditingCamp] = useState<Campaign | null>(null);
+  const [campForm, setCampForm] = useState(emptyCampForm);
+  const [savingCamp, setSavingCamp] = useState(false);
+  const [deletingCamp, setDeletingCamp] = useState<number | null>(null);
+  const [creativeModal, setCreativeModal] = useState(false);
+  const [editingCreative, setEditingCreative] = useState<CampaignCreative | null>(null);
+  const [creativeForm, setCreativeForm] = useState(emptyCreativeForm);
+  const [savingCreative, setSavingCreative] = useState(false);
 
   // Batch modal
   const [batchModal, setBatchModal] = useState(false);
@@ -297,6 +353,84 @@ export default function ClientDetail() {
     const updated = goals.filter(x => x.id !== g.id);
     await clientPortalApi.updateGoals(cid, updated.map(({ id: _id, agency_client_id: _ac, created_at: _ca, ...rest }) => rest));
     setGoals(updated);
+  };
+
+  const openCreateCamp = () => {
+    setEditingCamp(null);
+    setCampForm(emptyCampForm);
+    setCampModal(true);
+  };
+  const openEditCamp = (c: Campaign) => {
+    setEditingCamp(c);
+    setCampForm({
+      name: c.name, platform: c.platform, status: c.status, objective: c.objective,
+      budget: String(c.budget), spent: String(c.spent), revenue: String(c.revenue),
+      impressions: String(c.impressions), clicks: String(c.clicks), conversions: String(c.conversions),
+      target_audience: c.target_audience || '', utm_link: c.utm_link || '',
+      start_date: c.start_date?.slice(0,10) || '', end_date: c.end_date?.slice(0,10) || '',
+      notes: c.notes || '',
+    });
+    setCampModal(true);
+  };
+  const openCampDetail = async (c: Campaign) => {
+    const r = await campaignsApi.get(c.id);
+    setCampDetail(r.data);
+  };
+  const handleSaveCamp = async () => {
+    if (!campForm.name.trim()) return;
+    setSavingCamp(true);
+    const payload = {
+      ...campForm,
+      agency_client_id: cid,
+      budget: Number(campForm.budget) || 0, spent: Number(campForm.spent) || 0,
+      revenue: Number(campForm.revenue) || 0, impressions: Number(campForm.impressions) || 0,
+      clicks: Number(campForm.clicks) || 0, conversions: Number(campForm.conversions) || 0,
+    };
+    if (editingCamp) await campaignsApi.update(editingCamp.id, payload);
+    else await campaignsApi.create(payload);
+    setSavingCamp(false); setCampModal(false);
+    const r = await campaignsApi.list({ client_id: String(cid) });
+    setCampaigns(r.data);
+    if (campDetail && editingCamp && campDetail.id === editingCamp.id) {
+      const dr = await campaignsApi.get(editingCamp.id); setCampDetail(dr.data);
+    }
+  };
+  const handleDeleteCamp = async (id: number) => {
+    await campaignsApi.delete(id); setDeletingCamp(null);
+    if (campDetail?.id === id) setCampDetail(null);
+    const r = await campaignsApi.list({ client_id: String(cid) });
+    setCampaigns(r.data);
+  };
+  const openAddCreative = () => { setEditingCreative(null); setCreativeForm(emptyCreativeForm); setCreativeModal(true); };
+  const openEditCreative = (cr: CampaignCreative) => {
+    setEditingCreative(cr);
+    setCreativeForm({
+      title: cr.title, type: cr.type, media_url: cr.media_url || '', headline: cr.headline || '',
+      description: cr.description || '', cta: cr.cta || '', status: cr.status,
+      impressions: String(cr.impressions), clicks: String(cr.clicks),
+      conversions: String(cr.conversions), spend: String(cr.spend),
+    });
+    setCreativeModal(true);
+  };
+  const handleSaveCreative = async () => {
+    if (!campDetail || !creativeForm.title.trim()) return;
+    setSavingCreative(true);
+    const payload = {
+      ...creativeForm,
+      impressions: Number(creativeForm.impressions) || 0,
+      clicks: Number(creativeForm.clicks) || 0,
+      conversions: Number(creativeForm.conversions) || 0,
+      spend: Number(creativeForm.spend) || 0,
+    };
+    if (editingCreative) await campaignsApi.updateCreative(campDetail.id, editingCreative.id, payload);
+    else await campaignsApi.addCreative(campDetail.id, payload);
+    setSavingCreative(false); setCreativeModal(false);
+    const r = await campaignsApi.get(campDetail.id); setCampDetail(r.data);
+  };
+  const handleDeleteCreative = async (creativeId: number) => {
+    if (!campDetail) return;
+    await campaignsApi.deleteCreative(campDetail.id, creativeId);
+    const r = await campaignsApi.get(campDetail.id); setCampDetail(r.data);
   };
 
   const saveData = async () => {
@@ -769,44 +903,88 @@ export default function ClientDetail() {
 
           {/* Tráfego */}
           {opTab === 'trafego' && (
-            campaigns.length === 0 ? (
-              <div className="text-center py-12" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                <Megaphone size={32} className="mx-auto mb-3 opacity-30" />
-                <p className="text-sm">Nenhuma campanha ainda</p>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  {campaigns.length} campanha{campaigns.length !== 1 ? 's' : ''}
+                </p>
+                <button onClick={openCreateCamp} className="btn-primary text-xs px-3 py-2">
+                  <Plus size={13} /> Nova Campanha
+                </button>
               </div>
-            ) : (
-              <div className="space-y-3">
-                {campaigns.map(c => {
-                  const s = CAMP_STATUS[c.status] || { label: c.status, color: '#94a3b8' };
-                  return (
-                    <div key={c.id} className="rounded-xl px-5 py-4"
-                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                      <div className="flex items-start justify-between mb-3">
-                        <div>
-                          <p className="text-sm font-semibold text-white">{c.name}</p>
-                          <p className="text-xs mt-0.5 capitalize" style={{ color: 'rgba(100,116,139,0.5)' }}>{c.platform}</p>
-                        </div>
-                        <span className="text-xs font-medium px-2.5 py-1 rounded-full"
-                          style={{ color: s.color, background: `${s.color}15`, border: `1px solid ${s.color}25` }}>{s.label}</span>
-                      </div>
-                      <div className="grid grid-cols-4 gap-3">
-                        {[
-                          { label: 'Investido',    value: fmtR(c.spent) },
-                          { label: 'Impressões',   value: fmtN(c.impressions) },
-                          { label: 'Conversões',   value: fmtN(c.conversions) },
-                          { label: 'ROAS',         value: c.spent > 0 ? `${(c.revenue / c.spent).toFixed(1)}x` : '—' },
-                        ].map(m => (
-                          <div key={m.label}>
-                            <p className="text-sm font-semibold text-white">{m.value}</p>
-                            <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+
+              {campaigns.length === 0 ? (
+                <div className="text-center py-12" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                  <TrendingUp size={28} className="mx-auto mb-3 opacity-30" />
+                  <p className="text-sm mb-3">Nenhuma campanha ainda</p>
+                  <button onClick={openCreateCamp} className="btn-ghost text-xs px-3 py-1.5 mx-auto">
+                    <Plus size={12} /> Criar campanha
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {campaigns.map((c: Campaign) => {
+                    const plat = CAMP_PLATFORM[c.platform];
+                    const stat = CAMP_STATUS[c.status];
+                    const budgetPct = c.budget > 0 ? Math.min((c.spent / c.budget) * 100, 100) : 0;
+                    return (
+                      <div key={c.id} className="rounded-xl p-4 cursor-pointer group transition-all"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(59,130,246,0.2)')}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}
+                        onClick={() => openCampDetail(c)}>
+                        <div className="flex items-start justify-between mb-2">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: plat.color, background: plat.bg }}>{plat.label}</span>
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: stat.color, background: stat.bg, border: `1px solid ${stat.border}` }}>{stat.label}</span>
                           </div>
-                        ))}
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                            <button onClick={() => openEditCamp(c)} className="p-1.5 rounded-lg"
+                              style={{ color: 'rgba(100,116,139,0.5)' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                              <Pencil size={12} />
+                            </button>
+                            <button onClick={() => setDeletingCamp(c.id)} className="p-1.5 rounded-lg"
+                              style={{ color: 'rgba(100,116,139,0.5)' }}
+                              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+                              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
+                        </div>
+                        <p className="text-sm font-semibold text-white mb-0.5">{c.name}</p>
+                        <p className="text-xs mb-2" style={{ color: 'rgba(100,116,139,0.5)' }}>{CAMP_OBJECTIVE[c.objective]}</p>
+                        {c.budget > 0 && (
+                          <div className="mb-3">
+                            <div className="flex justify-between text-[10px] mb-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                              <span>Investido: <span className="text-white font-medium">{fmtR(c.spent)}</span></span>
+                              <span>Budget: {fmtR(c.budget)}</span>
+                            </div>
+                            <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                              <div className="h-full rounded-full" style={{ width: `${budgetPct}%`, background: budgetPct >= 90 ? '#f87171' : budgetPct >= 70 ? '#f59e0b' : '#34d399' }} />
+                            </div>
+                          </div>
+                        )}
+                        <div className="grid grid-cols-4 gap-2 pt-2" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                          {[
+                            { label: 'Impressões', value: fmtN(c.impressions) },
+                            { label: 'Cliques',    value: fmtN(c.clicks) },
+                            { label: 'CTR',        value: ctr(c.clicks, c.impressions) },
+                            { label: c.revenue > 0 ? 'ROAS' : 'Conv.', value: c.revenue > 0 ? roasCalc(c.revenue, c.spent) : String(c.conversions) },
+                          ].map(m => (
+                            <div key={m.label} className="text-center">
+                              <p className="text-sm font-semibold text-white">{m.value}</p>
+                              <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           )}
 
           {/* Projetos */}
@@ -996,6 +1174,360 @@ export default function ClientDetail() {
             <div className="flex gap-2">
               <button onClick={() => setDeletingPost(null)} className="flex-1 py-2 rounded-lg text-sm" style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>Cancelar</button>
               <button onClick={() => handleDeletePost(deletingPost)} className="flex-1 py-2 rounded-lg text-sm font-medium" style={{ background: 'rgba(239,68,68,0.15)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>Excluir</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Campaign detail panel */}
+      {campDetail && (
+        <div className="fixed inset-0 flex items-center justify-end z-50 animate-fade"
+          style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}
+          onClick={() => setCampDetail(null)}>
+          <div className="h-full w-full max-w-xl overflow-y-auto"
+            style={{ background: '#07071a', borderLeft: '1px solid rgba(59,130,246,0.12)', boxShadow: '-20px 0 60px rgba(0,0,0,0.7)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-5 py-4 sticky top-0 z-10"
+              style={{ background: '#07071a', borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: CAMP_PLATFORM[campDetail.platform].color, background: CAMP_PLATFORM[campDetail.platform].bg }}>{CAMP_PLATFORM[campDetail.platform].label}</span>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ color: CAMP_STATUS[campDetail.status].color, background: CAMP_STATUS[campDetail.status].bg, border: `1px solid ${CAMP_STATUS[campDetail.status].border}` }}>{CAMP_STATUS[campDetail.status].label}</span>
+                </div>
+                <p className="text-base font-semibold text-white">{campDetail.name}</p>
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{CAMP_OBJECTIVE[campDetail.objective]}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button onClick={() => { openEditCamp(campDetail); setCampDetail(null); }} className="p-1.5 rounded-lg"
+                  style={{ color: 'rgba(100,116,139,0.5)' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#60a5fa')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                  <Pencil size={15} />
+                </button>
+                <button onClick={() => setCampDetail(null)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
+              </div>
+            </div>
+
+            <div className="p-5 space-y-5">
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Investido',   value: fmtR(campDetail.spent),        sub: `Budget ${fmtR(campDetail.budget)}` },
+                  { label: 'Impressões',  value: fmtN(campDetail.impressions),   sub: null },
+                  { label: 'Cliques',     value: fmtN(campDetail.clicks),        sub: `CTR ${ctr(campDetail.clicks, campDetail.impressions)}` },
+                  { label: 'Conversões',  value: String(campDetail.conversions), sub: `CPL ${cpl(campDetail.spent, campDetail.conversions)}` },
+                  { label: 'CPC',         value: campDetail.clicks > 0 ? fmtR(campDetail.spent / campDetail.clicks) : '—', sub: null },
+                  { label: 'ROAS',        value: roasCalc(campDetail.revenue, campDetail.spent), sub: campDetail.revenue > 0 ? fmtR(campDetail.revenue) : 'sem receita' },
+                ].map(m => (
+                  <div key={m.label} className="rounded-xl px-3 py-3 text-center"
+                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <p className="text-base font-semibold text-white">{m.value}</p>
+                    <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{m.label}</p>
+                    {m.sub && <p className="text-[9px] mt-0.5" style={{ color: 'rgba(100,116,139,0.35)' }}>{m.sub}</p>}
+                  </div>
+                ))}
+              </div>
+
+              {campDetail.budget > 0 && (
+                <div className="rounded-xl px-4 py-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="flex justify-between text-xs mb-2">
+                    <span style={{ color: 'rgba(148,163,184,0.7)' }}>Budget utilizado</span>
+                    <span className="font-medium text-white">{((campDetail.spent / campDetail.budget) * 100).toFixed(1)}%</span>
+                  </div>
+                  <div className="h-2 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    <div className="h-full rounded-full"
+                      style={{ width: `${Math.min((campDetail.spent / campDetail.budget) * 100, 100)}%`, background: 'linear-gradient(90deg,#34d399,#60a5fa)' }} />
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                {campDetail.target_audience && (
+                  <div className="flex gap-3">
+                    <Users size={14} className="flex-shrink-0 mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }} />
+                    <div>
+                      <p className="text-[10px] mb-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>Público-alvo</p>
+                      <p className="text-sm" style={{ color: 'rgba(148,163,184,0.8)' }}>{campDetail.target_audience}</p>
+                    </div>
+                  </div>
+                )}
+                {campDetail.utm_link && (
+                  <div className="flex gap-3 items-start">
+                    <Link size={14} className="flex-shrink-0 mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }} />
+                    <div className="min-w-0">
+                      <p className="text-[10px] mb-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>Link / UTM</p>
+                      <a href={campDetail.utm_link} target="_blank" rel="noreferrer"
+                        className="text-xs break-all flex items-center gap-1 hover:opacity-80"
+                        style={{ color: '#60a5fa' }} onClick={e => e.stopPropagation()}>
+                        {campDetail.utm_link} <ExternalLink size={10} />
+                      </a>
+                    </div>
+                  </div>
+                )}
+                {(campDetail.start_date || campDetail.end_date) && (
+                  <div className="flex gap-3">
+                    <FileText size={14} className="flex-shrink-0 mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }} />
+                    <div>
+                      <p className="text-[10px] mb-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>Período</p>
+                      <p className="text-sm" style={{ color: 'rgba(148,163,184,0.8)' }}>
+                        {campDetail.start_date ? format(new Date(campDetail.start_date + 'T12:00:00'), "d MMM yyyy", { locale: ptBR }) : '?'}
+                        {' → '}
+                        {campDetail.end_date ? format(new Date(campDetail.end_date + 'T12:00:00'), "d MMM yyyy", { locale: ptBR }) : 'Em aberto'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+                {campDetail.notes && (
+                  <div className="flex gap-3">
+                    <FileText size={14} className="flex-shrink-0 mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }} />
+                    <div>
+                      <p className="text-[10px] mb-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>Observações</p>
+                      <p className="text-sm whitespace-pre-wrap" style={{ color: 'rgba(148,163,184,0.8)' }}>{campDetail.notes}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <p className="label-dark flex items-center gap-2"><Image size={12} />Criativos ({campDetail.creatives?.length || 0})</p>
+                  <button onClick={openAddCreative} className="flex items-center gap-1.5 text-xs hover:opacity-70"
+                    style={{ color: '#60a5fa' }}>
+                    <Plus size={12} /> Adicionar
+                  </button>
+                </div>
+                {!campDetail.creatives?.length ? (
+                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum criativo ainda</p>
+                ) : (
+                  <div className="space-y-3">
+                    {campDetail.creatives.map(cr => {
+                      const TypeIcon = CAMP_CREATIVE_TYPE[cr.type].icon;
+                      const cs = CAMP_CREATIVE_STATUS[cr.status];
+                      return (
+                        <div key={cr.id} className="rounded-xl overflow-hidden"
+                          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div className="flex gap-3 p-3">
+                            {cr.media_url ? (
+                              <img src={cr.media_url} alt={cr.title} className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
+                                style={{ border: '1px solid rgba(255,255,255,0.06)' }} />
+                            ) : (
+                              <div className="w-16 h-16 rounded-lg flex items-center justify-center flex-shrink-0"
+                                style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.1)' }}>
+                                <TypeIcon size={20} style={{ color: 'rgba(59,130,246,0.3)' }} />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <p className="text-sm font-medium text-white truncate">{cr.title}</p>
+                                <div className="flex items-center gap-1.5 flex-shrink-0 ml-2">
+                                  <span className="text-[10px] font-medium" style={{ color: cs.color }}>{cs.label}</span>
+                                  <button onClick={() => openEditCreative(cr)} className="p-1 rounded"
+                                    style={{ color: 'rgba(100,116,139,0.5)' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = '#60a5fa')}
+                                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                                    <Pencil size={10} />
+                                  </button>
+                                  <button onClick={() => handleDeleteCreative(cr.id)} className="p-1 rounded"
+                                    style={{ color: 'rgba(100,116,139,0.5)' }}
+                                    onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                                    <X size={10} />
+                                  </button>
+                                </div>
+                              </div>
+                              {cr.headline && <p className="text-xs truncate mb-2" style={{ color: 'rgba(148,163,184,0.6)' }}>{cr.headline}</p>}
+                              <div className="flex gap-3 text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                                <span><span className="text-white font-medium">{fmtN(cr.impressions)}</span> impr.</span>
+                                <span><span className="text-white font-medium">{fmtN(cr.clicks)}</span> cliques</span>
+                                <span>CTR <span className="text-white font-medium">{ctr(cr.clicks, cr.impressions)}</span></span>
+                                {cr.spend > 0 && <span><span className="text-white font-medium">{fmtR(cr.spend)}</span></span>}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Campaign modal */}
+      {campModal && (
+        <div className="fixed inset-0 flex items-center justify-center z-[60] p-4 animate-fade"
+          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
+          <div className="modal-card w-full max-w-2xl animate-fade-up">
+            <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
+              <div>
+                <p className="section-label mb-0.5">{editingCamp ? 'Editar' : 'Nova'}</p>
+                <h2 className="text-lg font-light text-white">{editingCamp ? editingCamp.name : 'Criar Campanha'}</h2>
+              </div>
+              <button onClick={() => setCampModal(false)} style={{ color: 'rgba(100,116,139,0.6)' }}><X size={18} /></button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="label-dark">Nome da campanha *</label>
+                  <input value={campForm.name} onChange={e => setCampForm({ ...campForm, name: e.target.value })} className="input-dark" placeholder="Ex: Coleção Verão — Conversão" autoFocus />
+                </div>
+                <div>
+                  <label className="label-dark">Plataforma</label>
+                  <select value={campForm.platform} onChange={e => setCampForm({ ...campForm, platform: e.target.value as CampaignPlatform })} className="input-dark" style={{ cursor: 'pointer' }}>
+                    {(Object.keys(CAMP_PLATFORM) as CampaignPlatform[]).map(p => <option key={p} value={p}>{CAMP_PLATFORM[p].label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label-dark">Status</label>
+                  <select value={campForm.status} onChange={e => setCampForm({ ...campForm, status: e.target.value as CampaignStatus })} className="input-dark" style={{ cursor: 'pointer' }}>
+                    {(Object.keys(CAMP_STATUS) as CampaignStatus[]).map(s => <option key={s} value={s}>{CAMP_STATUS[s].label}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="label-dark">Objetivo</label>
+                  <select value={campForm.objective} onChange={e => setCampForm({ ...campForm, objective: e.target.value as CampaignObjective })} className="input-dark" style={{ cursor: 'pointer' }}>
+                    {(Object.keys(CAMP_OBJECTIVE) as CampaignObjective[]).map(o => <option key={o} value={o}>{CAMP_OBJECTIVE[o]}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              <p className="label-dark pt-2">Orçamento & Métricas</p>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Budget (R$)', key: 'budget' }, { label: 'Investido (R$)', key: 'spent' },
+                  { label: 'Receita (R$)', key: 'revenue' }, { label: 'Impressões', key: 'impressions' },
+                  { label: 'Cliques', key: 'clicks' }, { label: 'Conversões', key: 'conversions' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="label-dark">{f.label}</label>
+                    <input type="number" min="0" value={(campForm as any)[f.key]}
+                      onChange={e => setCampForm({ ...campForm, [f.key]: e.target.value })} className="input-dark" />
+                  </div>
+                ))}
+              </div>
+
+              <p className="label-dark pt-2">Configurações</p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label-dark">Início</label>
+                  <input type="date" value={campForm.start_date} onChange={e => setCampForm({ ...campForm, start_date: e.target.value })} className="input-dark" />
+                </div>
+                <div>
+                  <label className="label-dark">Fim</label>
+                  <input type="date" value={campForm.end_date} onChange={e => setCampForm({ ...campForm, end_date: e.target.value })} className="input-dark" />
+                </div>
+                <div className="col-span-2">
+                  <label className="label-dark">Público-alvo</label>
+                  <input value={campForm.target_audience} onChange={e => setCampForm({ ...campForm, target_audience: e.target.value })} className="input-dark" placeholder="Ex: Mulheres 25-40, SP e RJ" />
+                </div>
+                <div className="col-span-2">
+                  <label className="label-dark">Link / UTM</label>
+                  <input value={campForm.utm_link} onChange={e => setCampForm({ ...campForm, utm_link: e.target.value })} className="input-dark" placeholder="https://…?utm_source=meta" />
+                </div>
+                <div className="col-span-2">
+                  <label className="label-dark">Observações</label>
+                  <textarea value={campForm.notes} onChange={e => setCampForm({ ...campForm, notes: e.target.value })} rows={2} className="input-dark resize-none" />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setCampModal(false)} className="btn-ghost flex-1 justify-center">Cancelar</button>
+              <button onClick={handleSaveCamp} disabled={savingCamp || !campForm.name.trim()} className="btn-primary flex-1 justify-center">
+                {savingCamp ? 'Salvando…' : editingCamp ? 'Salvar' : 'Criar Campanha'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Creative modal */}
+      {creativeModal && campDetail && (
+        <div className="fixed inset-0 flex items-center justify-center z-[70] p-4 animate-fade"
+          style={{ background: 'rgba(0,0,0,0.9)', backdropFilter: 'blur(10px)' }}>
+          <div className="modal-card w-full max-w-lg animate-fade-up">
+            <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
+              <h2 className="text-lg font-light text-white">{editingCreative ? 'Editar Criativo' : 'Novo Criativo'}</h2>
+              <button onClick={() => setCreativeModal(false)} style={{ color: 'rgba(100,116,139,0.6)' }}><X size={18} /></button>
+            </div>
+            <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="col-span-2">
+                  <label className="label-dark">Título *</label>
+                  <input value={creativeForm.title} onChange={e => setCreativeForm({ ...creativeForm, title: e.target.value })} className="input-dark" placeholder="Ex: Look Azul Marinho" autoFocus />
+                </div>
+                <div>
+                  <label className="label-dark">Tipo</label>
+                  <select value={creativeForm.type} onChange={e => setCreativeForm({ ...creativeForm, type: e.target.value as CreativeType })} className="input-dark" style={{ cursor: 'pointer' }}>
+                    {(Object.keys(CAMP_CREATIVE_TYPE) as CreativeType[]).map(t => <option key={t} value={t}>{CAMP_CREATIVE_TYPE[t].label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="label-dark">Status</label>
+                  <select value={creativeForm.status} onChange={e => setCreativeForm({ ...creativeForm, status: e.target.value as CreativeStatus })} className="input-dark" style={{ cursor: 'pointer' }}>
+                    {(Object.keys(CAMP_CREATIVE_STATUS) as CreativeStatus[]).map(s => <option key={s} value={s}>{CAMP_CREATIVE_STATUS[s].label}</option>)}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="label-dark">URL da mídia</label>
+                  <input value={creativeForm.media_url} onChange={e => setCreativeForm({ ...creativeForm, media_url: e.target.value })} className="input-dark" placeholder="Link da imagem ou vídeo" />
+                </div>
+                <div className="col-span-2">
+                  <label className="label-dark">Headline</label>
+                  <input value={creativeForm.headline} onChange={e => setCreativeForm({ ...creativeForm, headline: e.target.value })} className="input-dark" placeholder="Título do anúncio" />
+                </div>
+                <div className="col-span-2">
+                  <label className="label-dark">Texto do anúncio</label>
+                  <textarea value={creativeForm.description} onChange={e => setCreativeForm({ ...creativeForm, description: e.target.value })} rows={2} className="input-dark resize-none" />
+                </div>
+                <div>
+                  <label className="label-dark">CTA</label>
+                  <input value={creativeForm.cta} onChange={e => setCreativeForm({ ...creativeForm, cta: e.target.value })} className="input-dark" placeholder="Ex: Comprar Agora" />
+                </div>
+                <div>
+                  <label className="label-dark">Gasto (R$)</label>
+                  <input type="number" min="0" value={creativeForm.spend} onChange={e => setCreativeForm({ ...creativeForm, spend: e.target.value })} className="input-dark" />
+                </div>
+              </div>
+              <p className="label-dark">Métricas</p>
+              <div className="grid grid-cols-3 gap-3">
+                {[
+                  { label: 'Impressões', key: 'impressions' },
+                  { label: 'Cliques', key: 'clicks' },
+                  { label: 'Conversões', key: 'conversions' },
+                ].map(f => (
+                  <div key={f.key}>
+                    <label className="label-dark">{f.label}</label>
+                    <input type="number" min="0" value={(creativeForm as any)[f.key]}
+                      onChange={e => setCreativeForm({ ...creativeForm, [f.key]: e.target.value })} className="input-dark" />
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-3 px-6 pb-6">
+              <button onClick={() => setCreativeModal(false)} className="btn-ghost flex-1 justify-center">Cancelar</button>
+              <button onClick={handleSaveCreative} disabled={savingCreative || !creativeForm.title.trim()} className="btn-primary flex-1 justify-center">
+                {savingCreative ? 'Salvando…' : editingCreative ? 'Salvar' : 'Adicionar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete campaign confirm */}
+      {deletingCamp !== null && (
+        <div className="fixed inset-0 flex items-center justify-center z-[60] p-4 animate-fade"
+          style={{ background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(10px)' }}>
+          <div className="modal-card w-full max-w-sm p-6 animate-fade-up">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+              style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.18)' }}>
+              <Trash2 size={16} style={{ color: '#f87171' }} />
+            </div>
+            <h3 className="text-white font-medium mb-2">Excluir campanha?</h3>
+            <p className="text-sm mb-5" style={{ color: 'rgba(148,163,184,0.55)' }}>Os criativos vinculados também serão removidos.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeletingCamp(null)} className="btn-ghost flex-1 justify-center">Cancelar</button>
+              <button onClick={() => handleDeleteCamp(deletingCamp)} className="btn-danger flex-1 justify-center">Excluir</button>
             </div>
           </div>
         </div>
