@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, X, Trash2, FileImage, ChevronDown, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye, List, CalendarDays, LayoutGrid } from 'lucide-react';
+import { Plus, X, Trash2, FileImage, ChevronDown, ChevronLeft, ChevronRight, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye, List, CalendarDays, LayoutGrid } from 'lucide-react';
 import { contentApi, agencyClientsApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
@@ -95,7 +95,7 @@ export default function MarketingContent() {
     setLoadingBatches(true);
     contentApi.listBatches({ client_id: filterClient }).then(r => {
       setBatches(r.data);
-      setSelectedBatchId(r.data.length > 0 ? r.data[0].id : null);
+      setSelectedBatchId(r.data.length > 0 ? r.data[r.data.length - 1].id : null);
       setLoadingBatches(false);
     });
   }, [filterClient]);
@@ -218,50 +218,62 @@ export default function MarketingContent() {
             </div>
           ) : (
             <>
-              {/* Month chips */}
-              <div className="flex items-center gap-2 mb-5 overflow-x-auto pb-1">
-                {batches.map(b => {
-                  const isSelected = b.id === selectedBatchId;
-                  const pct = b.post_count > 0 ? Math.round((b.approved_count / b.post_count) * 100) : 0;
-                  return (
-                    <button key={b.id} onClick={() => setSelectedBatchId(b.id)}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all flex-shrink-0"
-                      style={isSelected
-                        ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }
-                        : { background: 'rgba(255,255,255,0.03)', color: 'rgba(100,116,139,0.7)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <span>{b.name}</span>
-                      {b.post_count > 0 && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                          style={{ background: isSelected ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)', color: pct === 100 ? '#10b981' : (isSelected ? '#60a5fa' : 'rgba(100,116,139,0.5)') }}>
-                          {b.approved_count}/{b.post_count}
+              {/* Month nav + view toggle */}
+              {(() => {
+                const idx = batches.findIndex(b => b.id === selectedBatchId);
+                const prev = idx > 0 ? batches[idx - 1] : null;
+                const next = idx < batches.length - 1 ? batches[idx + 1] : null;
+                const cur = idx >= 0 ? batches[idx] : null;
+                const pct = cur && cur.post_count > 0 ? Math.round((cur.approved_count / cur.post_count) * 100) : 0;
+                return (
+                  <div className="flex items-center justify-between mb-5 gap-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => prev && setSelectedBatchId(prev.id)} disabled={!prev}
+                        className="p-1.5 rounded-lg transition-all"
+                        style={{ color: prev ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: prev ? 'pointer' : 'default' }}>
+                        <ChevronLeft size={14} />
+                      </button>
+                      <div className="flex items-center gap-2 px-4 py-2 rounded-xl min-w-44 justify-center"
+                        style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                        <span className="text-sm font-medium text-white whitespace-nowrap">
+                          {cur ? `${MONTHS_PT[cur.month - 1]} ${cur.year}` : '—'}
                         </span>
+                        {cur && cur.post_count > 0 && (
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                            style={{ background: 'rgba(59,130,246,0.15)', color: pct === 100 ? '#10b981' : '#60a5fa' }}>
+                            {cur.approved_count}/{cur.post_count}
+                          </span>
+                        )}
+                      </div>
+                      <button onClick={() => next && setSelectedBatchId(next.id)} disabled={!next}
+                        className="p-1.5 rounded-lg transition-all"
+                        style={{ color: next ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: next ? 'pointer' : 'default' }}>
+                        <ChevronRight size={14} />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                        {([
+                          { id: 'list' as View, icon: List, label: 'Lista' },
+                          { id: 'calendar' as View, icon: CalendarDays, label: 'Calendário' },
+                          { id: 'preview' as View, icon: LayoutGrid, label: 'Prévia' },
+                        ]).map(v => (
+                          <button key={v.id} onClick={() => setView(v.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all"
+                            style={{ color: view === v.id ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: view === v.id ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
+                            <v.icon size={13} />{v.label}
+                          </button>
+                        ))}
+                      </div>
+                      {selectedBatchId && (
+                        <button onClick={openNewPost} className="btn-primary text-xs px-3 py-2">
+                          <Plus size={13} /> Novo Post
+                        </button>
                       )}
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* View toggle + new post */}
-              <div className="flex items-center justify-between mb-5">
-                <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                  {([
-                    { id: 'list' as View, icon: List, label: 'Lista' },
-                    { id: 'calendar' as View, icon: CalendarDays, label: 'Calendário' },
-                    { id: 'preview' as View, icon: LayoutGrid, label: 'Prévia' },
-                  ]).map(v => (
-                    <button key={v.id} onClick={() => setView(v.id)}
-                      className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all"
-                      style={{ color: view === v.id ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: view === v.id ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
-                      <v.icon size={13} />{v.label}
-                    </button>
-                  ))}
-                </div>
-                {selectedBatchId && (
-                  <button onClick={openNewPost} className="btn-primary text-xs px-3 py-2">
-                    <Plus size={13} /> Novo Post
-                  </button>
-                )}
-              </div>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Content area */}
               {loadingPosts ? (
@@ -378,11 +390,20 @@ export default function MarketingContent() {
                   {/* ── PRÉVIA DO FEED ── */}
                   {view === 'preview' && (
                     <div>
+                      {(() => {
+                        const previewPosts = [...posts].sort((a, b) => {
+                          if (!a.scheduled_date) return 1;
+                          if (!b.scheduled_date) return -1;
+                          return b.scheduled_date.localeCompare(a.scheduled_date);
+                        });
+                        const total = previewPosts.length;
+                        return (
+                      <>
                       <p className="text-xs mb-3" style={{ color: 'rgba(100,116,139,0.45)' }}>
-                        {sortedPosts.length} posts · ordem por data agendada
+                        {total} posts · ordem decrescente
                       </p>
                       <div className="grid grid-cols-3 gap-0.5 rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                        {sortedPosts.map((p, i) => {
+                        {previewPosts.map((p, i) => {
                           const cfg = STATUS_CONFIG[p.status];
                           return (
                             <div key={p.id} className="relative group cursor-pointer"
@@ -395,14 +416,14 @@ export default function MarketingContent() {
                                   style={{ background: 'rgba(59,130,246,0.06)', borderRight: '1px solid rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
                                   <FileImage size={20} style={{ color: 'rgba(59,130,246,0.3)' }} />
                                   <span className="text-[9px] font-mono" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                                    {String(i + 1).padStart(2, '0')}
+                                    {String(total - i).padStart(2, '0')}
                                   </span>
                                 </div>
                               )}
                               {/* Position number */}
                               <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
                                 style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.8)' }}>
-                                {i + 1}
+                                {total - i}
                               </div>
                               {/* Status dot */}
                               <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
@@ -423,11 +444,13 @@ export default function MarketingContent() {
                             </div>
                           );
                         })}
-                        {/* Fill empty cells to complete the last row */}
-                        {Array.from({ length: (3 - (sortedPosts.length % 3)) % 3 }).map((_, i) => (
+                        {Array.from({ length: (3 - (total % 3)) % 3 }).map((_, i) => (
                           <div key={`fill-${i}`} style={{ aspectRatio: '1', background: 'rgba(255,255,255,0.015)' }} />
                         ))}
                       </div>
+                      </>
+                        );
+                      })()}
                     </div>
                   )}
                 </>

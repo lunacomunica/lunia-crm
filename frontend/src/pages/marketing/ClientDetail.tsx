@@ -4,7 +4,7 @@ import {
   ArrowLeft, Eye, Plus, Trash2, X, Instagram, Pencil,
   Target, TrendingUp, Users, Zap, Star, DollarSign,
   FileImage, Megaphone, CheckSquare, Save, ExternalLink,
-  Clock, CheckCircle2, RotateCcw, Calendar, ChevronDown, Send,
+  Clock, CheckCircle2, RotateCcw, Calendar, ChevronDown, ChevronLeft, ChevronRight, Send,
   List, CalendarDays, LayoutGrid
 } from 'lucide-react';
 import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi } from '../../api/client';
@@ -200,7 +200,7 @@ export default function ClientDetail() {
     setLoadingBatches(true);
     const batchRes = await contentApi.listBatches({ client_id: String(cid) });
     setBatches(batchRes.data);
-    if (batchRes.data.length > 0) setSelectedBatchId(batchRes.data[0].id);
+    if (batchRes.data.length > 0) setSelectedBatchId(batchRes.data[batchRes.data.length - 1].id);
     setLoadingBatches(false);
   };
 
@@ -530,61 +530,78 @@ export default function ClientDetail() {
             });
             return (
               <div className="space-y-4">
-                {/* Month chips + actions */}
-                <div className="flex items-center justify-between gap-3 flex-wrap">
-                  <div className="flex items-center gap-2 overflow-x-auto pb-0.5">
-                    {loadingBatches ? (
-                      <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
-                    ) : batches.length === 0 ? (
-                      <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum feed criado</span>
-                    ) : batches.map(b => {
-                      const isSelected = b.id === selectedBatchId;
-                      const pct = b.post_count > 0 ? Math.round((b.approved_count / b.post_count) * 100) : 0;
-                      return (
-                        <button key={b.id} onClick={() => setSelectedBatchId(b.id)}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all flex-shrink-0"
-                          style={isSelected
-                            ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }
-                            : { background: 'rgba(255,255,255,0.03)', color: 'rgba(100,116,139,0.7)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                          {b.name}
-                          {b.post_count > 0 && (
-                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                              style={{ background: isSelected ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)', color: pct === 100 ? '#10b981' : (isSelected ? '#60a5fa' : 'rgba(100,116,139,0.5)') }}>
-                              {b.approved_count}/{b.post_count}
-                            </span>
-                          )}
+                {/* Month nav + view toggle */}
+                {(() => {
+                  const idx = batches.findIndex(b => b.id === selectedBatchId);
+                  const prev = idx > 0 ? batches[idx - 1] : null;
+                  const next = idx < batches.length - 1 ? batches[idx + 1] : null;
+                  const cur = idx >= 0 ? batches[idx] : null;
+                  const pct = cur && cur.post_count > 0 ? Math.round((cur.approved_count / cur.post_count) * 100) : 0;
+                  return (
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-1">
+                        {loadingBatches ? (
+                          <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+                        ) : batches.length === 0 ? (
+                          <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum feed criado</span>
+                        ) : (
+                          <>
+                            <button onClick={() => prev && setSelectedBatchId(prev.id)} disabled={!prev}
+                              className="p-1 rounded-lg transition-all"
+                              style={{ color: prev ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: prev ? 'pointer' : 'default' }}>
+                              <ChevronLeft size={13} />
+                            </button>
+                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl min-w-36 justify-center"
+                              style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                              <span className="text-xs font-medium text-white whitespace-nowrap">
+                                {cur ? `${MONTHS_PT[cur.month - 1]} ${cur.year}` : '—'}
+                              </span>
+                              {cur && cur.post_count > 0 && (
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                                  style={{ background: 'rgba(59,130,246,0.15)', color: pct === 100 ? '#10b981' : '#60a5fa' }}>
+                                  {cur.approved_count}/{cur.post_count}
+                                </span>
+                              )}
+                            </div>
+                            <button onClick={() => next && setSelectedBatchId(next.id)} disabled={!next}
+                              className="p-1 rounded-lg transition-all"
+                              style={{ color: next ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: next ? 'pointer' : 'default' }}>
+                              <ChevronRight size={13} />
+                            </button>
+                          </>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                          {([
+                            { id: 'list' as ContentView, icon: List, label: 'Lista' },
+                            { id: 'calendar' as ContentView, icon: CalendarDays, label: 'Calendário' },
+                            { id: 'preview' as ContentView, icon: LayoutGrid, label: 'Prévia' },
+                          ]).map(v => (
+                            <button key={v.id} onClick={() => setContentView(v.id)}
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all"
+                              style={{ color: contentView === v.id ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: contentView === v.id ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
+                              <v.icon size={12} />{v.label}
+                            </button>
+                          ))}
+                        </div>
+                        <button onClick={() => { setBatchForm({ month: String(new Date().getMonth() + 1), year: String(new Date().getFullYear()) }); setBatchModal(true); }}
+                          className="btn-ghost text-xs px-2.5 py-1.5 flex-shrink-0">
+                          <Plus size={11} /> Feed
                         </button>
-                      );
-                    })}
-                  </div>
-                  <button onClick={() => { setBatchForm({ month: String(new Date().getMonth() + 1), year: String(new Date().getFullYear()) }); setBatchModal(true); }}
-                    className="btn-ghost text-xs px-3 py-1.5 flex-shrink-0">
-                    <Plus size={12} /> Novo Feed
-                  </button>
-                </div>
+                        {selectedBatchId && (
+                          <button onClick={() => { setPostModal({}); setPostForm({ title: '', scheduled_date: '', media_url: '', caption: '', objective: '', status: 'em_criacao' }); }}
+                            className="btn-primary text-xs px-2.5 py-1.5">
+                            <Plus size={11} /> Post
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {selectedBatchId && (
                   <>
-                    {/* View toggle + new post */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                        {([
-                          { id: 'list' as ContentView, icon: List, label: 'Lista' },
-                          { id: 'calendar' as ContentView, icon: CalendarDays, label: 'Calendário' },
-                          { id: 'preview' as ContentView, icon: LayoutGrid, label: 'Prévia' },
-                        ]).map(v => (
-                          <button key={v.id} onClick={() => setContentView(v.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all"
-                            style={{ color: contentView === v.id ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: contentView === v.id ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
-                            <v.icon size={12} />{v.label}
-                          </button>
-                        ))}
-                      </div>
-                      <button onClick={() => { setPostModal({}); setPostForm({ title: '', scheduled_date: '', media_url: '', caption: '', objective: '', status: 'em_criacao' }); }}
-                        className="btn-primary text-xs px-3 py-1.5">
-                        <Plus size={12} /> Post
-                      </button>
-                    </div>
 
                     {/* Content area */}
                     {loadingPosts ? (
@@ -693,9 +710,18 @@ export default function ClientDetail() {
                         {/* PRÉVIA DO FEED */}
                         {contentView === 'preview' && (
                           <div>
-                            <p className="text-xs mb-2" style={{ color: 'rgba(100,116,139,0.45)' }}>{sortedPosts.length} posts · ordem por data agendada</p>
+                            {(() => {
+                              const previewPosts = [...posts].sort((a: any, b: any) => {
+                                if (!a.scheduled_date) return 1;
+                                if (!b.scheduled_date) return -1;
+                                return b.scheduled_date.localeCompare(a.scheduled_date);
+                              });
+                              const total = previewPosts.length;
+                              return (
+                            <>
+                            <p className="text-xs mb-2" style={{ color: 'rgba(100,116,139,0.45)' }}>{total} posts · ordem decrescente</p>
                             <div className="grid grid-cols-3 gap-0.5 rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
-                              {sortedPosts.map((p: any, i: number) => {
+                              {previewPosts.map((p: any, i: number) => {
                                 const cfg = STATUS_CFG[p.status as ContentStatus];
                                 return (
                                   <div key={p.id} className="relative group cursor-pointer" style={{ aspectRatio: '1' }}
@@ -706,11 +732,11 @@ export default function ClientDetail() {
                                       <div className="w-full h-full flex flex-col items-center justify-center gap-1"
                                         style={{ background: 'rgba(59,130,246,0.06)' }}>
                                         <FileImage size={18} style={{ color: 'rgba(59,130,246,0.3)' }} />
-                                        <span className="text-[9px] font-mono" style={{ color: 'rgba(100,116,139,0.4)' }}>{String(i + 1).padStart(2, '0')}</span>
+                                        <span className="text-[9px] font-mono" style={{ color: 'rgba(100,116,139,0.4)' }}>{String(total - i).padStart(2, '0')}</span>
                                       </div>
                                     )}
                                     <div className="absolute top-1 left-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
-                                      style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.8)' }}>{i + 1}</div>
+                                      style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.8)' }}>{total - i}</div>
                                     <div className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: cfg.color, boxShadow: `0 0 5px ${cfg.color}` }} />
                                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                       style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(2px)' }}>
@@ -725,10 +751,13 @@ export default function ClientDetail() {
                                   </div>
                                 );
                               })}
-                              {Array.from({ length: (3 - (sortedPosts.length % 3)) % 3 }).map((_, i) => (
+                              {Array.from({ length: (3 - (total % 3)) % 3 }).map((_, i) => (
                                 <div key={`f-${i}`} style={{ aspectRatio: '1', background: 'rgba(255,255,255,0.015)' }} />
                               ))}
                             </div>
+                            </>
+                              );
+                            })()}
                           </div>
                         )}
                       </>
