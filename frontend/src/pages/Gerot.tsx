@@ -356,9 +356,10 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   const myActiveTask = tasks.find(t => t.assigned_to === user?.id && t.status === 'em_andamento');
 
   const myFiltered = (() => {
-    if (myFilter === 'hoje') return myTasks.filter(t => !t.due_date || isToday(new Date(t.due_date + 'T12:00:00')) || (new Date(t.created_at) && isToday(new Date(t.created_at))));
-    if (myFilter === 'semana') return myTasks.filter(t => !t.due_date || isThisWeek(new Date(t.due_date + 'T12:00:00'), { weekStartsOn: 1 }));
-    return myTasks;
+    let list = clientFilter ? myTasks.filter(t => String(t.agency_client_id) === clientFilter) : myTasks;
+    if (myFilter === 'hoje') return list.filter(t => !t.due_date || isToday(new Date(t.due_date + 'T12:00:00')) || (new Date(t.created_at) && isToday(new Date(t.created_at))));
+    if (myFilter === 'semana') return list.filter(t => !t.due_date || isThisWeek(new Date(t.due_date + 'T12:00:00'), { weekStartsOn: 1 }));
+    return list;
   })();
 
   // Group team tasks by assignee for "Time" view
@@ -1156,7 +1157,6 @@ function TaskRow({ task, acting, activeTask, onStart, onPause, onComplete, onDet
           <p className="text-sm font-medium text-white truncate">{task.title}</p>
           {task.client_name && <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.15)' }}>{task.client_name}</span>}
           {task.campaign_name && <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(167,139,250,0.08)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.15)' }}>{task.campaign_name}</span>}
-          {task.stage && task.stage !== 'geral' && (() => { const s = STAGE_CFG[task.stage]; return s ? <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: s.bg, color: s.color }}>{s.label}</span> : null; })()}
         </div>
         <div className="flex items-center gap-3 mt-0.5">
           {task.assigned_name && <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{task.assigned_name}</span>}

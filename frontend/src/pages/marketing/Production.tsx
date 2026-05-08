@@ -70,6 +70,10 @@ export default function Production() {
   const [selectedTemplate, setSelectedTemplate] = useState<number | null>(null);
   const [applying, setApplying] = useState(false);
 
+  // Workflow dates modal
+  const [datesModal, setDatesModal] = useState(false);
+  const [stageDates, setStageDates] = useState<Record<string, string>>({});
+
   // Template modal
   const [templateModal, setTemplateModal] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<WorkflowTemplate | null>(null);
@@ -135,12 +139,25 @@ export default function Production() {
     });
   };
 
-  const applyWorkflow = async () => {
+  const applyWorkflow = () => {
     if (!selectedTemplate || selected.size === 0) return;
     const tpl = templates.find(t => t.id === selectedTemplate);
     if (!tpl) return;
+    // Pre-fill dates from template if they exist
+    const initial: Record<string, string> = {};
+    tpl.stages.filter(s => s.active).forEach(s => { initial[s.stage] = s.due_date || ''; });
+    setStageDates(initial);
+    setDatesModal(true);
+  };
+
+  const confirmApplyWorkflow = async () => {
+    if (!selectedTemplate) return;
+    const tpl = templates.find(t => t.id === selectedTemplate);
+    if (!tpl) return;
     setApplying(true);
-    await contentApi.bulkWorkflow(Array.from(selected), tpl.stages, selectedTemplate);
+    setDatesModal(false);
+    const stagesWithDates = tpl.stages.map(s => ({ ...s, due_date: stageDates[s.stage] || s.due_date || '' }));
+    await contentApi.bulkWorkflow(Array.from(selected), stagesWithDates, selectedTemplate);
     setApplying(false);
     setSelected(new Set());
     await loadFeeds();
@@ -543,6 +560,55 @@ export default function Production() {
           </div>
         </div>
       )}
+
+      {/* ── WORKFLOW DATES MODAL ──────────────────────────────────────────── */}
+      {datesModal && (() => {
+        const tpl = templates.find(t => t.id === selectedTemplate);
+        const activeStages = tpl?.stages.filter(s => s.active) ?? [];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}
+            onClick={() => setDatesModal(false)}>
+            <div className="w-full max-w-sm rounded-2xl"
+              style={{ background: '#0d0d22', border: '1px solid rgba(167,139,250,0.25)' }}
+              onClick={e => e.stopPropagation()}>
+              <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
+                <div>
+                  <p className="text-[10px] font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(167,139,250,0.6)' }}>Iniciar produção</p>
+                  <h3 className="text-sm font-semibold text-white">Definir datas por etapa</h3>
+                </div>
+                <button onClick={() => setDatesModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={16} /></button>
+              </div>
+              <div className="p-5 space-y-3">
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  Todos os posts dos {selected.size} feed{selected.size > 1 ? 's' : ''} selecionado{selected.size > 1 ? 's' : ''} receberão essas datas.
+                </p>
+                {activeStages.map(s => (
+                  <div key={s.stage} className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: s.stage === 'copy' ? '#60a5fa' : s.stage === 'design' ? '#a78bfa' : s.stage === 'edicao' ? '#f59e0b' : '#34d399' }} />
+                    <span className="text-sm text-white w-20 flex-shrink-0">{s.label}</span>
+                    <input type="date" value={stageDates[s.stage] || ''}
+                      onChange={e => setStageDates(prev => ({ ...prev, [s.stage]: e.target.value }))}
+                      className="flex-1 text-sm rounded-xl px-3 py-1.5 outline-none"
+                      style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(59,130,246,0.2)', color: stageDates[s.stage] ? '#e2e8f0' : 'rgba(100,116,139,0.5)', colorScheme: 'dark' }} />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-3 px-5 py-4" style={{ borderTop: '1px solid rgba(59,130,246,0.08)' }}>
+                <button onClick={() => setDatesModal(false)} className="flex-1 py-2 rounded-xl text-sm"
+                  style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  Cancelar
+                </button>
+                <button onClick={confirmApplyWorkflow}
+                  className="flex-1 py-2 rounded-xl text-sm font-medium text-white"
+                  style={{ background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.3)' }}>
+                  <span className="flex items-center justify-center gap-1.5"><Zap size={13} /> Iniciar produção</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── TEMPLATE MODAL ─────────────────────────────────────────────────── */}
       {templateModal && (
