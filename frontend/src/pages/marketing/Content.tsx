@@ -70,7 +70,7 @@ export default function MarketingContent() {
   const [clients, setClients] = useState<AgencyClient[]>([]);
   const [filterClient, setFilterClient] = useState('all');
   const [batches, setBatches] = useState<FeedBatch[]>([]);
-  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+  const [navMonth, setNavMonth] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear() });
   const [posts, setPosts] = useState<ContentPiece[]>([]);
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(false);
@@ -85,17 +85,19 @@ export default function MarketingContent() {
   const [savingPost, setSavingPost] = useState(false);
   const [deletingPost, setDeletingPost] = useState<number | null>(null);
 
-  const selectedBatch = batches.find(b => b.id === selectedBatchId) ?? null;
-  const calMonth = selectedBatch ? new Date(selectedBatch.year, selectedBatch.month - 1, 1) : new Date();
+  const selectedBatch = batches.find(b => b.month === navMonth.month && b.year === navMonth.year) ?? null;
+  const selectedBatchId = selectedBatch?.id ?? null;
+  const calMonth = new Date(navMonth.year, navMonth.month - 1, 1);
+  const prevMonth = () => setNavMonth(m => m.month === 1 ? { month: 12, year: m.year - 1 } : { month: m.month - 1, year: m.year });
+  const nextMonth = () => setNavMonth(m => m.month === 12 ? { month: 1, year: m.year + 1 } : { month: m.month + 1, year: m.year });
 
   useEffect(() => { agencyClientsApi.list().then(r => setClients(r.data)); }, []);
 
   useEffect(() => {
-    if (filterClient === 'all') { setBatches([]); setSelectedBatchId(null); setPosts([]); return; }
+    if (filterClient === 'all') { setBatches([]); setPosts([]); return; }
     setLoadingBatches(true);
     contentApi.listBatches({ client_id: filterClient }).then(r => {
       setBatches(r.data);
-      setSelectedBatchId(r.data.length > 0 ? r.data[r.data.length - 1].id : null);
       setLoadingBatches(false);
     });
   }, [filterClient]);
@@ -123,14 +125,16 @@ export default function MarketingContent() {
   const handleSaveBatch = async () => {
     if (!batchForm.agency_client_id || !batchForm.month) return;
     setSavingBatch(true);
-    const r = await contentApi.createBatch({ agency_client_id: Number(batchForm.agency_client_id), month: Number(batchForm.month), year: Number(batchForm.year) });
+    await contentApi.createBatch({ agency_client_id: Number(batchForm.agency_client_id), month: Number(batchForm.month), year: Number(batchForm.year) });
     setSavingBatch(false); setBatchModal(false);
-    if (filterClient === batchForm.agency_client_id || filterClient === 'all') {
-      const br = await contentApi.listBatches({ client_id: batchForm.agency_client_id });
+    const clientId = batchForm.agency_client_id;
+    const newMonth = { month: Number(batchForm.month), year: Number(batchForm.year) };
+    if (filterClient !== clientId) setFilterClient(clientId);
+    else {
+      const br = await contentApi.listBatches({ client_id: clientId });
       setBatches(br.data);
-      setSelectedBatchId(r.data.id);
-      setFilterClient(batchForm.agency_client_id);
     }
+    setNavMonth(newMonth);
   };
 
   const handleSavePost = async () => {
@@ -204,76 +208,67 @@ export default function MarketingContent() {
       {/* Client selected */}
       {filterClient !== 'all' && (
         <>
+          {/* Month nav + view toggle — always visible once client is selected */}
+          <div className="flex items-center justify-between mb-5 gap-3">
+            <div className="flex items-center gap-1">
+              <button onClick={prevMonth} className="p-1.5 rounded-lg transition-all"
+                style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <ChevronLeft size={14} />
+              </button>
+              <div className="flex items-center gap-2 px-4 py-2 rounded-xl min-w-44 justify-center"
+                style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                <span className="text-sm font-medium text-white whitespace-nowrap">
+                  {MONTHS_PT[navMonth.month - 1]} {navMonth.year}
+                </span>
+                {selectedBatch && selectedBatch.post_count > 0 && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: 'rgba(59,130,246,0.15)', color: selectedBatch.approved_count === selectedBatch.post_count ? '#10b981' : '#60a5fa' }}>
+                    {selectedBatch.approved_count}/{selectedBatch.post_count}
+                  </span>
+                )}
+              </div>
+              <button onClick={nextMonth} className="p-1.5 rounded-lg transition-all"
+                style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                {([
+                  { id: 'list' as View, icon: List, label: 'Lista' },
+                  { id: 'calendar' as View, icon: CalendarDays, label: 'Calendário' },
+                  { id: 'preview' as View, icon: LayoutGrid, label: 'Prévia' },
+                ]).map(v => (
+                  <button key={v.id} onClick={() => setView(v.id)}
+                    className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all"
+                    style={{ color: view === v.id ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: view === v.id ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
+                    <v.icon size={13} />{v.label}
+                  </button>
+                ))}
+              </div>
+              {selectedBatchId && (
+                <button onClick={openNewPost} className="btn-primary text-xs px-3 py-2">
+                  <Plus size={13} /> Novo Post
+                </button>
+              )}
+            </div>
+          </div>
+
           {loadingBatches ? (
             <div className="flex justify-center py-12">
               <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
                 style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
             </div>
-          ) : batches.length === 0 ? (
+          ) : !selectedBatch ? (
             <div className="card p-16 text-center">
               <FileImage size={36} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.2)' }} />
-              <p className="text-sm mb-4" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum feed criado para este cliente</p>
-              <button onClick={() => { setBatchForm({ ...emptyBatchForm, agency_client_id: filterClient }); setBatchModal(true); }}
-                className="btn-primary mx-auto"><Plus size={14} /> Criar primeiro feed</button>
+              <p className="text-sm mb-1" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum feed para {MONTHS_PT[navMonth.month - 1]} {navMonth.year}</p>
+              <p className="text-xs mb-5" style={{ color: 'rgba(100,116,139,0.3)' }}>Use as setas para navegar ou crie um feed para este mês</p>
+              <button onClick={() => { setBatchForm({ agency_client_id: filterClient, month: String(navMonth.month), year: String(navMonth.year) }); setBatchModal(true); }}
+                className="btn-primary mx-auto"><Plus size={14} /> Criar feed para este mês</button>
             </div>
           ) : (
             <>
-              {/* Month nav + view toggle */}
-              {(() => {
-                const idx = batches.findIndex(b => b.id === selectedBatchId);
-                const prev = idx > 0 ? batches[idx - 1] : null;
-                const next = idx < batches.length - 1 ? batches[idx + 1] : null;
-                const cur = idx >= 0 ? batches[idx] : null;
-                const pct = cur && cur.post_count > 0 ? Math.round((cur.approved_count / cur.post_count) * 100) : 0;
-                return (
-                  <div className="flex items-center justify-between mb-5 gap-3">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => prev && setSelectedBatchId(prev.id)} disabled={!prev}
-                        className="p-1.5 rounded-lg transition-all"
-                        style={{ color: prev ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: prev ? 'pointer' : 'default' }}>
-                        <ChevronLeft size={14} />
-                      </button>
-                      <div className="flex items-center gap-2 px-4 py-2 rounded-xl min-w-44 justify-center"
-                        style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                        <span className="text-sm font-medium text-white whitespace-nowrap">
-                          {cur ? `${MONTHS_PT[cur.month - 1]} ${cur.year}` : '—'}
-                        </span>
-                        {cur && cur.post_count > 0 && (
-                          <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                            style={{ background: 'rgba(59,130,246,0.15)', color: pct === 100 ? '#10b981' : '#60a5fa' }}>
-                            {cur.approved_count}/{cur.post_count}
-                          </span>
-                        )}
-                      </div>
-                      <button onClick={() => next && setSelectedBatchId(next.id)} disabled={!next}
-                        className="p-1.5 rounded-lg transition-all"
-                        style={{ color: next ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: next ? 'pointer' : 'default' }}>
-                        <ChevronRight size={14} />
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                        {([
-                          { id: 'list' as View, icon: List, label: 'Lista' },
-                          { id: 'calendar' as View, icon: CalendarDays, label: 'Calendário' },
-                          { id: 'preview' as View, icon: LayoutGrid, label: 'Prévia' },
-                        ]).map(v => (
-                          <button key={v.id} onClick={() => setView(v.id)}
-                            className="flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-all"
-                            style={{ color: view === v.id ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: view === v.id ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
-                            <v.icon size={13} />{v.label}
-                          </button>
-                        ))}
-                      </div>
-                      {selectedBatchId && (
-                        <button onClick={openNewPost} className="btn-primary text-xs px-3 py-2">
-                          <Plus size={13} /> Novo Post
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                );
-              })()}
 
               {/* Content area */}
               {loadingPosts ? (

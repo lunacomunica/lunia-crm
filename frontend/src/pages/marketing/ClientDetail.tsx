@@ -130,7 +130,7 @@ export default function ClientDetail() {
   const [positioning, setPositioning] = useState<any>({ icp: '', promise: '', mission: '', differentials: [], cases: [] });
   const [goals, setGoals] = useState<any[]>([]);
   const [batches, setBatches] = useState<FeedBatch[]>([]);
-  const [selectedBatchId, setSelectedBatchId] = useState<number | null>(null);
+  const [navMonth, setNavMonth] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear() });
   const [posts, setPosts] = useState<any[]>([]);
   const [loadingBatches, setLoadingBatches] = useState(false);
   const [loadingPosts, setLoadingPosts] = useState(false);
@@ -200,7 +200,6 @@ export default function ClientDetail() {
     setLoadingBatches(true);
     const batchRes = await contentApi.listBatches({ client_id: String(cid) });
     setBatches(batchRes.data);
-    if (batchRes.data.length > 0) setSelectedBatchId(batchRes.data[batchRes.data.length - 1].id);
     setLoadingBatches(false);
   };
 
@@ -208,6 +207,11 @@ export default function ClientDetail() {
     const r = await contentApi.listBatches({ client_id: String(cid) });
     setBatches(r.data);
   };
+
+  const selectedBatch_cd = batches.find(b => b.month === navMonth.month && b.year === navMonth.year) ?? null;
+  const selectedBatchId = selectedBatch_cd?.id ?? null;
+  const prevMonthCd = () => setNavMonth(m => m.month === 1 ? { month: 12, year: m.year - 1 } : { month: m.month - 1, year: m.year });
+  const nextMonthCd = () => setNavMonth(m => m.month === 12 ? { month: 1, year: m.year + 1 } : { month: m.month + 1, year: m.year });
 
   useEffect(() => {
     if (!selectedBatchId) { setPosts([]); return; }
@@ -220,10 +224,10 @@ export default function ClientDetail() {
   const handleSaveBatch = async () => {
     if (!batchForm.month) return;
     setSavingBatch(true);
-    const r = await contentApi.createBatch({ agency_client_id: cid, month: Number(batchForm.month), year: Number(batchForm.year) });
+    await contentApi.createBatch({ agency_client_id: cid, month: Number(batchForm.month), year: Number(batchForm.year) });
     setSavingBatch(false); setBatchModal(false);
     await reloadBatches();
-    setSelectedBatchId(r.data.id);
+    setNavMonth({ month: Number(batchForm.month), year: Number(batchForm.year) });
   };
 
   const handleSavePost = async () => {
@@ -519,8 +523,8 @@ export default function ClientDetail() {
 
           {/* Conteúdo — Feed */}
           {opTab === 'conteudo' && (() => {
-            const selectedBatch = batches.find(b => b.id === selectedBatchId) ?? null;
-            const calMonth = selectedBatch ? new Date(selectedBatch.year, selectedBatch.month - 1, 1) : new Date();
+            const selectedBatch = selectedBatch_cd;
+            const calMonth = new Date(navMonth.year, navMonth.month - 1, 1);
             const calDays = eachDayOfInterval({ start: startOfMonth(calMonth), end: endOfMonth(calMonth) });
             const calStartDay = startOfMonth(calMonth).getDay();
             const byDay = (day: Date) => posts.filter((p: any) => p.scheduled_date && isSameDay(new Date(p.scheduled_date + 'T12:00:00'), day));
@@ -531,76 +535,65 @@ export default function ClientDetail() {
             return (
               <div className="space-y-4">
                 {/* Month nav + view toggle */}
-                {(() => {
-                  const idx = batches.findIndex(b => b.id === selectedBatchId);
-                  const prev = idx > 0 ? batches[idx - 1] : null;
-                  const next = idx < batches.length - 1 ? batches[idx + 1] : null;
-                  const cur = idx >= 0 ? batches[idx] : null;
-                  const pct = cur && cur.post_count > 0 ? Math.round((cur.approved_count / cur.post_count) * 100) : 0;
-                  return (
-                    <div className="flex items-center justify-between gap-3">
-                      <div className="flex items-center gap-1">
-                        {loadingBatches ? (
-                          <div className="w-4 h-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
-                        ) : batches.length === 0 ? (
-                          <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum feed criado</span>
-                        ) : (
-                          <>
-                            <button onClick={() => prev && setSelectedBatchId(prev.id)} disabled={!prev}
-                              className="p-1 rounded-lg transition-all"
-                              style={{ color: prev ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: prev ? 'pointer' : 'default' }}>
-                              <ChevronLeft size={13} />
-                            </button>
-                            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl min-w-36 justify-center"
-                              style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                              <span className="text-xs font-medium text-white whitespace-nowrap">
-                                {cur ? `${MONTHS_PT[cur.month - 1]} ${cur.year}` : '—'}
-                              </span>
-                              {cur && cur.post_count > 0 && (
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
-                                  style={{ background: 'rgba(59,130,246,0.15)', color: pct === 100 ? '#10b981' : '#60a5fa' }}>
-                                  {cur.approved_count}/{cur.post_count}
-                                </span>
-                              )}
-                            </div>
-                            <button onClick={() => next && setSelectedBatchId(next.id)} disabled={!next}
-                              className="p-1 rounded-lg transition-all"
-                              style={{ color: next ? 'rgba(148,163,184,0.6)' : 'rgba(100,116,139,0.2)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', cursor: next ? 'pointer' : 'default' }}>
-                              <ChevronRight size={13} />
-                            </button>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                          {([
-                            { id: 'list' as ContentView, icon: List, label: 'Lista' },
-                            { id: 'calendar' as ContentView, icon: CalendarDays, label: 'Calendário' },
-                            { id: 'preview' as ContentView, icon: LayoutGrid, label: 'Prévia' },
-                          ]).map(v => (
-                            <button key={v.id} onClick={() => setContentView(v.id)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all"
-                              style={{ color: contentView === v.id ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: contentView === v.id ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
-                              <v.icon size={12} />{v.label}
-                            </button>
-                          ))}
-                        </div>
-                        <button onClick={() => { setBatchForm({ month: String(new Date().getMonth() + 1), year: String(new Date().getFullYear()) }); setBatchModal(true); }}
-                          className="btn-ghost text-xs px-2.5 py-1.5 flex-shrink-0">
-                          <Plus size={11} /> Feed
-                        </button>
-                        {selectedBatchId && (
-                          <button onClick={() => { setPostModal({}); setPostForm({ title: '', scheduled_date: '', media_url: '', caption: '', objective: '', status: 'em_criacao' }); }}
-                            className="btn-primary text-xs px-2.5 py-1.5">
-                            <Plus size={11} /> Post
-                          </button>
-                        )}
-                      </div>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-1">
+                    <button onClick={prevMonthCd} className="p-1 rounded-lg transition-all"
+                      style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <ChevronLeft size={13} />
+                    </button>
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl min-w-36 justify-center"
+                      style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                      <span className="text-xs font-medium text-white whitespace-nowrap">
+                        {MONTHS_PT[navMonth.month - 1]} {navMonth.year}
+                      </span>
+                      {selectedBatch && selectedBatch.post_count > 0 && (
+                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                          style={{ background: 'rgba(59,130,246,0.15)', color: selectedBatch.approved_count === selectedBatch.post_count ? '#10b981' : '#60a5fa' }}>
+                          {selectedBatch.approved_count}/{selectedBatch.post_count}
+                        </span>
+                      )}
                     </div>
-                  );
-                })()}
+                    <button onClick={nextMonthCd} className="p-1 rounded-lg transition-all"
+                      style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <ChevronRight size={13} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="flex rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                      {([
+                        { id: 'list' as ContentView, icon: List, label: 'Lista' },
+                        { id: 'calendar' as ContentView, icon: CalendarDays, label: 'Calendário' },
+                        { id: 'preview' as ContentView, icon: LayoutGrid, label: 'Prévia' },
+                      ]).map(v => (
+                        <button key={v.id} onClick={() => setContentView(v.id)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium transition-all"
+                          style={{ color: contentView === v.id ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: contentView === v.id ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
+                          <v.icon size={12} />{v.label}
+                        </button>
+                      ))}
+                    </div>
+                    {selectedBatchId && (
+                      <button onClick={() => { setPostModal({}); setPostForm({ title: '', scheduled_date: '', media_url: '', caption: '', objective: '', status: 'em_criacao' }); }}
+                        className="btn-primary text-xs px-2.5 py-1.5">
+                        <Plus size={11} /> Post
+                      </button>
+                    )}
+                  </div>
+                </div>
 
-                {selectedBatchId && (
+                {loadingBatches ? (
+                  <div className="flex justify-center py-8">
+                    <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+                  </div>
+                ) : !selectedBatch ? (
+                  <div className="text-center py-10">
+                    <FileImage size={28} className="mx-auto mb-2 opacity-20" style={{ color: 'rgba(100,116,139,0.5)' }} />
+                    <p className="text-sm mb-1" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhum feed para {MONTHS_PT[navMonth.month - 1]} {navMonth.year}</p>
+                    <p className="text-xs mb-4" style={{ color: 'rgba(100,116,139,0.3)' }}>Use as setas ou crie um feed para este mês</p>
+                    <button onClick={() => { setBatchForm({ month: String(navMonth.month), year: String(navMonth.year) }); setBatchModal(true); }}
+                      className="btn-ghost text-xs px-3 py-1.5 mx-auto"><Plus size={12} /> Criar feed</button>
+                  </div>
+                ) : (
                   <>
 
                     {/* Content area */}
