@@ -125,6 +125,14 @@ export const tasksApi = {
   teamOverview: () => api.get('/tasks/team-overview'),
 };
 
+export const clientPortalApi = {
+  summary: (clientId: number) => api.get(`/client-portal/${clientId}/summary`),
+  goals: (clientId: number) => api.get(`/client-portal/${clientId}/goals`),
+  updateGoals: (clientId: number, goals: any[]) => api.put(`/client-portal/${clientId}/goals`, { goals }),
+  positioning: (clientId: number) => api.get(`/client-portal/${clientId}/positioning`),
+  updatePositioning: (clientId: number, data: any) => api.put(`/client-portal/${clientId}/positioning`, data),
+};
+
 export const adminApi = {
   listTenants: () => api.get('/admin/tenants'),
   createTenant: (data: { name: string; admin_name: string; admin_email: string; admin_password: string }) => api.post('/admin/tenants', data),

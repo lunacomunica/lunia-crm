@@ -211,6 +211,29 @@ db.exec(`
     created_at TEXT DEFAULT (datetime('now'))
   );
 
+  CREATE TABLE IF NOT EXISTS client_goals (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
+    metric TEXT NOT NULL,
+    label TEXT NOT NULL,
+    target REAL NOT NULL,
+    unit TEXT DEFAULT '',
+    icon TEXT DEFAULT 'target',
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(agency_client_id, metric)
+  );
+
+  CREATE TABLE IF NOT EXISTS client_positioning (
+    agency_client_id INTEGER PRIMARY KEY REFERENCES agency_clients(id) ON DELETE CASCADE,
+    icp TEXT,
+    promise TEXT,
+    differentials TEXT DEFAULT '[]',
+    cases TEXT DEFAULT '[]',
+    mission TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
   CREATE TABLE IF NOT EXISTS instagram_leads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     tenant_id INTEGER NOT NULL DEFAULT 1,
