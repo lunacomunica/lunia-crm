@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2 } from 'lucide-react';
+import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2, AlertTriangle } from 'lucide-react';
 import { settingsApi, usersApi, profileApi, agencyClientsApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -365,13 +365,30 @@ function UsersTab() {
 }
 
 export default function Settings() {
-  const [tab, setTab] = useState<'profile' | 'api' | 'users'>('profile');
+  const { user } = useAuth();
+  const isSuperAdmin = user?.role === 'superadmin';
+  const [tab, setTab] = useState<'profile' | 'api' | 'users' | 'danger'>('profile');
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [webhookInfo, setWebhookInfo] = useState<{ webhookUrl: string; verifyToken: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [testResults, setTestResults] = useState<Record<string, { success: boolean; message: string }>>({});
+  const [resetConfirm, setResetConfirm] = useState('');
+  const [resetting, setResetting] = useState(false);
+  const [resetDone, setResetDone] = useState(false);
+
+  const handleReset = async () => {
+    if (resetConfirm !== 'LIMPAR') return;
+    setResetting(true);
+    await fetch('/api/admin/reset-tenant', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${localStorage.getItem('lunia_token')}` },
+    });
+    setResetting(false);
+    setResetDone(true);
+    setResetConfirm('');
+  };;
 
   useEffect(() => {
     settingsApi.get().then(r => setSettings(r.data));
@@ -402,7 +419,7 @@ export default function Settings() {
 
       {/* Tabs */}
       <div className="flex gap-1 mb-8 w-full overflow-x-auto rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-        {[{ id: 'profile', label: 'Meu Perfil', icon: User }, { id: 'api', label: 'Integrações API', icon: Zap }, { id: 'users', label: 'Usuários', icon: Users }].map(t => (
+        {[{ id: 'profile', label: 'Meu Perfil', icon: User }, { id: 'api', label: 'Integrações API', icon: Zap }, { id: 'users', label: 'Usuários', icon: Users }, ...(isSuperAdmin ? [{ id: 'danger', label: 'Zona de Perigo', icon: AlertTriangle }] : [])].map(t => (
           <button key={t.id} onClick={() => setTab(t.id as any)}
             className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all"
             style={tab === t.id
@@ -413,7 +430,55 @@ export default function Settings() {
         ))}
       </div>
 
-      {tab === 'profile' ? <ProfileTab /> : tab === 'users' ? <UsersTab /> : (
+      {tab === 'profile' ? <ProfileTab /> : tab === 'users' ? <UsersTab /> : tab === 'danger' ? (
+        <div className="card p-6" style={{ borderColor: 'rgba(248,113,113,0.2)' }}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)' }}>
+              <AlertTriangle size={15} style={{ color: '#f87171' }} />
+            </div>
+            <h2 className="text-base font-light text-white">Zona de Perigo</h2>
+          </div>
+
+          <div className="rounded-xl p-5" style={{ background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.15)' }}>
+            <p className="text-sm font-medium text-white mb-1">Limpar todos os dados</p>
+            <p className="text-xs mb-4" style={{ color: 'rgba(100,116,139,0.6)' }}>
+              Remove todos os contatos, clientes, conteúdos, tarefas, campanhas e usuários do sistema. Essa ação não pode ser desfeita.
+            </p>
+
+            {resetDone ? (
+              <div className="flex items-center gap-2 text-sm" style={{ color: '#34d399' }}>
+                <CheckCircle2 size={15} /> Dados limpos com sucesso! Recarregue a página.
+              </div>
+            ) : (
+              <>
+                <p className="text-xs mb-2" style={{ color: 'rgba(248,113,113,0.7)' }}>Digite <strong>LIMPAR</strong> para confirmar:</p>
+                <div className="flex gap-3">
+                  <input
+                    value={resetConfirm}
+                    onChange={e => setResetConfirm(e.target.value)}
+                    placeholder="LIMPAR"
+                    className="input-dark flex-1"
+                    style={{ borderColor: resetConfirm === 'LIMPAR' ? 'rgba(248,113,113,0.5)' : undefined }}
+                  />
+                  <button
+                    onClick={handleReset}
+                    disabled={resetConfirm !== 'LIMPAR' || resetting}
+                    className="px-4 py-2 rounded-xl text-sm font-medium flex items-center gap-2 transition-all"
+                    style={{
+                      background: resetConfirm === 'LIMPAR' ? 'rgba(248,113,113,0.15)' : 'rgba(100,116,139,0.08)',
+                      color: resetConfirm === 'LIMPAR' ? '#f87171' : 'rgba(100,116,139,0.4)',
+                      border: `1px solid ${resetConfirm === 'LIMPAR' ? 'rgba(248,113,113,0.3)' : 'rgba(100,116,139,0.1)'}`,
+                      cursor: resetConfirm !== 'LIMPAR' ? 'not-allowed' : 'pointer',
+                    }}>
+                    {resetting ? <RefreshCw size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                    {resetting ? 'Limpando…' : 'Limpar tudo'}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
         <>
           {/* Webhook Info */}
           <div className="card p-6 mb-5" style={{ borderColor: 'rgba(59,130,246,0.2)' }}>
