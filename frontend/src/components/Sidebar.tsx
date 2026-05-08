@@ -1,11 +1,11 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid, Eye, ChevronDown
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
-import { notificationsApi } from '../api/client';
+import { notificationsApi, agencyClientsApi } from '../api/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -34,6 +34,67 @@ function NavSection({ label, children }: { label: string; children: React.ReactN
     <div>
       <p className="section-label px-3 mb-2">{label}</p>
       <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function ClientSwitcher() {
+  const [clients, setClients] = useState<any[]>([]);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    agencyClientsApi.list().then(r => setClients(r.data.filter((c: any) => c.active)));
+  }, []);
+
+  useEffect(() => {
+    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
+  }, []);
+
+  if (clients.length === 0) return null;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200"
+        style={{ background: open ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.12)' }}
+        onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.06)'; }}
+        onMouseLeave={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; }}>
+        <div className="flex items-center gap-2.5">
+          <Eye size={13} style={{ color: '#60a5fa' }} />
+          <span className="text-xs font-medium" style={{ color: '#93c5fd' }}>Ver como cliente</span>
+        </div>
+        <ChevronDown size={12} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} style={{ color: 'rgba(100,116,139,0.5)' }} />
+      </button>
+
+      {open && (
+        <div className="mt-1 rounded-xl overflow-hidden"
+          style={{ background: '#070718', border: '1px solid rgba(59,130,246,0.12)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+          {clients.map(c => (
+            <button
+              key={c.id}
+              onClick={() => { setOpen(false); navigate(`/marketing/portal/${c.id}`); }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors"
+              style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.07)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+              {c.logo ? (
+                <img src={c.logo} alt={c.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+              ) : (
+                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                  {c.name.charAt(0).toUpperCase()}
+                </div>
+              )}
+              <span className="text-xs truncate" style={{ color: 'rgba(226,232,240,0.8)' }}>{c.name}</span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -172,6 +233,10 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
               <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
               <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
             </NavSection>
+
+            <NavSection label="Modo Cliente">
+              <ClientSwitcher />
+            </NavSection>
           </>
         )}
 
@@ -187,6 +252,10 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
               <NavItem path="/marketing/clients" label="Clientes" icon={Briefcase} />
               <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
               <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
+            </NavSection>
+
+            <NavSection label="Modo Cliente">
+              <ClientSwitcher />
             </NavSection>
           </>
         )}
