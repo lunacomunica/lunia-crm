@@ -21,6 +21,7 @@ import contentRouter from './routes/content.js';
 import notificationsRouter from './routes/notifications.js';
 import campaignsRouter from './routes/campaigns.js';
 import adminRouter from './routes/admin.js';
+import tasksRouter from './routes/tasks.js';
 import { authMiddleware } from './middleware/auth.js';
 import db from './db.js';
 
@@ -99,6 +100,7 @@ app.use('/api/meta', authMiddleware, metaRouter);
 app.use('/api/settings', authMiddleware, settingsRouter);
 app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/admin', adminRouter);
+app.use('/api/tasks', authMiddleware, tasksRouter);
 
 app.get('/privacy', (_req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');

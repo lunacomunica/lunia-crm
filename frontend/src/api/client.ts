@@ -110,6 +110,16 @@ export const settingsApi = {
   testConnection: (type: string) => api.post('/settings/test-connection', { type }),
 };
 
+export const tasksApi = {
+  list: (params?: Record<string, string>) => api.get('/tasks', { params }),
+  create: (data: any) => api.post('/tasks', data),
+  update: (id: number, data: any) => api.put(`/tasks/${id}`, data),
+  delete: (id: number) => api.delete(`/tasks/${id}`),
+  start: (id: number) => api.post(`/tasks/${id}/start`),
+  pause: (id: number) => api.post(`/tasks/${id}/pause`),
+  complete: (id: number) => api.post(`/tasks/${id}/complete`),
+};
+
 export const adminApi = {
   listTenants: () => api.get('/admin/tenants'),
   createTenant: (data: { name: string; admin_name: string; admin_email: string; admin_password: string }) => api.post('/admin/tenants', data),

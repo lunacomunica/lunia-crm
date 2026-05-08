@@ -93,6 +93,21 @@ router.patch('/:id/status', (req, res) => {
       body,
       JSON.stringify({ content_id: req.params.id, client_id: existing.agency_client_id, client_name: existing.client_name })
     );
+
+    // Auto-create task when client requests adjustment
+    if (status === 'ajuste_solicitado') {
+      db.prepare(`
+        INSERT INTO tasks (tenant_id, title, description, content_piece_id, agency_client_id, priority, created_by)
+        VALUES (?, ?, ?, ?, ?, 'alta', ?)
+      `).run(
+        req.user.tenant_id,
+        `Ajuste: ${existing.title}`,
+        comment || null,
+        existing.id,
+        existing.agency_client_id,
+        req.user.id
+      );
+    }
   }
 
   res.json({ ok: true, status });

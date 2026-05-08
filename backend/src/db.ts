@@ -225,6 +225,38 @@ db.exec(`
   );
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL DEFAULT 1,
+    title TEXT NOT NULL,
+    description TEXT,
+    assigned_to INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    content_piece_id INTEGER REFERENCES content_pieces(id) ON DELETE SET NULL,
+    campaign_id INTEGER REFERENCES campaigns(id) ON DELETE SET NULL,
+    agency_client_id INTEGER REFERENCES agency_clients(id) ON DELETE SET NULL,
+    priority TEXT DEFAULT 'media',
+    status TEXT DEFAULT 'a_fazer',
+    due_date TEXT,
+    estimated_minutes INTEGER,
+    total_minutes INTEGER DEFAULT 0,
+    started_at TEXT,
+    completed_at TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE IF NOT EXISTS task_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    started_at TEXT NOT NULL,
+    ended_at TEXT,
+    minutes INTEGER DEFAULT 0
+  );
+`);
+
 // Migrations: add tenant_id to existing tables if upgrading
 const migrations = [
   "ALTER TABLE contacts ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",

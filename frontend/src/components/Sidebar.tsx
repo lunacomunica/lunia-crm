@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
@@ -14,8 +14,9 @@ const platformItems = [
 ];
 
 const negocioItems = [
-  { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { path: '/products',  label: 'Produtos',  icon: Package },
+  { path: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard },
+  { path: '/gerot',     label: 'Gerot',      icon: CheckSquare },
+  { path: '/products',  label: 'Produtos',   icon: Package },
 ];
 
 const comercialItems = [
