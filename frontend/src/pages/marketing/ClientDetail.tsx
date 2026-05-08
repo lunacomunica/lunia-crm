@@ -220,6 +220,8 @@ export default function ClientDetail() {
   const [showNewPostModal, setShowNewPostModal] = useState(false);
   const [creatingPost, setCreatingPost] = useState(false);
   const [deletingPost, setDeletingPost] = useState<number | null>(null);
+  const [selectedPosts, setSelectedPosts] = useState<Set<number>>(new Set());
+  const [deletingBulk, setDeletingBulk] = useState(false);
   const [panelPost, setPanelPost] = useState<any | null>(null);
 
   // Batch workflow modal
@@ -353,6 +355,22 @@ export default function ClientDetail() {
     setPosts(prev => prev.filter(p => p.id !== id));
     reloadBatches();
   };
+
+  const handleBulkDelete = async () => {
+    setDeletingBulk(true);
+    await Promise.all(Array.from(selectedPosts).map(id => contentApi.delete(id)));
+    setPosts(prev => prev.filter(p => !selectedPosts.has(p.id)));
+    setSelectedPosts(new Set());
+    setDeletingBulk(false);
+    reloadBatches();
+  };
+
+  const toggleSelectPost = (id: number) => setSelectedPosts(prev => {
+    const next = new Set(prev); next.has(id) ? next.delete(id) : next.add(id); return next;
+  });
+  const toggleSelectAll = () => setSelectedPosts(
+    selectedPosts.size === posts.length ? new Set() : new Set(posts.map((p: any) => p.id))
+  );
 
   useEffect(() => { load(); }, [cid]);
   useEffect(() => { if (tab === 'operacao' && batches.length === 0 && !loadingBatches) loadOp(); }, [tab]);
@@ -801,11 +819,35 @@ export default function ClientDetail() {
                         {/* LISTA */}
                         {contentView === 'list' && (
                           <div className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                            {/* Select-all header */}
+                            <div className="flex items-center gap-3 px-5 py-2.5" style={{ borderBottom: '1px solid rgba(59,130,246,0.06)', background: 'rgba(255,255,255,0.01)' }}>
+                              <input type="checkbox"
+                                checked={selectedPosts.size === posts.length && posts.length > 0}
+                                onChange={toggleSelectAll}
+                                className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0"
+                                style={{ accentColor: '#3b82f6' }} />
+                              {selectedPosts.size > 0 ? (
+                                <div className="flex items-center gap-3 flex-1">
+                                  <span className="text-xs" style={{ color: 'rgba(100,116,139,0.6)' }}>{selectedPosts.size} selecionado{selectedPosts.size > 1 ? 's' : ''}</span>
+                                  <button onClick={handleBulkDelete} disabled={deletingBulk}
+                                    className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-lg disabled:opacity-40"
+                                    style={{ background: 'rgba(239,68,68,0.12)', color: '#f87171', border: '1px solid rgba(239,68,68,0.25)' }}>
+                                    <Trash2 size={11} /> {deletingBulk ? 'Apagando…' : 'Apagar selecionados'}
+                                  </button>
+                                </div>
+                              ) : (
+                                <span className="text-xs flex-1" style={{ color: 'rgba(100,116,139,0.35)' }}>Selecionar todos</span>
+                              )}
+                            </div>
                             {sortedPosts.map((p: any, i: number) => (
                               <div key={p.id} className="flex items-center gap-3 px-5 py-3 group transition-colors"
-                                style={{ borderBottom: i < sortedPosts.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined }}
-                                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.01)')}
-                                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                                style={{ borderBottom: i < sortedPosts.length - 1 ? '1px solid rgba(255,255,255,0.04)' : undefined, background: selectedPosts.has(p.id) ? 'rgba(59,130,246,0.04)' : undefined }}
+                                onMouseEnter={e => { if (!selectedPosts.has(p.id)) e.currentTarget.style.background = 'rgba(255,255,255,0.01)'; }}
+                                onMouseLeave={e => { if (!selectedPosts.has(p.id)) e.currentTarget.style.background = 'transparent'; }}>
+                              <input type="checkbox" checked={selectedPosts.has(p.id)} onChange={() => toggleSelectPost(p.id)}
+                                onClick={e => e.stopPropagation()}
+                                className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0"
+                                style={{ accentColor: '#3b82f6' }} />
                                 <span className="text-[10px] font-mono w-5 flex-shrink-0 text-center" style={{ color: 'rgba(100,116,139,0.35)' }}>
                                   {String(i + 1).padStart(2, '0')}
                                 </span>
