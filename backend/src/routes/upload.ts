@@ -29,7 +29,7 @@ const upload = multer({
 
 router.post('/', upload.array('files', 20), (req, res) => {
   const files = (req.files as Express.Multer.File[]) || [];
-  const BASE = (process.env.API_URL || `http://localhost:3001`).replace(/\/$/, '');
+  const BASE = `${req.protocol}://${req.get('host')}`;
   res.json({
     files: files.map(f => ({
       url: `${BASE}/uploads/${f.filename}`,

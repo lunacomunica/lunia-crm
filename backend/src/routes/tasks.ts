@@ -89,9 +89,9 @@ router.get('/', (req, res) => {
   if (client_id) { q += ' AND t.agency_client_id = ?'; params.push(client_id); }
 
   if (due === 'today') {
-    q += " AND date(t.due_date) = date('now')";
+    q += " AND (date(t.due_date) = date('now') OR (t.due_date IS NULL AND date(t.created_at) = date('now')))";
   } else if (due === 'week') {
-    q += " AND date(t.due_date) BETWEEN date('now') AND date('now', '+7 days')";
+    q += " AND (date(t.due_date) BETWEEN date('now') AND date('now', '+7 days') OR (t.due_date IS NULL AND date(t.created_at) = date('now')))";
   }
 
   q += " ORDER BY CASE t.priority WHEN 'urgente' THEN 1 WHEN 'alta' THEN 2 WHEN 'media' THEN 3 ELSE 4 END, t.due_date ASC, t.created_at DESC";

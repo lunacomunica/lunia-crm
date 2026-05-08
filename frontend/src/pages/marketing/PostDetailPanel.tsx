@@ -539,16 +539,27 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                 {tasks.map((t: any) => {
                   const sc = TASK_STATUS_CFG[t.status] || TASK_STATUS_CFG.a_fazer;
                   return (
-                    <div key={t.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                    <div key={t.id} className="rounded-xl px-3 py-2.5"
                       style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sc.color }} />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-white truncate">{t.title}</p>
-                        <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.45)' }}>
-                          {t.assignee_name || 'Sem responsável'}{t.due_date ? ` · ${t.due_date}` : ''}
-                        </p>
+                      <div className="flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: sc.color }} />
+                        <p className="text-xs font-medium text-white flex-1 truncate">{t.title}</p>
+                        <span className="text-[10px] font-medium flex-shrink-0" style={{ color: sc.color }}>{sc.label}</span>
                       </div>
-                      <span className="text-[10px] font-medium flex-shrink-0" style={{ color: sc.color }}>{sc.label}</span>
+                      <div className="mt-2 ml-5">
+                        <select
+                          value={t.assigned_to || ''}
+                          onChange={async e => {
+                            const uid = e.target.value ? Number(e.target.value) : null;
+                            await import('../../api/client').then(m => m.tasksApi.update(t.id, { assigned_to: uid }));
+                            setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assigned_to: uid, assignee_name: users.find((u: any) => u.id === uid)?.name || null } : x));
+                          }}
+                          className="text-[11px] rounded-lg px-2 py-1 outline-none w-full"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: t.assigned_to ? 'rgba(148,163,184,0.9)' : 'rgba(100,116,139,0.45)', cursor: 'pointer' }}>
+                          <option value="">Sem responsável</option>
+                          {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
+                        </select>
+                      </div>
                     </div>
                   );
                 })}
