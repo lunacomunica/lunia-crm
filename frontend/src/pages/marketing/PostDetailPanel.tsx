@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { X, Trash2, ChevronDown, FileImage, Calendar, Clock, CheckCircle2, RotateCcw, Send, Eye, Plus, Zap, Check, Upload, ChevronLeft, ChevronRight, Play, Image as ImageIcon, Video } from 'lucide-react';
-import { contentApi, usersApi, uploadApi } from '../../api/client';
+import { contentApi, usersApi, uploadApi, tasksApi } from '../../api/client';
 import { ContentPiece, ContentStatus } from '../../types';
 
 const STAGES = [
@@ -551,7 +551,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                           value={t.assigned_to || ''}
                           onChange={async e => {
                             const uid = e.target.value ? Number(e.target.value) : null;
-                            await import('../../api/client').then(m => m.tasksApi.update(t.id, { assigned_to: uid }));
+                            await tasksApi.update(t.id, { assigned_to: uid });
                             setTasks(prev => prev.map(x => x.id === t.id ? { ...x, assigned_to: uid, assignee_name: users.find((u: any) => u.id === uid)?.name || null } : x));
                           }}
                           className="text-[11px] rounded-lg px-2 py-1 outline-none w-full"
