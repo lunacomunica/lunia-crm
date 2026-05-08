@@ -46,15 +46,15 @@ export default function App() {
             <Route path="instagram" element={<InternalOnly><Instagram /></InternalOnly>} />
             <Route path="funnel" element={<InternalOnly><Funnel /></InternalOnly>} />
             <Route path="products" element={<InternalOnly><Products /></InternalOnly>} />
-            <Route path="marketing/production" element={<Production />} />
-            <Route path="marketing/clients" element={<MarketingClients />} />
-            <Route path="marketing/clients/:id" element={<ClientDetail />} />
+            <Route path="marketing/production" element={<ManagerAndAbove><Production /></ManagerAndAbove>} />
+            <Route path="marketing/clients" element={<ManagerAndAbove><MarketingClients /></ManagerAndAbove>} />
+            <Route path="marketing/clients/:id" element={<ManagerAndAbove><ClientDetail /></ManagerAndAbove>} />
             <Route path="marketing/content" element={<MarketingContent />} />
             <Route path="marketing/traffic" element={<Traffic />} />
             <Route path="marketing/portal/:clientId" element={<ClientPortal />} />
             <Route path="marketing/feed/:clientId" element={<FeedPreview />} />
             <Route path="gerot" element={<Gerot />} />
-            <Route path="settings" element={<InternalOnly><Settings /></InternalOnly>} />
+            <Route path="settings" element={<ManagerAndAbove><Settings /></ManagerAndAbove>} />
             <Route path="admin/tenants" element={<AdminOnly><Tenants /></AdminOnly>} />
           </Route>
         </Routes>
@@ -66,7 +66,14 @@ export default function App() {
 function InternalOnly({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   if (user?.role === 'client') return <Navigate to={user.client_id ? `/marketing/portal/${user.client_id}` : '/login'} replace />;
-  if (user?.role === 'team' || user?.role === 'manager') return <Navigate to="/gerot" replace />;
+  if (user?.role !== 'owner') return <Navigate to="/gerot" replace />;
+  return <>{children}</>;
+}
+
+function ManagerAndAbove({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === 'client') return <Navigate to={user.client_id ? `/marketing/portal/${user.client_id}` : '/login'} replace />;
+  if (user?.role === 'team') return <Navigate to="/gerot" replace />;
   return <>{children}</>;
 }
 

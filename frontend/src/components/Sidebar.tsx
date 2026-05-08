@@ -9,29 +9,6 @@ import { notificationsApi } from '../api/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-const platformItems = [
-  { path: '/admin/tenants', label: 'Workspaces', icon: Building2 },
-];
-
-const negocioItems = [
-  { path: '/dashboard', label: 'Dashboard',  icon: LayoutDashboard },
-  { path: '/gerot',     label: 'Gerot',      icon: CheckSquare },
-  { path: '/products',  label: 'Produtos',   icon: Package },
-];
-
-const comercialItems = [
-  { path: '/contacts',      label: 'Contatos',        icon: Users },
-  { path: '/conversations', label: 'Conversas',       icon: MessageSquare },
-  { path: '/funnel',        label: 'Funil de Vendas', icon: TrendingUp },
-];
-
-const marketingItems = [
-  { path: '/marketing/production', label: 'Produção',    icon: LayoutGrid },
-  { path: '/marketing/clients',    label: 'Clientes',    icon: Briefcase },
-  { path: '/marketing/content',    label: 'Conteúdos',   icon: FileImage },
-  { path: '/marketing/traffic',    label: 'Tráfego Pago',icon: Megaphone },
-];
-
 function NavItem({ path, label, icon: Icon }: { path: string; label: string; icon: any }) {
   const { pathname } = useLocation();
   const active = pathname.startsWith(path);
@@ -49,6 +26,15 @@ function NavItem({ path, label, icon: Icon }: { path: string; label: string; ico
       </span>
       {active && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#3b82f6', boxShadow: '0 0 6px rgba(59,130,246,0.9)' }} />}
     </Link>
+  );
+}
+
+function NavSection({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div>
+      <p className="section-label px-3 mb-2">{label}</p>
+      <div className="space-y-0.5">{children}</div>
+    </div>
   );
 }
 
@@ -70,7 +56,6 @@ function NotificationBell() {
   const handleOpen = () => { setOpen(o => !o); if (!open && unread > 0) { notificationsApi.readAll().then(() => { setUnread(0); setNotifications(prev => prev.map(n => ({ ...n, read: 1 }))); }); } };
 
   const TYPE_COLOR: Record<string, string> = { aprovado: '#34d399', ajuste_solicitado: '#f97316' };
-  const TYPE_LABEL: Record<string, string> = { aprovado: 'Aprovado', ajuste_solicitado: 'Ajuste solicitado' };
 
   return (
     <div ref={ref} className="relative">
@@ -127,15 +112,14 @@ function NotificationBell() {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = { owner: 'Owner', manager: 'Alta Gestão', team: 'Time', client: 'Cliente' };
+const ROLE_LABEL: Record<string, string> = { owner: 'Proprietária', manager: 'Gestão', team: 'Time', client: 'Cliente' };
 
 export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const isSuperAdmin = user?.role === 'owner';
-  const isAdmin = user?.role === 'owner';
-  const isAltaGestao = user?.role === 'manager';
+  const isOwner = user?.role === 'owner';
+  const isManager = user?.role === 'manager';
   const isTeam = user?.role === 'team';
 
   useEffect(() => { onClose?.(); }, [pathname]);
@@ -162,66 +146,67 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
-        {/* Plataforma — superadmin only */}
-        {isSuperAdmin && (
-          <div>
-            <p className="section-label px-3 mb-2">Plataforma</p>
-            <div className="space-y-0.5">
-              {platformItems.map(item => <NavItem key={item.path} {...item} />)}
-            </div>
-          </div>
+
+        {/* OWNER */}
+        {isOwner && (
+          <>
+            <NavSection label="Plataforma">
+              <NavItem path="/admin/tenants" label="Workspaces" icon={Building2} />
+            </NavSection>
+
+            <NavSection label="Negócio">
+              <NavItem path="/dashboard" label="Dashboard" icon={LayoutDashboard} />
+              <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
+              <NavItem path="/products" label="Produtos" icon={Package} />
+            </NavSection>
+
+            <NavSection label="Comercial">
+              <NavItem path="/contacts" label="Contatos" icon={Users} />
+              <NavItem path="/conversations" label="Conversas" icon={MessageSquare} />
+              <NavItem path="/funnel" label="Funil de Vendas" icon={TrendingUp} />
+            </NavSection>
+
+            <NavSection label="Marketing">
+              <NavItem path="/marketing/production" label="Produção" icon={LayoutGrid} />
+              <NavItem path="/marketing/clients" label="Clientes" icon={Briefcase} />
+              <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
+              <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
+            </NavSection>
+          </>
         )}
 
-        {/* Meu Espaço — team (execução básica) */}
+        {/* MANAGER */}
+        {isManager && (
+          <>
+            <NavSection label="Equipe">
+              <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
+            </NavSection>
+
+            <NavSection label="Marketing">
+              <NavItem path="/marketing/production" label="Produção" icon={LayoutGrid} />
+              <NavItem path="/marketing/clients" label="Clientes" icon={Briefcase} />
+              <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
+              <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
+            </NavSection>
+          </>
+        )}
+
+        {/* TEAM */}
         {isTeam && (
-          <div>
-            <p className="section-label px-3 mb-2">Meu Espaço</p>
-            <div className="space-y-0.5">
+          <>
+            <NavSection label="Meu Espaço">
               <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
-            </div>
-          </div>
-        )}
+            </NavSection>
 
-        {/* Equipe — alta gestão (user) */}
-        {isAltaGestao && (
-          <div>
-            <p className="section-label px-3 mb-2">Equipe</p>
-            <div className="space-y-0.5">
-              <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
-            </div>
-          </div>
+            <NavSection label="Operação">
+              <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
+              <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
+            </NavSection>
+          </>
         )}
-
-        {/* Negócio — admin/superadmin only */}
-        {isAdmin && (
-          <div>
-            <p className="section-label px-3 mb-2">Negócio</p>
-            <div className="space-y-0.5">
-              {negocioItems.map(item => <NavItem key={item.path} {...item} />)}
-            </div>
-          </div>
-        )}
-
-        {/* Comercial — admin/superadmin only */}
-        {isAdmin && (
-          <div>
-            <p className="section-label px-3 mb-2">Comercial</p>
-            <div className="space-y-0.5">
-              {comercialItems.map(item => <NavItem key={item.path} {...item} />)}
-            </div>
-          </div>
-        )}
-
-        {/* Marketing */}
-        <div>
-          <p className="section-label px-3 mb-2">Marketing</p>
-          <div className="space-y-0.5">
-            {marketingItems.map(item => <NavItem key={item.path} {...item} />)}
-          </div>
-        </div>
       </nav>
 
-      {/* User */}
+      {/* User footer */}
       <div className="p-3" style={{ borderTop: '1px solid rgba(59,130,246,0.07)' }}>
         {user && (
           <div className="rounded-xl px-3 py-2.5 flex items-center justify-between"
@@ -245,7 +230,7 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
             </div>
             <div className="flex items-center gap-0.5 flex-shrink-0">
               <NotificationBell />
-              {isAdmin && (
+              {(isOwner || isManager) && (
                 <button onClick={() => navigate('/settings')} title="Configurações"
                   className="p-1.5 rounded-lg transition-colors"
                   style={{ color: 'rgba(100,116,139,0.5)' }}
