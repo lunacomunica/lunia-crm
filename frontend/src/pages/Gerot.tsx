@@ -200,12 +200,14 @@ export default function Gerot() {
     <TeamPanel tasks={tasks} loading={loading} activeTask={activeTask} acting={acting} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} detail={detail} setDetail={setDetail} />
     {selectedPost && <PostDetailPanel post={selectedPost} onClose={() => setSelectedPost(null)} onUpdated={p => setSelectedPost(p)} onDeleted={() => { setSelectedPost(null); load(); }} />}
   </>;
-  if (isManager) return <>
+
+  // Admin, superadmin e manager usam o mesmo painel
+  if (isManager || isAdmin) return <>
     <ManagerPanel users={users} tasks={tasks} loading={loading} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} detail={detail} setDetail={setDetail} onOpenModal={() => { setModal(true); setForm(EMPTY_FORM); }} />
     {selectedPost && <PostDetailPanel post={selectedPost} onClose={() => setSelectedPost(null)} onUpdated={p => setSelectedPost(p)} onDeleted={() => { setSelectedPost(null); load(); }} />}
   </>;
 
-  // ── Admin view ──────────────────────────────────────────────────────────
+  // ── Fallback (não deve chegar aqui) ─────────────────────────────────────
   const grouped = (['urgente', 'alta', 'media', 'baixa'] as const).map(p => ({
     priority: p,
     tasks: tasks.filter(t => t.priority === p && t.status !== 'concluida'),
