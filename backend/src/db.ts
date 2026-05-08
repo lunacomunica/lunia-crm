@@ -541,6 +541,16 @@ if (teamCount === 0) {
   db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'user', ?)`).run('Beatriz Lins', 'beatriz@lunacomunica.com', teamHash, 'Gestora de Projetos');
 }
 
+// Seed client portal users — one per agency client, survives redeploys
+const clientUserCount = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'client' AND tenant_id = 1").get() as any).count;
+if (clientUserCount === 0) {
+  const clientHash = '$2b$10$mrWKuVQVqaO.2Z5dvX3zde9Ldc3R2KqSkEVaWCxTcqVc9RQRRJqOe'; // admin123
+  const ac1 = db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1").get() as any;
+  const ac2 = db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1 OFFSET 1").get() as any;
+  if (ac1) db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, agency_client_id) VALUES (1, ?, ?, ?, 'client', ?)`).run('Bia Torres', 'bia@studioz.com', clientHash, ac1.id);
+  if (ac2) db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, agency_client_id) VALUES (1, ?, ?, ?, 'client', ?)`).run('Rafael Nunes', 'rafael@cafeboreal.com', clientHash, ac2.id);
+}
+
 // Seed sample tasks — tasks must make sense with the content piece status
 const taskCount = (db.prepare('SELECT COUNT(*) as count FROM tasks WHERE tenant_id = 1').get() as any).count;
 if (taskCount === 0) {
