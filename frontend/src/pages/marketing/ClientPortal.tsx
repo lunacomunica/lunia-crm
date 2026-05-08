@@ -93,7 +93,7 @@ function PortalSidebar({
     {
       label: 'Comercial',
       items: [
-        { id: 'comercial' as PageId, label: 'Em breve', icon: TrendingUp, badge: 0, disabled: true },
+        { id: 'comercial' as PageId, label: 'Comercial', icon: TrendingUp, badge: 0 },
       ],
     },
   ];
@@ -923,6 +923,143 @@ export default function ClientPortal() {
     );
   }
 
+  function PageComercial() {
+    const s = summary;
+    const reach      = s?.campaigns?.reach    ?? 0;
+    const clicks     = s?.campaigns?.clicks   ?? 0;
+    const leads      = s?.campaigns?.leads    ?? 0;
+    const revenue    = s?.campaigns?.revenue  ?? 0;
+    const spent      = s?.campaigns?.spent    ?? 0;
+    const roas       = spent > 0 ? revenue / spent : 0;
+    const cpl        = leads > 0 ? spent / leads : 0;
+    const ctr        = reach > 0 ? (clicks / reach) * 100 : 0;
+    const cvr        = clicks > 0 ? (leads / clicks) * 100 : 0;
+
+    const funnel = [
+      { label: 'Alcance',     value: reach,  pct: 100,                                        color: '#a78bfa' },
+      { label: 'Cliques',     value: clicks, pct: reach  > 0 ? (clicks / reach)  * 100 : 0,  color: '#60a5fa' },
+      { label: 'Leads',       value: leads,  pct: clicks > 0 ? (leads  / clicks) * 100 : 0,  color: '#34d399' },
+      { label: 'Faturamento', value: revenue > 0 ? fmtR(revenue) : '—', pct: leads > 0 && revenue > 0 ? Math.min((revenue / (leads * 500)) * 100, 100) : 0, color: '#f59e0b', isCurrency: true },
+    ];
+
+    return (
+      <div className="space-y-8">
+        <div>
+          <h2 className="text-2xl font-semibold text-white mb-1">Comercial</h2>
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Funil de geração de resultados</p>
+        </div>
+
+        {/* KPIs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          {[
+            { label: 'Leads gerados',    value: leads > 0 ? String(leads) : '—',                     color: '#34d399' },
+            { label: 'Custo por lead',   value: cpl > 0 ? fmtR(cpl) : '—',                           color: '#60a5fa' },
+            { label: 'Taxa de clique',   value: ctr > 0 ? `${ctr.toFixed(2)}%` : '—',                color: '#a78bfa' },
+            { label: 'Conv. clique→lead',value: cvr > 0 ? `${cvr.toFixed(1)}%` : '—',               color: '#f59e0b' },
+          ].map(k => (
+            <div key={k.label} className="rounded-2xl px-4 py-4"
+              style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <p className="text-2xl font-bold mb-1" style={{ color: k.value === '—' ? 'rgba(100,116,139,0.35)' : 'white' }}>{k.value}</p>
+              <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{k.label}</p>
+            </div>
+          ))}
+        </div>
+
+        {/* Funil visual */}
+        <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
+          <p className="text-xs font-semibold uppercase tracking-wider mb-6" style={{ color: 'rgba(100,116,139,0.45)' }}>
+            Funil de conversão
+          </p>
+          <div className="space-y-3">
+            {funnel.map((step, i) => (
+              <div key={step.label}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 rounded-full" style={{ background: step.color }} />
+                    <span className="text-sm font-medium text-white">{step.label}</span>
+                  </div>
+                  <span className="text-sm font-bold" style={{ color: step.value === '—' ? 'rgba(100,116,139,0.35)' : 'white' }}>
+                    {(step as any).isCurrency ? step.value : typeof step.value === 'number' ? fmtN(step.value) : step.value}
+                  </span>
+                </div>
+                <div className="relative h-7 rounded-lg overflow-hidden" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                  <div className="h-full rounded-lg transition-all duration-700"
+                    style={{ width: `${Math.max(step.pct, step.pct > 0 ? 2 : 0)}%`, background: `linear-gradient(90deg,${step.color}30,${step.color}60)`, borderRight: step.pct > 0 ? `2px solid ${step.color}` : 'none' }} />
+                  {i > 0 && step.pct > 0 && (
+                    <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-medium" style={{ color: step.color }}>
+                      {step.pct.toFixed(1)}%
+                    </span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Receita e ROAS */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(245,158,11,0.08)' }}>
+            <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>Faturamento gerado</p>
+            <p className="text-3xl font-bold mb-1" style={{ color: revenue > 0 ? '#f59e0b' : 'rgba(100,116,139,0.3)' }}>
+              {revenue > 0 ? fmtR(revenue) : '—'}
+            </p>
+            <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+              {spent > 0 ? `sobre ${fmtR(spent)} investidos` : 'sem dados de investimento'}
+            </p>
+          </div>
+          <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: `1px solid ${roas >= 3 ? 'rgba(52,211,153,0.12)' : roas > 0 ? 'rgba(245,158,11,0.08)' : 'rgba(255,255,255,0.04)'}` }}>
+            <p className="text-xs font-semibold mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>ROAS — retorno sobre investimento</p>
+            <p className="text-3xl font-bold mb-1" style={{ color: roas >= 3 ? '#34d399' : roas > 0 ? '#f59e0b' : 'rgba(100,116,139,0.3)' }}>
+              {roas > 0 ? `${roas.toFixed(1)}x` : '—'}
+            </p>
+            <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+              {roas >= 3 ? 'Ótimo retorno ✓' : roas > 1 ? 'Retorno positivo' : roas > 0 ? 'Abaixo do esperado' : 'sem dados de receita'}
+            </p>
+          </div>
+        </div>
+
+        {/* Campanhas por performance */}
+        {campaigns.length > 0 && (
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider mb-4" style={{ color: 'rgba(100,116,139,0.45)' }}>
+              Origem dos leads por campanha
+            </p>
+            <div className="space-y-2">
+              {campaigns.filter(c => c.conversions > 0 || c.clicks > 0).sort((a, b) => b.conversions - a.conversions).map(c => {
+                const platform = PLATFORM_CFG[c.platform] || { label: c.platform, color: '#60a5fa' };
+                const cplC = c.conversions > 0 ? c.spent / c.conversions : 0;
+                return (
+                  <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-xl"
+                    style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: platform.color }} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">{c.name}</p>
+                      <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.45)' }}>{platform.label}</p>
+                    </div>
+                    <div className="flex gap-6 flex-shrink-0 text-right">
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: '#34d399' }}>{c.conversions}</p>
+                        <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>leads</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{cplC > 0 ? fmtR(cplC) : '—'}</p>
+                        <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>CPL</p>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-white">{fmtN(c.clicks)}</p>
+                        <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>cliques</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const pageComponents: Record<PageId, JSX.Element> = {
     visao:          <PageVisaoGeral />,
     posicionamento: <PagePosicionamento />,
@@ -930,13 +1067,7 @@ export default function ClientPortal() {
     aprovacoes:     <PageAprovacoes />,
     feed:           <PageFeed />,
     campanhas:      <PageCampanhas />,
-    comercial: (
-      <div className="text-center py-24">
-        <TrendingUp size={40} className="mx-auto mb-4" style={{ color: 'rgba(59,130,246,0.1)' }} />
-        <p className="text-white font-medium mb-2">Comercial — em breve</p>
-        <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Pipeline de vendas, origem dos leads e previsão de receita.</p>
-      </div>
-    ),
+    comercial: <PageComercial />,
   };
 
   return (
