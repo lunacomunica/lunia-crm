@@ -541,7 +541,7 @@ if (teamCount === 0) {
   db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'user', ?)`).run('Beatriz Lins', 'beatriz@lunacomunica.com', teamHash, 'Gestora de Projetos');
 }
 
-// Seed sample tasks
+// Seed sample tasks — tasks must make sense with the content piece status
 const taskCount = (db.prepare('SELECT COUNT(*) as count FROM tasks WHERE tenant_id = 1').get() as any).count;
 if (taskCount === 0) {
   const amanda = db.prepare("SELECT id FROM users WHERE email = 'amanda@lunacomunica.com'").get() as any;
@@ -549,19 +549,44 @@ if (taskCount === 0) {
   const beatriz = db.prepare("SELECT id FROM users WHERE email = 'beatriz@lunacomunica.com'").get() as any;
   const c1 = (db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1").get() as any)?.id;
   const c2 = (db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1 OFFSET 1").get() as any)?.id;
-  const posts = db.prepare("SELECT id, title FROM content_pieces WHERE tenant_id = 1 ORDER BY id LIMIT 6").all() as any[];
+  // Load posts with their status so tasks match
+  const posts = db.prepare("SELECT id, title, status FROM content_pieces WHERE tenant_id = 1 ORDER BY id LIMIT 8").all() as any[];
 
   if (amanda && beatriz) {
-    const ins = db.prepare(`INSERT INTO tasks (tenant_id, title, description, assigned_to, created_by, content_piece_id, agency_client_id, priority, status, due_date, estimated_minutes) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), ?)`);
+    const ins = db.prepare(`INSERT INTO tasks (tenant_id, title, description, assigned_to, created_by, content_piece_id, agency_client_id, priority, stage, status, due_date, estimated_minutes) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), ?)`);
 
-    if (posts[0]) ins.run('Criar arte — ' + posts[0].title, 'Seguir identidade visual da marca. Formato quadrado 1080x1080.', amanda?.id, beatriz?.id, posts[0].id, c1, 'urgente', 'a_fazer', 90);
-    if (posts[1]) ins.run('Criar arte — ' + posts[1].title, 'Versão reels vertical. Animação simples no texto.', amanda?.id, beatriz?.id, posts[1].id, c1, 'alta', 'a_fazer', 60);
-    if (posts[2]) ins.run('Criar arte — ' + posts[2].title, null, amanda?.id, beatriz?.id, posts[2].id, c1, 'media', 'a_fazer', 45);
-    if (posts[3]) ins.run('Configurar campanha Meta Ads', 'Subir criativos aprovados. CBO com 3 conjuntos de anúncio.', carlos?.id, beatriz?.id, null, c1, 'alta', 'a_fazer', 120);
-    if (posts[4]) ins.run('Criar arte — ' + posts[4].title, 'Cardápio de inverno. Tons quentes, minimalista.', amanda?.id, beatriz?.id, posts[4].id, c2, 'media', 'a_fazer', 60);
-    if (posts[5]) ins.run('Ajuste copy legenda', 'Cliente pediu tom mais descontraído. Ver comentário no post.', amanda?.id, beatriz?.id, posts[5].id, c2, 'alta', 'a_fazer', 30);
+    const taskForPost = (post: any, clientId: any) => {
+      switch (post.status) {
+        case 'em_criacao':
+          return { title: 'Criar arte — ' + post.title, desc: 'Seguir identidade visual da marca.', stage: 'design', priority: 'alta', est: 90 };
+        case 'em_revisao':
+          return { title: 'Revisar arte — ' + post.title, desc: 'Conferir copy, cores e tamanho.', stage: 'revisao', priority: 'alta', est: 30 };
+        case 'ajuste_solicitado':
+          return { title: 'Aplicar ajuste — ' + post.title, desc: 'Cliente pediu alteração. Ver comentário no post.', stage: 'design', priority: 'urgente', est: 45 };
+        case 'aprovado':
+          return { title: 'Agendar publicação — ' + post.title, desc: 'Post aprovado. Agendar no horário definido no planejamento.', stage: 'planejamento', priority: 'media', est: 15 };
+        case 'aguardando_aprovacao':
+          return { title: 'Aguardar retorno — ' + post.title, desc: 'Post enviado para aprovação do cliente.', stage: 'revisao', priority: 'baixa', est: 10 };
+        default:
+          return null;
+      }
+    };
 
-    db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, agency_client_id, priority, status, due_date, estimated_minutes, total_minutes, completed_at) VALUES (1, 'Briefing criativo Studio Z', ?, ?, ?, 'media', 'concluida', date('now', '-1 days'), 60, 55, datetime('now', '-1 days'))`).run(amanda?.id, beatriz?.id, c1);
+    for (const post of posts.slice(0, 5)) {
+      const clientId = posts.indexOf(post) < 3 ? c1 : c2;
+      const t = taskForPost(post, clientId);
+      if (t) ins.run(t.title, t.desc, amanda?.id, beatriz?.id, post.id, clientId, t.priority, t.stage, 'a_fazer', t.est);
+    }
+
+    // Carlos: tráfego task (not linked to a specific post)
+    if (carlos) {
+      db.prepare(`INSERT INTO tasks (tenant_id, title, description, assigned_to, created_by, agency_client_id, priority, stage, status, due_date, estimated_minutes) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), ?)`)
+        .run('Configurar campanha Meta Ads', 'Subir criativos aprovados. CBO com 3 conjuntos de anúncio.', carlos.id, beatriz?.id, c1, 'alta', 'planejamento', 'a_fazer', 120);
+    }
+
+    // Completed task from yesterday
+    db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, agency_client_id, priority, stage, status, due_date, estimated_minutes, total_minutes, completed_at) VALUES (1, 'Briefing criativo Studio Z', ?, ?, ?, 'media', 'planejamento', 'concluida', date('now', '-1 days'), 60, 55, datetime('now', '-1 days'))`)
+      .run(beatriz?.id, beatriz?.id, c1);
   }
 }
 
