@@ -298,9 +298,9 @@ function UsersTab() {
       </div>
 
       {modal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-fade"
+        <div className="fixed inset-0 flex items-start justify-center z-50 p-4 pt-8 overflow-y-auto animate-fade"
           style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
-          <div className="modal-card w-full max-w-md animate-fade-up">
+          <div className="modal-card w-full max-w-md animate-fade-up my-auto">
             <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
               <h2 className="text-lg font-light text-white">Novo Usuário</h2>
               <button onClick={() => { setModal(false); setError(''); }} style={{ color: 'rgba(100,116,139,0.6)' }}
