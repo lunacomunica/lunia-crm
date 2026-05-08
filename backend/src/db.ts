@@ -279,11 +279,11 @@ const migrations = [
   "ALTER TABLE tasks ADD COLUMN stage TEXT DEFAULT 'geral'",
   "ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL",
 ];
-// Promote Amanda to alta gestão (user) if she exists as team
-db.prepare("UPDATE users SET role = 'user', job_title = 'Head de Operação' WHERE email = 'amanda@lunacomunica.com'").run();
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }
 }
+// Promote Amanda to alta gestão (user) — runs after job_title column is guaranteed to exist
+db.prepare("UPDATE users SET role = 'user', job_title = 'Head de Operação' WHERE email = 'amanda@lunacomunica.com'").run();
 
 // Migration: promote first tenant-1 admin to superadmin
 {
