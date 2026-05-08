@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Trash2, ChevronDown, FileImage, Calendar, Clock, CheckCircle2, RotateCcw, Send, Eye, Plus, Zap, Check, Upload, ChevronLeft, ChevronRight, Play, Pause, Image as ImageIcon, Video, AlertTriangle, Link, ExternalLink } from 'lucide-react';
 import { contentApi, usersApi, uploadApi, tasksApi } from '../../api/client';
 import { ContentPiece, ContentStatus } from '../../types';
@@ -318,16 +319,21 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
 
   const handleSave = async () => {
     setSaving(true);
-    const r = await contentApi.update(post.id, {
-      ...form,
-      agency_client_id: post.agency_client_id,
-      batch_id: (post as any).batch_id,
-      media_files: JSON.stringify(mediaFiles),
-      media_url: carouselImages[0]?.url || reelsVideo?.url || '',
-      post_references: JSON.stringify(references),
-    });
-    setSaving(false);
-    onUpdated(r.data);
+    try {
+      const r = await contentApi.update(post.id, {
+        ...form,
+        agency_client_id: post.agency_client_id,
+        batch_id: (post as any).batch_id,
+        media_files: JSON.stringify(mediaFiles),
+        media_url: carouselImages[0]?.url || reelsVideo?.url || '',
+        post_references: JSON.stringify(references),
+      });
+      onUpdated(r.data);
+    } catch (err) {
+      console.error('Erro ao salvar post:', err);
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleStatusChange = async (status: ContentStatus) => {
@@ -385,7 +391,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   const labelCls = "text-[10px] font-semibold uppercase tracking-wide mb-1.5 block";
   const labelStyle = { color: 'rgba(100,116,139,0.5)' };
 
-  return (
+  return createPortal(
     <>
       {/* Full-screen overlay */}
       <div className="fixed inset-0 z-50 flex flex-col animate-fade"
@@ -835,6 +841,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
           </div>
         </div>
       )}
-    </>
+    </>,
+    document.body
   );
 }
