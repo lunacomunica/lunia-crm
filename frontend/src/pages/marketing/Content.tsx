@@ -5,6 +5,12 @@ import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+function toDisplayUrl(url: string): string {
+  const m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  return url;
+}
+
 const STATUS_CONFIG: Record<ContentStatus, { label: string; color: string; bg: string; border: string; icon: any }> = {
   em_criacao:           { label: 'Em Criação',        color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.2)', icon: FileImage },
   em_revisao:           { label: 'Em Revisão',        color: '#60a5fa', bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.2)',  icon: Eye },
@@ -296,7 +302,7 @@ export default function MarketingContent() {
                             {String(i + 1).padStart(2, '0')}
                           </span>
                           {p.media_url ? (
-                            <img src={p.media_url} alt={p.title} className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                            <img src={toDisplayUrl(p.media_url)} alt={p.title} className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
                               style={{ border: '1px solid rgba(59,130,246,0.12)' }} />
                           ) : (
                             <div className="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
@@ -405,7 +411,7 @@ export default function MarketingContent() {
                               style={{ aspectRatio: '1' }}
                               onClick={() => openEditPost(p)}>
                               {p.media_url ? (
-                                <img src={p.media_url} alt={p.title} className="w-full h-full object-cover" />
+                                <img src={toDisplayUrl(p.media_url)} alt={p.title} className="w-full h-full object-cover" />
                               ) : (
                                 <div className="w-full h-full flex flex-col items-center justify-center gap-2"
                                   style={{ background: 'rgba(59,130,246,0.06)', borderRight: '1px solid rgba(255,255,255,0.04)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
