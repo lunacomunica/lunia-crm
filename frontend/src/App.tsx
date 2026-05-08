@@ -63,7 +63,7 @@ export default function App() {
 
 function InternalOnly({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  if (user?.role === 'team') return <Navigate to="/gerot" replace />;
+  if (user?.role === 'team' || user?.role === 'user') return <Navigate to="/gerot" replace />;
   return <>{children}</>;
 }
 
@@ -76,7 +76,7 @@ function AdminOnly({ children }: { children: ReactNode }) {
 function DefaultRedirect() {
   const { user } = useAuth();
   if (user?.role === 'client' && user.client_id) return <Navigate to={`/marketing/portal/${user.client_id}`} replace />;
-  if (user?.role === 'team') return <Navigate to="/gerot" replace />;
+  if (user?.role === 'team' || user?.role === 'user') return <Navigate to="/gerot" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 

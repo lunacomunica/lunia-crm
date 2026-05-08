@@ -134,7 +134,9 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isSuperAdmin = user?.role === 'superadmin';
-  const isInternal = user?.role !== 'team';
+  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isAltaGestao = user?.role === 'user';
+  const isTeam = user?.role === 'team';
 
   useEffect(() => { onClose?.(); }, [pathname]);
 
@@ -170,8 +172,8 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
           </div>
         )}
 
-        {/* Meu Espaço — team only */}
-        {!isInternal && (
+        {/* Meu Espaço — team (execução básica) */}
+        {isTeam && (
           <div>
             <p className="section-label px-3 mb-2">Meu Espaço</p>
             <div className="space-y-0.5">
@@ -180,8 +182,18 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
           </div>
         )}
 
-        {/* Negócio — hidden for team */}
-        {isInternal && (
+        {/* Equipe — alta gestão (user) */}
+        {isAltaGestao && (
+          <div>
+            <p className="section-label px-3 mb-2">Equipe</p>
+            <div className="space-y-0.5">
+              <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
+            </div>
+          </div>
+        )}
+
+        {/* Negócio — admin/superadmin only */}
+        {isAdmin && (
           <div>
             <p className="section-label px-3 mb-2">Negócio</p>
             <div className="space-y-0.5">
@@ -190,8 +202,8 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
           </div>
         )}
 
-        {/* Comercial — hidden for team */}
-        {isInternal && (
+        {/* Comercial — admin/superadmin only */}
+        {isAdmin && (
           <div>
             <p className="section-label px-3 mb-2">Comercial</p>
             <div className="space-y-0.5">
@@ -233,7 +245,7 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
             </div>
             <div className="flex items-center gap-0.5 flex-shrink-0">
               <NotificationBell />
-              {isInternal && (
+              {isAdmin && (
                 <button onClick={() => navigate('/settings')} title="Configurações"
                   className="p-1.5 rounded-lg transition-colors"
                   style={{ color: 'rgba(100,116,139,0.5)' }}
