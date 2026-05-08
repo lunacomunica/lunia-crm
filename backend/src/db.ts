@@ -279,6 +279,8 @@ const migrations = [
   "ALTER TABLE tasks ADD COLUMN stage TEXT DEFAULT 'geral'",
   "ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL",
 ];
+// Promote Amanda to alta gestão (user) if she exists as team
+db.prepare("UPDATE users SET role = 'user' WHERE email = 'amanda@lunacomunica.com' AND role = 'team'").run();
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }
 }
@@ -536,7 +538,7 @@ if (campaignCount === 0) {
 const teamCount = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role IN ('team','user') AND tenant_id = 1").get() as any).count;
 if (teamCount === 0) {
   const teamHash = '$2b$10$mrWKuVQVqaO.2Z5dvX3zde9Ldc3R2KqSkEVaWCxTcqVc9RQRRJqOe'; // admin123
-  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'team', ?)`).run('Amanda Cherem', 'amanda@lunacomunica.com', teamHash, 'Designer');
+  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'user', ?)`).run('Amanda Cherem', 'amanda@lunacomunica.com', teamHash, 'Designer');
   db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'team', ?)`).run('Carlos Mota', 'carlos@lunacomunica.com', teamHash, 'Gestora de Tráfego');
   db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'user', ?)`).run('Beatriz Lins', 'beatriz@lunacomunica.com', teamHash, 'Gestora de Projetos');
 }
