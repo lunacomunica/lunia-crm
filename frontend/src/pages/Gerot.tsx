@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Play, Pause, CheckCircle2, Plus, X, Clock, Calendar,
-  FileImage, Megaphone, Timer, Trash2, Send, ArrowRight, Zap, AlertTriangle, CheckSquare
+  FileImage, Megaphone, Timer, Trash2, Send, ArrowRight, Zap, AlertTriangle, CheckSquare,
+  LayoutList, Columns, ChevronDown
 } from 'lucide-react';
 import { tasksApi, agencyClientsApi, contentApi } from '../api/client';
 import PostDetailPanel from './marketing/PostDetailPanel';
@@ -341,10 +342,11 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   onOpenModal: () => void;
 }) {
   const { user } = useAuth();
-  const [view, setView] = useState<'minhas' | 'time'>('minhas');
+  const [view, setView] = useState<'minhas' | 'kanban' | 'time'>('minhas');
   const [overview, setOverview] = useState<any>(null);
   const [showAllTasks, setShowAllTasks] = useState(false);
   const [myFilter, setMyFilter] = useState<'hoje' | 'semana' | 'todas'>('hoje');
+  const [clientFilter, setClientFilter] = useState('');
   const today = new Date();
 
   // Split tasks between mine and team
@@ -392,11 +394,11 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
         </div>
         <div className="flex gap-1 p-1 rounded-xl flex-shrink-0"
           style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
-          {(['minhas', 'time'] as const).map(v => (
+          {([['minhas', 'Minhas tarefas', LayoutList], ['kanban', 'Kanban', Columns], ['time', 'Time', CheckSquare]] as const).map(([v, label, Icon]) => (
             <button key={v} onClick={() => setView(v)}
-              className="px-4 py-1.5 text-sm rounded-lg transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm rounded-lg transition-all"
               style={{ background: view === v ? 'rgba(59,130,246,0.15)' : 'transparent', color: view === v ? '#e2e8f0' : 'rgba(100,116,139,0.6)', border: view === v ? '1px solid rgba(59,130,246,0.2)' : '1px solid transparent' }}>
-              {v === 'minhas' ? 'Minhas tarefas' : 'Time'}
+              <Icon size={13} />{label}
             </button>
           ))}
         </div>
@@ -431,7 +433,7 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
           )}
 
           {/* Filter tabs + new task */}
-          <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center justify-between mb-3">
             <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
               {(['hoje', 'semana', 'todas'] as const).map(f => (
                 <button key={f} onClick={() => setMyFilter(f)}
@@ -445,6 +447,34 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
               <Plus size={13} /> Nova tarefa
             </button>
           </div>
+
+          {/* Progress header */}
+          {!loading && myFiltered.length + myDone.length > 0 && (() => {
+            const total = myFiltered.length + myDone.length;
+            const done = myDone.length;
+            const pct = Math.round((done / total) * 100);
+            const overdue = myFiltered.filter(t => t.due_date && new Date(t.due_date + 'T23:59:00') < new Date()).length;
+            return (
+              <div className="flex items-center gap-4 px-4 py-3 rounded-xl mb-4"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.07)' }}>
+                <div className="flex-1">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs text-white font-medium">{done}/{total} concluídas</span>
+                    <span className="text-xs font-semibold" style={{ color: pct === 100 ? '#34d399' : '#60a5fa' }}>{pct}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(59,130,246,0.1)' }}>
+                    <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: pct === 100 ? '#34d399' : 'linear-gradient(90deg,#3b82f6,#6366f1)' }} />
+                  </div>
+                </div>
+                {overdue > 0 && (
+                  <span className="text-[11px] px-2 py-1 rounded-lg flex-shrink-0 flex items-center gap-1" style={{ background: 'rgba(248,113,113,0.1)', color: '#f87171' }}>
+                    <AlertTriangle size={10} /> {overdue} atrasada{overdue > 1 ? 's' : ''}
+                  </span>
+                )}
+              </div>
+            );
+          })()}
+
 
           {loading ? (
             <div className="flex justify-center py-12">
@@ -471,6 +501,85 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
           )}
         </>
       )}
+
+      {/* ── KANBAN view ────────────────────────────────────────────────────── */}
+      {view === 'kanban' && (() => {
+        const STAGES_KANBAN = [
+          { key: 'copy',    label: 'Copy',    color: '#60a5fa' },
+          { key: 'design',  label: 'Design',  color: '#a78bfa' },
+          { key: 'edicao',  label: 'Edição',  color: '#f59e0b' },
+          { key: 'revisao', label: 'Revisão', color: '#34d399' },
+          { key: 'geral',   label: 'Geral',   color: '#94a3b8' },
+        ];
+        // Deduplicate clients from tasks for filter
+        const allClients = Array.from(new Map(
+          tasks.filter(t => t.client_name).map(t => [t.agency_client_id, t.client_name])
+        ).entries()).map(([id, name]) => ({ id, name }));
+        const filtered = clientFilter ? tasks.filter(t => String(t.agency_client_id) === clientFilter) : tasks;
+        const openTasks = filtered.filter(t => t.status !== 'concluida');
+        return (
+          <div>
+            {/* Client filter */}
+            <div className="flex items-center justify-between mb-4">
+              <select value={clientFilter} onChange={e => setClientFilter(e.target.value)}
+                className="text-sm px-3 py-1.5 rounded-xl outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(59,130,246,0.15)', color: clientFilter ? '#e2e8f0' : 'rgba(100,116,139,0.6)', cursor: 'pointer' }}>
+                <option value="">Todos os clientes</option>
+                {allClients.map(c => <option key={String(c.id)} value={String(c.id)}>{c.name}</option>)}
+              </select>
+              <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>{openTasks.length} tarefa{openTasks.length !== 1 ? 's' : ''} abertas</span>
+            </div>
+            {/* Columns */}
+            <div className="flex gap-4 overflow-x-auto pb-4">
+              {STAGES_KANBAN.map(({ key, label, color }) => {
+                const col = openTasks.filter(t => (t.stage || 'geral') === key);
+                return (
+                  <div key={key} className="flex-shrink-0 w-64">
+                    <div className="flex items-center gap-2 mb-2 px-1">
+                      <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                      <span className="text-xs font-semibold uppercase tracking-wider" style={{ color }}>{label}</span>
+                      <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>({col.length})</span>
+                    </div>
+                    <div className="space-y-2">
+                      {col.length === 0 ? (
+                        <div className="rounded-xl px-3 py-6 text-center" style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
+                          <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.3)' }}>Vazio</p>
+                        </div>
+                      ) : col.map(task => {
+                        const cfg = PRIORITY_CFG[task.priority] || PRIORITY_CFG.media;
+                        const isRunning = task.status === 'em_andamento';
+                        return (
+                          <div key={task.id} onClick={() => onDetail(task)}
+                            className="rounded-xl p-3 cursor-pointer transition-all"
+                            style={{ background: isRunning ? 'rgba(59,130,246,0.06)' : 'rgba(255,255,255,0.03)', border: isRunning ? '1px solid rgba(59,130,246,0.2)' : '1px solid rgba(59,130,246,0.08)' }}>
+                            <div className="flex items-start gap-2 mb-2">
+                              <div className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0" style={{ background: cfg.dot }} />
+                              <p className="text-xs font-medium text-white leading-tight">{task.title}</p>
+                            </div>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {task.client_name && <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa' }}>{task.client_name}</span>}
+                                {task.assigned_name && <span className="text-[9px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{task.assigned_name.split(' ')[0]}</span>}
+                              </div>
+                              <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                                {isRunning
+                                  ? <button onClick={() => onPause(task.id)} className="p-1 rounded" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.1)' }}><Pause size={10} /></button>
+                                  : <button onClick={() => onStart(task.id)} className="p-1 rounded" style={{ color: 'rgba(100,116,139,0.5)' }}><Play size={10} /></button>
+                                }
+                                <button onClick={() => onComplete(task.id)} className="p-1 rounded" style={{ color: 'rgba(100,116,139,0.5)' }}><CheckCircle2 size={10} /></button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── TIME view ──────────────────────────────────────────────────────── */}
       {view === 'time' && (
@@ -981,7 +1090,7 @@ function TaskRow({ task, acting, activeTask, onStart, onPause, onComplete, onDet
         <div className="flex items-center gap-2 flex-wrap">
           <p className="text-sm font-medium text-white truncate">{task.title}</p>
           {task.client_name && <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.15)' }}>{task.client_name}</span>}
-          {(task.content_title || task.campaign_name) && <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(167,139,250,0.08)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.15)' }}>{task.content_title || task.campaign_name}</span>}
+          {task.campaign_name && <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(167,139,250,0.08)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.15)' }}>{task.campaign_name}</span>}
           {task.stage && task.stage !== 'geral' && (() => { const s = STAGE_CFG[task.stage]; return s ? <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: s.bg, color: s.color }}>{s.label}</span> : null; })()}
         </div>
         <div className="flex items-center gap-3 mt-0.5">
