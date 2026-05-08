@@ -186,7 +186,7 @@ export default function Gerot() {
   const done = tasks.filter(t => t.status === 'concluida');
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
           <p className="section-label mb-1">Equipe</p>
@@ -198,14 +198,14 @@ export default function Gerot() {
       </div>
 
       {activeTask && (
-        <div className="flex items-center justify-between px-5 py-3 rounded-2xl mb-6"
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 px-4 py-3 rounded-2xl mb-6"
           style={{ background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
           <div className="flex items-center gap-3">
-            <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: '#3b82f6' }} />
+            <div className="w-2 h-2 rounded-full animate-pulse flex-shrink-0" style={{ background: '#3b82f6' }} />
             <span className="text-sm text-white font-medium">{activeTask.title}</span>
             {activeTask.client_name && <span className="badge badge-blue text-xs">{activeTask.client_name}</span>}
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
             {activeTask.session_started_at && <ElapsedTimer startedAt={activeTask.session_started_at} baseMinutes={activeTask.total_minutes} />}
             <button onClick={() => handlePause(activeTask.id)} disabled={acting === activeTask.id}
               className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg"
@@ -222,7 +222,7 @@ export default function Gerot() {
       )}
 
       <div className="flex items-center justify-between mb-6">
-        <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
+        <div className="flex gap-1 p-1 rounded-xl overflow-x-auto" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.08)' }}>
           {(['hoje', 'semana', 'todas'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className="px-4 py-1.5 text-sm rounded-lg transition-all capitalize"
@@ -284,7 +284,7 @@ export default function Gerot() {
       <DetailPanel detail={detail} acting={acting} isAdmin={isAdmin} users={users} onClose={() => setDetail(null)} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDelete={handleDelete} />
 
       {modal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setModal(false)}>
+        <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setModal(false)}>
           <div className="w-full max-w-md rounded-2xl p-6" style={{ background: '#07071a', border: '1px solid rgba(59,130,246,0.15)', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-lg font-semibold text-white">Nova tarefa</h2>
@@ -319,7 +319,7 @@ function TeamPanel({ tasks, loading, activeTask, acting, onStart, onPause, onCom
   const displayTasks = todayTasks.length > 0 ? todayTasks : myTasks.slice(0, 8);
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-4 md:p-8 max-w-3xl">
       {/* Greeting */}
       <div className="mb-8">
         <p className="text-sm capitalize mb-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
@@ -363,7 +363,7 @@ function TeamPanel({ tasks, loading, activeTask, acting, onStart, onPause, onCom
       )}
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-3 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
         {[
           { icon: Calendar,      label: 'Tarefas hoje',     value: todayTasks.length,     color: '#60a5fa' },
           { icon: Zap,           label: 'Urgentes',         value: urgentCount,            color: '#f87171' },
@@ -626,7 +626,7 @@ function DetailPanel({ detail, acting, isAdmin, users, onClose, onStart, onPause
 
   return (
     <div className="fixed inset-0 flex items-center justify-end z-50" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={onClose}>
-      <div className="h-full w-full max-w-lg overflow-y-auto" style={{ background: '#07071a', borderLeft: '1px solid rgba(59,130,246,0.12)', boxShadow: '-20px 0 60px rgba(0,0,0,0.7)' }} onClick={e => e.stopPropagation()}>
+      <div className="h-full w-full md:max-w-lg overflow-y-auto" style={{ background: '#07071a', borderLeft: '1px solid rgba(59,130,246,0.12)', boxShadow: '-20px 0 60px rgba(0,0,0,0.7)' }} onClick={e => e.stopPropagation()}>
 
         <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
           <div className="flex items-center gap-2">

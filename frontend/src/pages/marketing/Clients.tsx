@@ -43,7 +43,7 @@ export default function MarketingClients() {
   const canEdit = user?.role !== 'team';
 
   return (
-    <div className="p-8 animate-fade-up">
+    <div className="p-4 md:p-8 animate-fade-up">
       <div className="flex items-center justify-between mb-8">
         <div>
           <p className="section-label mb-1">Marketing</p>

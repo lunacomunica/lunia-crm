@@ -162,7 +162,7 @@ export default function Contacts() {
   };
 
   return (
-    <div className="p-8 animate-fade-up">
+    <div className="p-4 md:p-8 animate-fade-up">
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -189,7 +189,7 @@ export default function Contacts() {
 
       {/* Filters */}
       <div className="flex gap-3 mb-6 flex-wrap">
-        <div className="relative flex-1 min-w-60">
+        <div className="relative flex-1 min-w-0">
           <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(59,130,246,0.4)' }} />
           <input
             value={search}

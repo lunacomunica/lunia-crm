@@ -134,7 +134,7 @@ export default function MarketingContent() {
   const byDay = (day: Date) => allPieces.filter(p => p.scheduled_date && isSameDay(new Date(p.scheduled_date + 'T12:00:00'), day));
 
   return (
-    <div className="p-8 animate-fade-up">
+    <div className="p-4 md:p-8 animate-fade-up">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

@@ -105,7 +105,7 @@ export default function Dashboard() {
   }));
 
   return (
-    <div className="p-8" style={{ minHeight: '100vh' }}>
+    <div className="p-4 md:p-8" style={{ minHeight: '100vh' }}>
       {/* Header */}
       <div className="mb-8 animate-fade-up">
         <p className="section-label mb-1">Visão Geral</p>

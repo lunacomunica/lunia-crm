@@ -356,7 +356,7 @@ export default function ClientPortal() {
       )}
 
       {/* Header */}
-      <div className="px-8 py-6" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
+      <div className="px-4 md:px-8 py-6" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
         <div className="max-w-5xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-4">
             {client?.logo ? (
@@ -385,7 +385,7 @@ export default function ClientPortal() {
       </div>
 
       {/* Tabs */}
-      <div className="max-w-5xl mx-auto px-8">
+      <div className="max-w-5xl mx-auto px-4 md:px-8">
         <div className="flex gap-1 pt-4 pb-0" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
           {([
             { id: 'aprovacoes', label: 'Aprovações',  icon: CheckCircle2, badge: pendingCount },

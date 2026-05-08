@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
@@ -128,18 +128,21 @@ function NotificationBell() {
 
 const ROLE_LABEL: Record<string, string> = { superadmin: 'Super Admin', admin: 'Admin', user: 'Usuário', team: 'Time', client: 'Cliente' };
 
-export default function Sidebar() {
+export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const isSuperAdmin = user?.role === 'superadmin';
   const isInternal = user?.role !== 'team';
 
+  useEffect(() => { onClose?.(); }, [pathname]);
+
   return (
-    <aside className="w-64 flex flex-col h-screen fixed left-0 top-0 z-40"
+    <aside className={`w-64 flex flex-col h-screen fixed left-0 top-0 z-40 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
       style={{ background: 'linear-gradient(180deg, #030314 0%, #04041a 100%)', borderRight: '1px solid rgba(59,130,246,0.08)', boxShadow: '4px 0 40px rgba(0,0,0,0.6)' }}>
 
       {/* Logo */}
-      <div className="px-5 py-6" style={{ borderBottom: '1px solid rgba(59,130,246,0.07)' }}>
+      <div className="px-5 py-6 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(59,130,246,0.07)' }}>
         <div className="flex items-center gap-3">
           <img src="/logo.png" alt="lun.ia" className="w-9 h-9 rounded-full flex-shrink-0 object-cover"
             style={{ boxShadow: '0 0 18px rgba(59,130,246,0.55)' }} />
@@ -149,6 +152,9 @@ export default function Sidebar() {
             <p className="text-[10px] mt-0.5" style={{ color: 'rgba(59,130,246,0.45)' }}>ERP by @lunacomunica</p>
           </div>
         </div>
+        <button onClick={onClose} className="md:hidden p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.5)' }}>
+          <X size={16} />
+        </button>
       </div>
 
       {/* Nav */}

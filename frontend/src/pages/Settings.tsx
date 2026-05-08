@@ -140,11 +140,11 @@ function ProfileTab() {
           <h2 className="text-base font-light text-white">Dados Pessoais</h2>
         </div>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Nome" id="p-name" value={name} onChange={setName} placeholder="Seu nome" />
             <Field label="E-mail" id="p-email" value={email} onChange={setEmail} placeholder="seu@email.com" type="email" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Nova Senha" id="p-pass" value={password} onChange={setPassword} placeholder="Deixe vazio para não alterar" type="password" />
             <Field label="Confirmar Senha" id="p-pass2" value={confirmPassword} onChange={setConfirmPassword} placeholder="Repita a nova senha" type="password" />
           </div>
@@ -160,11 +160,11 @@ function ProfileTab() {
           <h2 className="text-base font-light text-white">Dados da Empresa</h2>
         </div>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Razão Social / Nome" id="c-name" value={company.name} onChange={v => setCompany({ ...company, name: v })} placeholder="Luna Comunicação Ltda" />
             <Field label="CNPJ" id="c-cnpj" value={company.cnpj} onChange={v => setCompany({ ...company, cnpj: v })} placeholder="00.000.000/0001-00" mono />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Telefone / WhatsApp" id="c-phone" value={company.phone} onChange={v => setCompany({ ...company, phone: v })} placeholder="+55 11 99999-9999" />
             <Field label="Website" id="c-website" value={company.website} onChange={v => setCompany({ ...company, website: v })} placeholder="https://lunacomunica.com" />
           </div>
@@ -392,7 +392,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="p-8 animate-fade-up max-w-3xl">
+    <div className="p-4 md:p-8 animate-fade-up max-w-3xl">
       <div className="mb-8">
         <p className="section-label mb-1">Sistema</p>
         <h1 className="text-3xl font-extralight text-white tracking-tight" style={{ textShadow: '0 0 30px rgba(59,130,246,0.2)' }}>
@@ -401,7 +401,7 @@ export default function Settings() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-8 w-fit rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+      <div className="flex gap-1 mb-8 w-full overflow-x-auto rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
         {[{ id: 'profile', label: 'Meu Perfil', icon: User }, { id: 'api', label: 'Integrações API', icon: Zap }, { id: 'users', label: 'Usuários', icon: Users }].map(t => (
           <button key={t.id} onClick={() => setTab(t.id as any)}
             className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all"
@@ -466,7 +466,7 @@ export default function Settings() {
           <Section icon={MessageSquare} title="WhatsApp Business API" iconStyle="icon-green"
             testType="whatsapp" onTest={handleTest} testResult={testResults.whatsapp}>
             <Field label="Access Token" id="whatsapp_token" value={settings.whatsapp_token || ''} onChange={v => set('whatsapp_token', v)} placeholder="EAABsbCS…" mono />
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Phone Number ID" id="whatsapp_phone_id" value={settings.whatsapp_phone_id || ''} onChange={v => set('whatsapp_phone_id', v)} placeholder="123456789012345" mono />
               <Field label="Business Account ID" id="whatsapp_business_id" value={settings.whatsapp_business_id || ''} onChange={v => set('whatsapp_business_id', v)} placeholder="123456789" mono />
             </div>
@@ -479,11 +479,11 @@ export default function Settings() {
           </Section>
 
           <Section icon={Shield} title="Meta Ads API" iconStyle="icon-purple">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="App ID" id="meta_app_id" value={settings.meta_app_id || ''} onChange={v => set('meta_app_id', v)} placeholder="123456789012345" mono />
               <Field label="App Secret" id="meta_app_secret" value={settings.meta_app_secret || ''} onChange={v => set('meta_app_secret', v)} placeholder="abc123…" type="password" mono />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Ad Account ID" id="meta_ads_account_id" value={settings.meta_ads_account_id || ''} onChange={v => set('meta_ads_account_id', v)} placeholder="act_123456789" mono />
               <Field label="Verify Token (Webhook)" id="meta_verify_token" value={settings.meta_verify_token || ''} onChange={v => set('meta_verify_token', v)} placeholder="lunia_webhook_token" mono />
             </div>
