@@ -194,8 +194,8 @@ function ProfileTab() {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = { admin: 'Admin', user: 'Usuário', team: 'Time', client: 'Cliente' };
-const ROLE_BADGE: Record<string, string> = { admin: 'badge-blue', user: 'badge-slate', team: 'badge-purple', client: 'badge-amber' };
+const ROLE_LABEL: Record<string, string> = { owner: 'Owner', manager: 'Usuário', team: 'Time', client: 'Cliente' };
+const ROLE_BADGE: Record<string, string> = { owner: 'badge-blue', manager: 'badge-slate', team: 'badge-purple', client: 'badge-amber' };
 
 function UsersTab() {
   const { user: me } = useAuth();
@@ -203,7 +203,7 @@ function UsersTab() {
   const [agencyClients, setAgencyClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', agency_client_id: '', job_title: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -215,7 +215,7 @@ function UsersTab() {
     setSaving(true); setError('');
     try {
       await usersApi.create(form);
-      setModal(false); setForm({ name: '', email: '', password: '', role: 'user', agency_client_id: '', job_title: '' }); load();
+      setModal(false); setForm({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '' }); load();
     } catch (e: any) {
       setError(e.response?.data?.error || 'Erro ao criar usuário');
     }
@@ -313,13 +313,13 @@ function UsersTab() {
               <div>
                 <label className="label-dark">Papel</label>
                 <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value, agency_client_id: '' })} className="input-dark" style={{ cursor: 'pointer' }}>
-                  <option value="user">Usuário</option>
+                  <option value="manager">Usuário</option>
                   <option value="team">Time (só Marketing)</option>
-                  <option value="admin">Admin</option>
+                  <option value="owner">Admin</option>
                   <option value="client">Cliente (portal externo)</option>
                 </select>
               </div>
-              {(form.role === 'team' || form.role === 'user') && (
+              {(form.role === 'team' || form.role === 'manager') && (
                 <div>
                   <label className="label-dark">Função</label>
                   <select value={form.job_title} onChange={e => setForm({ ...form, job_title: e.target.value })} className="input-dark" style={{ cursor: 'pointer' }}>
@@ -366,7 +366,7 @@ function UsersTab() {
 
 export default function Settings() {
   const { user } = useAuth();
-  const isSuperAdmin = user?.role === 'superadmin';
+  const isSuperAdmin = user?.role === 'owner';
   const [tab, setTab] = useState<'profile' | 'api' | 'users' | 'danger'>('profile');
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [webhookInfo, setWebhookInfo] = useState<{ webhookUrl: string; verifyToken: string } | null>(null);

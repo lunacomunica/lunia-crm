@@ -127,15 +127,15 @@ function NotificationBell() {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = { superadmin: 'Super Admin', admin: 'Admin', user: 'Alta Gestão', team: 'Time', client: 'Cliente' };
+const ROLE_LABEL: Record<string, string> = { owner: 'Owner', manager: 'Alta Gestão', team: 'Time', client: 'Cliente' };
 
 export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
-  const isSuperAdmin = user?.role === 'superadmin';
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
-  const isAltaGestao = user?.role === 'user';
+  const isSuperAdmin = user?.role === 'owner';
+  const isAdmin = user?.role === 'owner';
+  const isAltaGestao = user?.role === 'manager';
   const isTeam = user?.role === 'team';
 
   useEffect(() => { onClose?.(); }, [pathname]);

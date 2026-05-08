@@ -211,7 +211,7 @@ export default function ClientPortal() {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin' || user?.role === 'user';
+  const isAdmin = user?.role === 'owner' || user?.role === 'manager';
 
   const [page, setPage] = useState<PageId>('visao');
   const [sidebarOpen, setSidebarOpen] = useState(false);

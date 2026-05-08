@@ -16,8 +16,8 @@ router.get('/', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'superadmin') return res.status(403).json({ error: 'Apenas admins podem criar usuários' });
-  const { name, email, password, role = 'user', agency_client_id, job_title } = req.body;
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Apenas admins podem criar usuários' });
+  const { name, email, password, role = 'manager', agency_client_id, job_title } = req.body;
   if (!name || !email || !password) return res.status(400).json({ error: 'Nome, email e senha são obrigatórios' });
   if (role === 'client' && !agency_client_id) return res.status(400).json({ error: 'Selecione o cliente para este acesso' });
   const exists = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
@@ -28,7 +28,7 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'superadmin') return res.status(403).json({ error: 'Apenas admins podem editar usuários' });
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Apenas admins podem editar usuários' });
   const { name, email, role, password, agency_client_id, job_title } = req.body;
   const user = db.prepare('SELECT * FROM users WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id) as any;
   if (!user) return res.status(404).json({ error: 'Usuário não encontrado' });
@@ -43,7 +43,7 @@ router.put('/:id', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  if (req.user.role !== 'admin' && req.user.role !== 'superadmin') return res.status(403).json({ error: 'Apenas admins podem remover usuários' });
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Apenas admins podem remover usuários' });
   if (Number(req.params.id) === req.user.id) return res.status(400).json({ error: 'Você não pode remover sua própria conta' });
   db.prepare('DELETE FROM users WHERE id = ? AND tenant_id = ?').run(req.params.id, req.user.tenant_id);
   res.json({ ok: true });

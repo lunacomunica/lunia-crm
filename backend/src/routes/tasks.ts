@@ -23,7 +23,7 @@ router.get('/team-overview', (req, res) => {
       ), 0) as minutes_week
     FROM users u
     LEFT JOIN tasks t ON t.assigned_to = u.id AND t.tenant_id = ?
-    WHERE u.tenant_id = ? AND u.role IN ('team','user')
+    WHERE u.tenant_id = ? AND u.role IN ('team','manager')
     GROUP BY u.id ORDER BY active_task IS NOT NULL DESC, tasks_today DESC, u.name
   `).all(tid, tid, tid, tid, tid);
 

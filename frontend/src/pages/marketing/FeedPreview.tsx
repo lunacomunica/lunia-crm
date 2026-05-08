@@ -21,7 +21,7 @@ export default function FeedPreview() {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const isPreview = user?.role === 'admin' || user?.role === 'user';
+  const isPreview = user?.role === 'owner' || user?.role === 'manager';
 
   const [client, setClient] = useState<AgencyClient | null>(null);
   const [pieces, setPieces] = useState<ContentPiece[]>([]);

@@ -70,7 +70,7 @@ router.put('/:id', (req, res) => {
 });
 
 router.delete('/:id', (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ error: 'Apenas admins podem remover clientes' });
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Apenas admins podem remover clientes' });
   db.prepare('DELETE FROM agency_clients WHERE id = ? AND tenant_id = ?').run(req.params.id, req.user.tenant_id);
   res.json({ ok: true });
 });

@@ -6,7 +6,7 @@ import { authMiddleware } from '../middleware/auth.js';
 const router = Router();
 
 router.use(authMiddleware, (req, res, next) => {
-  if (req.user.role !== 'superadmin') return res.status(403).json({ error: 'Acesso negado' });
+  if (req.user.role !== 'owner') return res.status(403).json({ error: 'Acesso negado' });
   next();
 });
 
@@ -16,8 +16,8 @@ router.get('/tenants', (_req, res) => {
       t.*,
       (SELECT COUNT(*) FROM users WHERE tenant_id = t.id) as user_count,
       (SELECT COUNT(*) FROM contacts WHERE tenant_id = t.id) as contact_count,
-      (SELECT name  FROM users WHERE tenant_id = t.id AND role = 'admin' ORDER BY id LIMIT 1) as admin_name,
-      (SELECT email FROM users WHERE tenant_id = t.id AND role = 'admin' ORDER BY id LIMIT 1) as admin_email
+      (SELECT name  FROM users WHERE tenant_id = t.id AND role = 'owner' ORDER BY id LIMIT 1) as admin_name,
+      (SELECT email FROM users WHERE tenant_id = t.id AND role = 'owner' ORDER BY id LIMIT 1) as admin_email
     FROM tenants t
     ORDER BY t.created_at DESC
   `).all();
@@ -44,13 +44,13 @@ router.post('/tenants', (req, res) => {
 
   const result = db.transaction(() => {
     const { lastInsertRowid: tenantId } = db.prepare('INSERT INTO tenants (name, slug) VALUES (?, ?)').run(name, slug);
-    db.prepare('INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)').run(tenantId, admin_name, admin_email, passwordHash, 'admin');
+    db.prepare('INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (?, ?, ?, ?, ?)').run(tenantId, admin_name, admin_email, passwordHash, 'owner');
     return db.prepare(`
       SELECT t.*,
         (SELECT COUNT(*) FROM users WHERE tenant_id = t.id) as user_count,
         (SELECT COUNT(*) FROM contacts WHERE tenant_id = t.id) as contact_count,
-        (SELECT name  FROM users WHERE tenant_id = t.id AND role = 'admin' ORDER BY id LIMIT 1) as admin_name,
-        (SELECT email FROM users WHERE tenant_id = t.id AND role = 'admin' ORDER BY id LIMIT 1) as admin_email
+        (SELECT name  FROM users WHERE tenant_id = t.id AND role = 'owner' ORDER BY id LIMIT 1) as admin_name,
+        (SELECT email FROM users WHERE tenant_id = t.id AND role = 'owner' ORDER BY id LIMIT 1) as admin_email
       FROM tenants t WHERE t.id = ?
     `).get(tenantId);
   })();
@@ -82,7 +82,7 @@ router.post('/reset-tenant', (req, res) => {
     db.prepare('DELETE FROM instagram_leads WHERE tenant_id = ?').run(tid);
     db.prepare('DELETE FROM deals WHERE tenant_id = ?').run(tid);
     db.prepare('DELETE FROM contacts WHERE tenant_id = ?').run(tid);
-    db.prepare("DELETE FROM users WHERE tenant_id = ? AND role != 'superadmin'").run(tid);
+    db.prepare("DELETE FROM users WHERE tenant_id = ? AND role != 'owner'").run(tid);
   })();
   res.json({ ok: true });
 });

@@ -24,7 +24,7 @@ db.exec(`
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
-    role TEXT DEFAULT 'admin',
+    role TEXT DEFAULT 'owner',
     created_at TEXT DEFAULT (datetime('now'))
   );
 
@@ -359,13 +359,16 @@ const migrations = [
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }
 }
-// Promote Amanda to alta gestão (user) — runs after job_title column is guaranteed to exist
-db.prepare("UPDATE users SET role = 'user', job_title = 'Head de Operação' WHERE email = 'amanda@lunacomunica.com'").run();
+// Promote Amanda to alta gestão (manager) — runs after job_title column is guaranteed to exist
+db.prepare("UPDATE users SET role = 'manager', job_title = 'Head de Operação' WHERE email = 'amanda@lunacomunica.com'").run();
 
-// Migration: promote first tenant-1 admin to superadmin
+// Migration: promote first tenant-1 admin to owner
 {
-  const firstAdmin = db.prepare("SELECT id FROM users WHERE tenant_id = 1 AND role = 'admin' ORDER BY id LIMIT 1").get() as any;
-  if (firstAdmin) db.prepare("UPDATE users SET role = 'superadmin' WHERE id = ?").run(firstAdmin.id);
+  const firstAdmin = db.prepare("SELECT id FROM users WHERE tenant_id = 1 AND role = 'owner' ORDER BY id LIMIT 1").get() as any;
+  if (!firstAdmin) {
+    const firstLegacy = db.prepare("SELECT id FROM users WHERE tenant_id = 1 AND role IN ('admin', 'superadmin') ORDER BY id LIMIT 1").get() as any;
+    if (firstLegacy) db.prepare("UPDATE users SET role = 'owner' WHERE id = ?").run(firstLegacy.id);
+  }
 }
 
 // Seed default tenant + admin user if empty
@@ -376,7 +379,10 @@ if (tenantCount === 0) {
   insertTenant.run('Lun.ia', 'lunia');
 
   const passwordHash = '$2b$10$mrWKuVQVqaO.2Z5dvX3zde9Ldc3R2KqSkEVaWCxTcqVc9RQRRJqOe';
-  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (1, 'Admin', 'admin@lunia.com', ?, 'superadmin')`).run(passwordHash);
+  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role) VALUES (1, 'Admin', 'admin@lunia.com', ?, 'owner')`).run(passwordHash);
 }
+
+db.prepare("UPDATE users SET role = 'owner' WHERE role IN ('admin', 'superadmin')").run();
+db.prepare("UPDATE users SET role = 'manager' WHERE role = 'user'").run();
 
 export default db;

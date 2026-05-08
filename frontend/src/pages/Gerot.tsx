@@ -107,8 +107,8 @@ export default function Gerot() {
   const [acting, setActing] = useState<number | null>(null);
   const [detail, setDetail] = useState<Task | null>(null);
   const [selectedPost, setSelectedPost] = useState<any | null>(null);
-  const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
-  const isManager = user?.role === 'user';
+  const isAdmin = user?.role === 'owner';
+  const isManager = user?.role === 'manager';
   const isTeam = user?.role === 'team';
 
   const handleDetail = async (task: Task) => {
