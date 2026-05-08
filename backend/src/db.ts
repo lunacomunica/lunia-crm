@@ -255,6 +255,14 @@ db.exec(`
     ended_at TEXT,
     minutes INTEGER DEFAULT 0
   );
+
+  CREATE TABLE IF NOT EXISTS task_comments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    user_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    content TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `);
 
 // Migrations: add tenant_id to existing tables if upgrading
@@ -268,6 +276,8 @@ const migrations = [
   "ALTER TABLE contacts ADD COLUMN referred_by_id INTEGER REFERENCES contacts(id) ON DELETE SET NULL",
   "ALTER TABLE users ADD COLUMN agency_client_id INTEGER REFERENCES agency_clients(id) ON DELETE SET NULL",
   "ALTER TABLE users ADD COLUMN job_title TEXT",
+  "ALTER TABLE tasks ADD COLUMN stage TEXT DEFAULT 'geral'",
+  "ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

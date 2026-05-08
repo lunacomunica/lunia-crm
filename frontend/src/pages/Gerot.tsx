@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Play, Pause, CheckCircle2, Plus, X, Clock, Calendar,
-  FileImage, Megaphone, Timer, Trash2, AlertTriangle, TrendingUp, Zap
+  FileImage, Megaphone, Timer, Trash2, Send, ArrowRight, Zap
 } from 'lucide-react';
 import { tasksApi, agencyClientsApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -31,6 +31,8 @@ interface Task {
   estimated_minutes: number | null;
   total_minutes: number;
   session_started_at: string | null;
+  stage: string;
+  parent_task_id: number | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -40,6 +42,14 @@ const PRIORITY_CFG = {
   alta:    { label: 'Alta',    color: '#f97316', bg: 'rgba(249,115,22,0.1)',  dot: '#f97316' },
   media:   { label: 'Média',   color: '#60a5fa', bg: 'rgba(96,165,250,0.1)',  dot: '#3b82f6' },
   baixa:   { label: 'Baixa',   color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', dot: '#64748b' },
+};
+
+const STAGE_CFG: Record<string, { label: string; color: string; bg: string }> = {
+  planejamento: { label: 'Planejamento', color: '#a78bfa', bg: 'rgba(167,139,250,0.1)' },
+  design:       { label: 'Design',       color: '#60a5fa', bg: 'rgba(96,165,250,0.1)'  },
+  audiovisual:  { label: 'Audiovisual',  color: '#f59e0b', bg: 'rgba(245,158,11,0.1)'  },
+  revisao:      { label: 'Revisão',      color: '#34d399', bg: 'rgba(52,211,153,0.1)'  },
+  geral:        { label: 'Geral',        color: '#64748b', bg: 'rgba(100,116,139,0.08)' },
 };
 
 const CONTENT_STATUS_COLOR: Record<string, string> = {
@@ -77,7 +87,7 @@ function ElapsedTimer({ startedAt, baseMinutes }: { startedAt: string; baseMinut
   );
 }
 
-const EMPTY_FORM = { title: '', description: '', assigned_to: '', agency_client_id: '', priority: 'media', due_date: '', est_hours: '', est_minutes: '' };
+const EMPTY_FORM = { title: '', description: '', assigned_to: '', agency_client_id: '', priority: 'media', stage: 'geral', due_date: '', est_hours: '', est_minutes: '' };
 
 export default function Gerot() {
   const { user } = useAuth();
@@ -132,12 +142,13 @@ export default function Gerot() {
     setActing(null);
   };
 
-  const handleComplete = async (id: number) => {
+  const handleComplete = async (id: number, handoff?: { next_assigned_to?: number; next_stage?: string; next_title?: string }) => {
     setActing(id);
-    await tasksApi.complete(id);
+    await tasksApi.complete(id, handoff);
     setTasks(prev => prev.map(t => t.id === id ? { ...t, status: 'concluida', session_started_at: null } : t));
     setDetail(null);
     setActing(null);
+    if (handoff?.next_assigned_to) load();
   };
 
   const handleDelete = async (id: number) => {
@@ -154,7 +165,8 @@ export default function Gerot() {
       title: form.title, description: form.description,
       assigned_to: form.assigned_to || null,
       agency_client_id: form.agency_client_id || null,
-      priority: form.priority, due_date: form.due_date || null,
+      priority: form.priority, stage: form.stage,
+      due_date: form.due_date || null,
       estimated_minutes,
     });
     setTasks(prev => [r.data, ...prev]);
@@ -269,7 +281,7 @@ export default function Gerot() {
         </div>
       )}
 
-      <DetailPanel detail={detail} acting={acting} isAdmin={isAdmin} onClose={() => setDetail(null)} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDelete={handleDelete} />
+      <DetailPanel detail={detail} acting={acting} isAdmin={isAdmin} users={users} onClose={() => setDetail(null)} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDelete={handleDelete} />
 
       {modal && (
         <div className="fixed inset-0 flex items-center justify-center z-50" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setModal(false)}>
@@ -407,7 +419,7 @@ function TeamPanel({ tasks, loading, activeTask, acting, onStart, onPause, onCom
         </div>
       )}
 
-      <DetailPanel detail={detail} acting={acting} isAdmin={false} onClose={() => setDetail(null)} onStart={onStart} onPause={onPause} onComplete={onComplete} onDelete={() => {}} />
+      <DetailPanel detail={detail} acting={acting} isAdmin={false} users={[]} onClose={() => setDetail(null)} onStart={onStart} onPause={onPause} onComplete={onComplete} onDelete={() => {}} />
     </div>
   );
 }
@@ -538,6 +550,7 @@ function TaskRow({ task, acting, activeTask, onStart, onPause, onComplete, onDet
           <p className="text-sm font-medium text-white truncate">{task.title}</p>
           {task.client_name && <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.15)' }}>{task.client_name}</span>}
           {(task.content_title || task.campaign_name) && <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(167,139,250,0.08)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.15)' }}>{task.content_title || task.campaign_name}</span>}
+          {task.stage && task.stage !== 'geral' && (() => { const s = STAGE_CFG[task.stage]; return s ? <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: s.bg, color: s.color }}>{s.label}</span> : null; })()}
         </div>
         <div className="flex items-center gap-3 mt-0.5">
           {task.assigned_name && <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{task.assigned_name}</span>}
@@ -565,13 +578,51 @@ function TaskRow({ task, acting, activeTask, onStart, onPause, onComplete, onDet
 }
 
 /* ── Detail panel ────────────────────────────────────────────────────────── */
-function DetailPanel({ detail, acting, isAdmin, onClose, onStart, onPause, onComplete, onDelete }: {
-  detail: Task | null; acting: number | null; isAdmin: boolean;
+function DetailPanel({ detail, acting, isAdmin, users, onClose, onStart, onPause, onComplete, onDelete }: {
+  detail: Task | null; acting: number | null; isAdmin: boolean; users: any[];
   onClose: () => void; onStart: (id: number) => void; onPause: (id: number) => void;
-  onComplete: (id: number) => void; onDelete: (id: number) => void;
+  onComplete: (id: number, handoff?: any) => void; onDelete: (id: number) => void;
 }) {
+  const { user } = useAuth();
+  const [comments, setComments] = useState<any[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [posting, setPosting] = useState(false);
+  const [handoffOpen, setHandoffOpen] = useState(false);
+  const [handoff, setHandoff] = useState({ next_assigned_to: '', next_stage: 'design', next_title: '' });
+  const commentsEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!detail) return;
+    setHandoffOpen(false);
+    setHandoff({ next_assigned_to: '', next_stage: 'design', next_title: '' });
+    tasksApi.listComments(detail.id).then(r => setComments(Array.isArray(r.data) ? r.data : []));
+  }, [detail?.id]);
+
+  useEffect(() => {
+    commentsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [comments]);
+
+  const submitComment = async () => {
+    if (!newComment.trim() || !detail) return;
+    setPosting(true);
+    const r = await tasksApi.addComment(detail.id, newComment.trim());
+    setComments(prev => [...prev, r.data]);
+    setNewComment('');
+    setPosting(false);
+  };
+
+  const handleCompleteClick = () => {
+    if (!detail) return;
+    if (handoffOpen && handoff.next_assigned_to) {
+      onComplete(detail.id, { next_assigned_to: Number(handoff.next_assigned_to), next_stage: handoff.next_stage, next_title: handoff.next_title || undefined });
+    } else {
+      onComplete(detail.id);
+    }
+  };
+
   if (!detail) return null;
   const cfg = PRIORITY_CFG[detail.priority];
+  const stageCfg = STAGE_CFG[detail.stage] || STAGE_CFG.geral;
 
   return (
     <div className="fixed inset-0 flex items-center justify-end z-50" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={onClose}>
@@ -581,6 +632,9 @@ function DetailPanel({ detail, acting, isAdmin, onClose, onStart, onPause, onCom
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full" style={{ background: cfg.dot }} />
             <span className="text-sm font-medium" style={{ color: cfg.color }}>{cfg.label}</span>
+            {detail.stage !== 'geral' && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: stageCfg.bg, color: stageCfg.color }}>{stageCfg.label}</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && (
@@ -610,7 +664,7 @@ function DetailPanel({ detail, acting, isAdmin, onClose, onStart, onPause, onCom
                   )}
                 </div>
                 <p className="text-sm font-medium text-white">{detail.content_title}</p>
-                {detail.content_caption && <p className="text-xs mt-1 line-clamp-2" style={{ color: 'rgba(148,163,184,0.6)' }}>{detail.content_caption}</p>}
+                {detail.content_caption && <p className="text-xs mt-1" style={{ color: 'rgba(148,163,184,0.6)', whiteSpace: 'pre-line' }}>{detail.content_caption}</p>}
               </div>
             </div>
           )}
@@ -624,6 +678,7 @@ function DetailPanel({ detail, acting, isAdmin, onClose, onStart, onPause, onCom
             {detail.due_date && <InfoCard label="Prazo" value={format(new Date(detail.due_date), "d MMM yyyy", { locale: ptBR })} />}
           </div>
 
+          {/* Time */}
           <div className="rounded-xl p-4" style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
             <p className="label-dark mb-3 flex items-center gap-2"><Timer size={12} />Tempo</p>
             <div className="grid grid-cols-2 gap-3">
@@ -640,6 +695,47 @@ function DetailPanel({ detail, acting, isAdmin, onClose, onStart, onPause, onCom
             </div>
           </div>
 
+          {/* Comments / Briefing thread */}
+          <div>
+            <p className="label-dark mb-3">Briefing & comentários internos</p>
+            <div className="space-y-3 mb-3 max-h-64 overflow-y-auto">
+              {comments.length === 0 ? (
+                <p className="text-xs py-3 text-center" style={{ color: 'rgba(100,116,139,0.35)' }}>Nenhum comentário ainda. Escreva o briefing aqui.</p>
+              ) : comments.map(c => (
+                <div key={c.id} className={`flex gap-2.5 ${c.user_id === user?.id ? 'flex-row-reverse' : ''}`}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)', color: 'white' }}>
+                    {(c.user_name || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div className={`max-w-[75%] ${c.user_id === user?.id ? 'items-end' : 'items-start'} flex flex-col gap-0.5`}>
+                    <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{c.user_name}</span>
+                    <div className="px-3 py-2 rounded-xl text-sm" style={{
+                      background: c.user_id === user?.id ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)',
+                      border: `1px solid ${c.user_id === user?.id ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)'}`,
+                      color: '#e2e8f0', whiteSpace: 'pre-wrap'
+                    }}>{c.content}</div>
+                    <span className="text-[9px]" style={{ color: 'rgba(100,116,139,0.35)' }}>
+                      {format(new Date(c.created_at), "d MMM HH:mm", { locale: ptBR })}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              <div ref={commentsEndRef} />
+            </div>
+            <div className="flex gap-2">
+              <textarea value={newComment} onChange={e => setNewComment(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment(); } }}
+                placeholder="Escreva o briefing, copy ou comentário… (Enter para enviar)"
+                rows={2} className="input-dark flex-1 text-sm resize-none" />
+              <button onClick={submitComment} disabled={posting || !newComment.trim()}
+                className="px-3 rounded-xl flex-shrink-0 self-end pb-2.5 transition-opacity"
+                style={{ color: newComment.trim() ? '#60a5fa' : 'rgba(100,116,139,0.3)', background: 'transparent' }}>
+                <Send size={15} />
+              </button>
+            </div>
+          </div>
+
+          {/* Actions */}
           {detail.status !== 'concluida' && (
             <div className="space-y-2 pt-2">
               {detail.status !== 'em_andamento' ? (
@@ -655,10 +751,46 @@ function DetailPanel({ detail, acting, isAdmin, onClose, onStart, onPause, onCom
                   <Pause size={15} /> Pausar
                 </button>
               )}
-              <button onClick={() => onComplete(detail.id)} disabled={acting === detail.id}
+
+              {/* Handoff toggle */}
+              <button onClick={() => setHandoffOpen(o => !o)}
+                className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm transition-all"
+                style={{ background: handoffOpen ? 'rgba(167,139,250,0.1)' : 'transparent', border: '1px solid rgba(167,139,250,0.2)', color: '#a78bfa' }}>
+                <ArrowRight size={13} /> {handoffOpen ? 'Cancelar passagem de bastão' : 'Passar bastão para próxima etapa'}
+              </button>
+
+              {handoffOpen && (
+                <div className="rounded-xl p-4 space-y-3" style={{ background: 'rgba(167,139,250,0.05)', border: '1px solid rgba(167,139,250,0.15)' }}>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="label-dark text-[10px]">Próxima etapa</label>
+                      <select value={handoff.next_stage} onChange={e => setHandoff(h => ({ ...h, next_stage: e.target.value }))} className="input-dark w-full mt-1 text-sm">
+                        {Object.entries(STAGE_CFG).filter(([k]) => k !== 'geral').map(([k, v]) => (
+                          <option key={k} value={k}>{v.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label-dark text-[10px]">Responsável</label>
+                      <select value={handoff.next_assigned_to} onChange={e => setHandoff(h => ({ ...h, next_assigned_to: e.target.value }))} className="input-dark w-full mt-1 text-sm">
+                        <option value="">Selecionar…</option>
+                        {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}{u.job_title ? ` — ${u.job_title}` : ''}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="label-dark text-[10px]">Título da nova tarefa (opcional)</label>
+                    <input value={handoff.next_title} onChange={e => setHandoff(h => ({ ...h, next_title: e.target.value }))}
+                      placeholder={detail.title} className="input-dark w-full mt-1 text-sm" />
+                  </div>
+                </div>
+              )}
+
+              <button onClick={handleCompleteClick} disabled={acting === detail.id || (handoffOpen && !handoff.next_assigned_to)}
                 className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium"
-                style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: '#34d399' }}>
-                <CheckCircle2 size={16} /> Marcar como concluída
+                style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)', color: '#34d399', opacity: (handoffOpen && !handoff.next_assigned_to) ? 0.5 : 1 }}>
+                <CheckCircle2 size={16} />
+                {handoffOpen && handoff.next_assigned_to ? 'Concluir e passar bastão' : 'Marcar como concluída'}
               </button>
             </div>
           )}
@@ -690,7 +822,13 @@ function TaskForm({ form, setForm, clients, users, onSubmit, onCancel, saving }:
         <textarea value={form.description} onChange={e => setForm((f: any) => ({ ...f, description: e.target.value }))}
           rows={2} placeholder="Detalhes, contexto, briefing…" className="input-dark w-full mt-1 resize-none text-sm" />
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
+        <div>
+          <label className="label-dark">Etapa</label>
+          <select value={form.stage} onChange={e => setForm((f: any) => ({ ...f, stage: e.target.value }))} className="input-dark w-full mt-1 text-sm">
+            {Object.entries(STAGE_CFG).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+        </div>
         <div>
           <label className="label-dark">Prioridade</label>
           <select value={form.priority} onChange={e => setForm((f: any) => ({ ...f, priority: e.target.value }))} className="input-dark w-full mt-1 text-sm">

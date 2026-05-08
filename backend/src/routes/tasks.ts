@@ -52,13 +52,13 @@ router.get('/', (req, res) => {
 
 /* ── Create ───────────────────────────────────────────────────────────── */
 router.post('/', (req, res) => {
-  const { title, description, assigned_to, content_piece_id, campaign_id, agency_client_id, priority, due_date, estimated_minutes } = req.body;
+  const { title, description, assigned_to, content_piece_id, campaign_id, agency_client_id, priority, stage, due_date, estimated_minutes } = req.body;
   if (!title) return res.status(400).json({ error: 'Título obrigatório' });
 
   const r = db.prepare(`
-    INSERT INTO tasks (tenant_id, title, description, assigned_to, created_by, content_piece_id, campaign_id, agency_client_id, priority, due_date, estimated_minutes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.user.tenant_id, title, description || null, assigned_to || null, req.user.id, content_piece_id || null, campaign_id || null, agency_client_id || null, priority || 'media', due_date || null, estimated_minutes || null);
+    INSERT INTO tasks (tenant_id, title, description, assigned_to, created_by, content_piece_id, campaign_id, agency_client_id, priority, stage, due_date, estimated_minutes)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.user.tenant_id, title, description || null, assigned_to || null, req.user.id, content_piece_id || null, campaign_id || null, agency_client_id || null, priority || 'media', stage || 'geral', due_date || null, estimated_minutes || null);
 
   const task = db.prepare(`
     SELECT t.*, u.name as assigned_name, ac.name as client_name, cp.title as content_title, c.name as campaign_name
@@ -135,8 +135,9 @@ router.post('/:id/pause', (req, res) => {
 /* ── Complete ─────────────────────────────────────────────────────────── */
 router.post('/:id/complete', (req, res) => {
   const id = Number(req.params.id);
-  const session = db.prepare('SELECT * FROM task_sessions WHERE task_id = ? AND ended_at IS NULL').get(id) as any;
+  const { next_assigned_to, next_stage, next_title } = req.body;
 
+  const session = db.prepare('SELECT * FROM task_sessions WHERE task_id = ? AND ended_at IS NULL').get(id) as any;
   let extraMinutes = 0;
   if (session) {
     extraMinutes = Math.round((Date.now() - new Date(session.started_at).getTime()) / 60000);
@@ -145,13 +146,61 @@ router.post('/:id/complete', (req, res) => {
 
   db.prepare("UPDATE tasks SET status = 'concluida', completed_at = datetime('now'), total_minutes = total_minutes + ?, updated_at = datetime('now') WHERE id = ?").run(extraMinutes, id);
 
-  res.json({ ok: true });
+  let nextTask = null;
+  if (next_assigned_to) {
+    const current = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as any;
+    if (current) {
+      const r = db.prepare(`
+        INSERT INTO tasks (tenant_id, title, description, assigned_to, created_by, content_piece_id, campaign_id, agency_client_id, priority, due_date, stage, parent_task_id)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        current.tenant_id,
+        next_title || current.title,
+        current.description,
+        next_assigned_to,
+        req.user.id,
+        current.content_piece_id,
+        current.campaign_id,
+        current.agency_client_id,
+        current.priority,
+        current.due_date,
+        next_stage || 'geral',
+        id
+      );
+      nextTask = db.prepare('SELECT t.*, u.name as assigned_name FROM tasks t LEFT JOIN users u ON u.id = t.assigned_to WHERE t.id = ?').get(r.lastInsertRowid);
+    }
+  }
+
+  res.json({ ok: true, nextTask });
 });
 
 /* ── Sessions (history) ───────────────────────────────────────────────── */
 router.get('/:id/sessions', (req, res) => {
   const sessions = db.prepare('SELECT * FROM task_sessions WHERE task_id = ? ORDER BY started_at DESC').all(Number(req.params.id));
   res.json(sessions);
+});
+
+/* ── Comments ─────────────────────────────────────────────────────────── */
+router.get('/:id/comments', (req, res) => {
+  const comments = db.prepare(`
+    SELECT tc.*, u.name as user_name, u.avatar as user_avatar
+    FROM task_comments tc
+    LEFT JOIN users u ON u.id = tc.user_id
+    WHERE tc.task_id = ?
+    ORDER BY tc.created_at ASC
+  `).all(Number(req.params.id));
+  res.json(comments);
+});
+
+router.post('/:id/comments', (req, res) => {
+  const { content } = req.body;
+  if (!content) return res.status(400).json({ error: 'Conteúdo obrigatório' });
+  const r = db.prepare(`INSERT INTO task_comments (task_id, user_id, content) VALUES (?, ?, ?)`).run(Number(req.params.id), req.user.id, content);
+  const comment = db.prepare(`
+    SELECT tc.*, u.name as user_name, u.avatar as user_avatar
+    FROM task_comments tc LEFT JOIN users u ON u.id = tc.user_id WHERE tc.id = ?
+  `).get(r.lastInsertRowid);
+  res.status(201).json(comment);
 });
 
 export default router;

@@ -117,7 +117,10 @@ export const tasksApi = {
   delete: (id: number) => api.delete(`/tasks/${id}`),
   start: (id: number) => api.post(`/tasks/${id}/start`),
   pause: (id: number) => api.post(`/tasks/${id}/pause`),
-  complete: (id: number) => api.post(`/tasks/${id}/complete`),
+  complete: (id: number, handoff?: { next_assigned_to?: number; next_stage?: string; next_title?: string }) =>
+    api.post(`/tasks/${id}/complete`, handoff || {}),
+  listComments: (id: number) => api.get(`/tasks/${id}/comments`),
+  addComment: (id: number, content: string) => api.post(`/tasks/${id}/comments`, { content }),
 };
 
 export const adminApi = {
