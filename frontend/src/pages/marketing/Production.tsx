@@ -362,8 +362,9 @@ export default function Production() {
       {/* Template modal */}
       {templateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }} onClick={() => setTemplateModal(false)}>
-          <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#0d0d22', border: '1px solid rgba(167,139,250,0.2)' }} onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(167,139,250,0.1)' }}>
+          <div className="w-full max-w-lg rounded-2xl flex flex-col" style={{ background: '#0d0d22', border: '1px solid rgba(167,139,250,0.2)', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+            {/* Header — fixo */}
+            <div className="flex items-center justify-between px-6 py-5 flex-shrink-0" style={{ borderBottom: '1px solid rgba(167,139,250,0.1)' }}>
               <h3 className="text-base font-semibold text-white">{editingTemplate ? 'Editar template' : 'Novo template'}</h3>
               <div className="flex items-center gap-2">
                 {editingTemplate && (
@@ -376,7 +377,8 @@ export default function Production() {
                 <button onClick={() => setTemplateModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
               </div>
             </div>
-            <div className="p-6 space-y-4">
+            {/* Body — scrollável */}
+            <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="text-xs mb-1 block" style={{ color: 'rgba(100,116,139,0.6)' }}>Nome do template</label>
                 <input value={tplName} onChange={e => setTplName(e.target.value)} placeholder="Ex: Fluxo Padrão" className="input-dark w-full" autoFocus />
@@ -385,29 +387,27 @@ export default function Production() {
                 {tplStages.map((s, i) => (
                   <div key={s.stage} className="rounded-xl p-3 transition-all"
                     style={{ background: s.active ? 'rgba(167,139,250,0.06)' : 'rgba(255,255,255,0.02)', border: s.active ? '1px solid rgba(167,139,250,0.15)' : '1px solid rgba(255,255,255,0.05)' }}>
-                    <div className="flex items-center gap-3 mb-2">
+                    <div className="flex items-center gap-3">
                       <button onClick={() => setTplStages(prev => prev.map((st, j) => j === i ? { ...st, active: !st.active } : st))}
                         className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
                         style={{ background: s.active ? '#a78bfa' : 'rgba(255,255,255,0.05)', border: s.active ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.1)' }}>
                         {s.active && <span style={{ color: 'white', fontSize: 10, lineHeight: 1 }}>✓</span>}
                       </button>
-                      <span className="text-sm font-medium" style={{ color: s.active ? '#e2e8f0' : 'rgba(100,116,139,0.4)' }}>{s.label}</span>
-                    </div>
-                    {s.active && (
-                      <div className="mt-2">
-                        <label className="text-[10px] mb-1 block" style={{ color: 'rgba(100,116,139,0.5)' }}>Responsável padrão</label>
+                      <span className="text-sm font-medium flex-1" style={{ color: s.active ? '#e2e8f0' : 'rgba(100,116,139,0.4)' }}>{s.label}</span>
+                      {s.active && (
                         <select value={s.assigned_to} onChange={e => setTplStages(prev => prev.map((st, j) => j === i ? { ...st, assigned_to: e.target.value } : st))}
-                          className="input-dark w-full text-sm">
-                          <option value="">Sem responsável padrão</option>
-                          {users.map(u => <option key={u.id} value={u.id}>{u.name}{u.job_title ? ` — ${u.job_title}` : ''}</option>)}
+                          className="input-dark text-xs py-1 flex-1 max-w-[200px]">
+                          <option value="">Sem responsável</option>
+                          {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                         </select>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="flex gap-2 px-6 pb-6">
+            {/* Footer — fixo */}
+            <div className="flex gap-2 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(167,139,250,0.08)' }}>
               <button onClick={() => setTemplateModal(false)} className="flex-1 py-2 rounded-lg text-sm" style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>Cancelar</button>
               <button onClick={saveTemplate} disabled={savingTpl || !tplName.trim()} className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
                 style={{ background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.3)' }}>
