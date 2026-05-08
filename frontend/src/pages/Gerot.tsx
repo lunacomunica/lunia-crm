@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   Play, Pause, CheckCircle2, Plus, X, Clock, Calendar,
-  FileImage, Megaphone, Timer, Trash2, Send, ArrowRight, Zap
+  FileImage, Megaphone, Timer, Trash2, Send, ArrowRight, Zap, AlertTriangle, CheckSquare
 } from 'lucide-react';
 import { tasksApi, agencyClientsApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
@@ -103,6 +103,7 @@ export default function Gerot() {
   const [acting, setActing] = useState<number | null>(null);
   const [detail, setDetail] = useState<Task | null>(null);
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+  const isManager = user?.role === 'user';
   const isTeam = user?.role === 'team';
 
   const load = async () => {
@@ -177,6 +178,7 @@ export default function Gerot() {
   const activeTask = tasks.find(t => t.status === 'em_andamento');
 
   if (isTeam) return <TeamPanel tasks={tasks} loading={loading} activeTask={activeTask} acting={acting} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={setDetail} detail={detail} setDetail={setDetail} />;
+  if (isManager) return <ManagerPanel users={users} tasks={tasks} loading={loading} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={setDetail} detail={detail} setDetail={setDetail} onOpenModal={() => { setModal(true); setForm(EMPTY_FORM); }} />;
 
   // ── Admin view ──────────────────────────────────────────────────────────
   const grouped = (['urgente', 'alta', 'media', 'baixa'] as const).map(p => ({
@@ -294,6 +296,202 @@ export default function Gerot() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ── Manager Panel ───────────────────────────────────────────────────────── */
+function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPause, onComplete, onDetail, detail, setDetail, onOpenModal }: {
+  users: any[]; tasks: Task[]; loading: boolean; acting: number | null; activeTask: Task | undefined;
+  onStart: (id: number) => void; onPause: (id: number) => void; onComplete: (id: number, h?: any) => void;
+  onDetail: (t: Task) => void; detail: Task | null; setDetail: (t: Task | null) => void;
+  onOpenModal: () => void;
+}) {
+  const { user } = useAuth();
+  const [overview, setOverview] = useState<any>(null);
+  const [showAllTasks, setShowAllTasks] = useState(false);
+  const today = new Date();
+
+  useEffect(() => {
+    tasksApi.teamOverview().then(r => setOverview(r.data));
+  }, [tasks]);
+
+  const totalOpen     = overview?.team?.reduce((s: number, m: any) => s + m.tasks_open, 0) ?? 0;
+  const totalDone     = overview?.team?.reduce((s: number, m: any) => s + m.tasks_done_week, 0) ?? 0;
+  const totalMinutes  = overview?.team?.reduce((s: number, m: any) => s + m.minutes_week, 0) ?? 0;
+  const totalOverdue  = overview?.bottlenecks?.length ?? 0;
+  const maxMinutes    = Math.max(...(overview?.clientHours?.map((c: any) => c.minutes_week) ?? [1]), 1);
+
+  return (
+    <div className="p-4 md:p-8 max-w-4xl">
+      {/* Greeting */}
+      <div className="mb-6">
+        <p className="text-sm capitalize mb-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
+          {format(today, "EEEE, d 'de' MMMM", { locale: ptBR })}
+        </p>
+        <h1 className="text-3xl font-light text-white">
+          Oi, <span style={{ color: '#60a5fa' }}>{user?.name?.split(' ')[0]}</span> 👋
+        </h1>
+        <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
+          {(user as any).job_title || 'Alta Gestão'}
+        </p>
+      </div>
+
+      {/* Summary stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+        {[
+          { icon: CheckSquare,  label: 'Tarefas abertas',    value: totalOpen,                                  color: '#60a5fa' },
+          { icon: CheckCircle2, label: 'Concluídas semana',  value: totalDone,                                  color: '#34d399' },
+          { icon: Timer,        label: 'Horas esta semana',  value: totalMinutes > 0 ? fmtTime(totalMinutes) : '—', color: '#a78bfa' },
+          { icon: AlertTriangle,label: 'Atrasadas',          value: totalOverdue,                               color: totalOverdue > 0 ? '#f87171' : '#64748b' },
+        ].map(s => (
+          <div key={s.label} className="rounded-2xl px-4 py-4"
+            style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.08)' }}>
+            <s.icon size={16} className="mb-2" style={{ color: s.color }} />
+            <p className="text-xl font-bold text-white">{s.value}</p>
+            <p className="text-[10px] mt-0.5 leading-tight" style={{ color: 'rgba(100,116,139,0.5)' }}>{s.label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Team members */}
+      <div className="mb-8">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>
+            Equipe agora
+          </p>
+          <button onClick={onOpenModal} className="btn-primary flex items-center gap-1.5 text-xs py-1.5 px-3">
+            <Plus size={13} /> Nova tarefa
+          </button>
+        </div>
+        {loading || !overview ? (
+          <div className="flex justify-center py-8">
+            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {overview.team?.map((member: any) => (
+              <div key={member.id} className="flex items-center gap-4 px-4 py-3 rounded-2xl"
+                style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: member.active_task ? '1px solid rgba(59,130,246,0.2)' : '1px solid rgba(59,130,246,0.07)' }}>
+                {/* Avatar */}
+                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                  {member.name.charAt(0)}
+                </div>
+                {/* Info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="text-sm font-medium text-white">{member.name}</p>
+                    {member.job_title && <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{member.job_title}</span>}
+                    {member.overdue_tasks > 0 && (
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(248,113,113,0.12)', color: '#f87171' }}>
+                        {member.overdue_tasks} atrasada{member.overdue_tasks > 1 ? 's' : ''}
+                      </span>
+                    )}
+                  </div>
+                  {member.active_task ? (
+                    <p className="text-xs mt-0.5 truncate" style={{ color: 'rgba(59,130,246,0.7)' }}>
+                      ▶ {member.active_task}
+                    </p>
+                  ) : (
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.35)' }}>
+                      Sem tarefa ativa
+                    </p>
+                  )}
+                </div>
+                {/* Stats */}
+                <div className="flex items-center gap-4 flex-shrink-0 text-right">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{member.tasks_today}</p>
+                    <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>hoje</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold" style={{ color: '#34d399' }}>{member.tasks_done_week}</p>
+                    <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>semana</p>
+                  </div>
+                  {member.minutes_week > 0 && (
+                    <div className="hidden sm:block">
+                      <p className="text-sm font-semibold" style={{ color: '#a78bfa' }}>{fmtTime(member.minutes_week)}</p>
+                      <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>registrado</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bottlenecks */}
+      {overview?.bottlenecks?.length > 0 && (
+        <div className="mb-8">
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: '#f87171' }}>
+            Gargalos — {overview.bottlenecks.length} tarefa{overview.bottlenecks.length > 1 ? 's' : ''} atrasada{overview.bottlenecks.length > 1 ? 's' : ''}
+          </p>
+          <div className="space-y-2">
+            {overview.bottlenecks.map((b: any) => {
+              const cfg = PRIORITY_CFG[b.priority as keyof typeof PRIORITY_CFG] || PRIORITY_CFG.media;
+              return (
+                <div key={b.id} className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                  style={{ background: 'rgba(248,113,113,0.05)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                  <AlertTriangle size={13} style={{ color: '#f87171', flexShrink: 0 }} />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white truncate">{b.title}</p>
+                    <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      {b.assigned_name || 'Sem responsável'} {b.client_name ? `· ${b.client_name}` : ''}
+                    </p>
+                  </div>
+                  <span className="text-[10px] flex-shrink-0" style={{ color: '#f87171' }}>
+                    {b.days_overdue}d atraso
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Client hours bar */}
+      {overview?.clientHours?.length > 0 && (
+        <div className="mb-8">
+          <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>
+            Horas por cliente — últimos 7 dias
+          </p>
+          <div className="space-y-2.5 rounded-2xl p-4"
+            style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: '1px solid rgba(59,130,246,0.08)' }}>
+            {overview.clientHours.map((c: any) => (
+              <div key={c.client_id} className="flex items-center gap-3">
+                <p className="text-xs w-28 flex-shrink-0 truncate" style={{ color: 'rgba(148,163,184,0.8)' }}>{c.client_name}</p>
+                <div className="flex-1 h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(59,130,246,0.08)' }}>
+                  <div className="h-full rounded-full" style={{ width: `${(c.minutes_week / maxMinutes) * 100}%`, background: 'linear-gradient(90deg,#3b82f6,#6366f1)' }} />
+                </div>
+                <p className="text-xs w-12 text-right flex-shrink-0" style={{ color: 'rgba(100,116,139,0.5)' }}>{fmtTime(c.minutes_week)}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* All tasks toggle */}
+      <div>
+        <button onClick={() => setShowAllTasks(o => !o)}
+          className="flex items-center gap-2 text-sm mb-4 transition-colors"
+          style={{ color: showAllTasks ? '#60a5fa' : 'rgba(100,116,139,0.5)' }}>
+          <ArrowRight size={14} style={{ transform: showAllTasks ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />
+          {showAllTasks ? 'Ocultar tarefas da equipe' : 'Ver todas as tarefas da equipe'}
+        </button>
+        {showAllTasks && (
+          <div className="space-y-2">
+            {tasks.filter(t => t.status !== 'concluida').map(task => (
+              <TaskRow key={task.id} task={task} acting={acting} activeTask={activeTask}
+                onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
+            ))}
+          </div>
+        )}
+      </div>
+
+      <DetailPanel detail={detail} acting={acting} isAdmin={true} users={users} onClose={() => setDetail(null)}
+        onStart={onStart} onPause={onPause} onComplete={onComplete} onDelete={() => {}} />
     </div>
   );
 }

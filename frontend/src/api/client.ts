@@ -122,6 +122,7 @@ export const tasksApi = {
     api.post(`/tasks/${id}/complete`, handoff || {}),
   listComments: (id: number) => api.get(`/tasks/${id}/comments`),
   addComment: (id: number, content: string) => api.post(`/tasks/${id}/comments`, { content }),
+  teamOverview: () => api.get('/tasks/team-overview'),
 };
 
 export const adminApi = {

@@ -3,6 +3,55 @@ import db from '../db.js';
 
 const router = Router();
 
+/* ── Team overview (manager view) ────────────────────────────────────── */
+router.get('/team-overview', (req, res) => {
+  const tid = req.user.tenant_id;
+
+  const team = db.prepare(`
+    SELECT
+      u.id, u.name, u.job_title, u.avatar,
+      (SELECT t2.title FROM tasks t2 WHERE t2.assigned_to = u.id AND t2.status = 'em_andamento' AND t2.tenant_id = ? LIMIT 1) as active_task,
+      (SELECT t2.id    FROM tasks t2 WHERE t2.assigned_to = u.id AND t2.status = 'em_andamento' AND t2.tenant_id = ? LIMIT 1) as active_task_id,
+      COUNT(DISTINCT CASE WHEN t.status != 'concluida' AND date(t.due_date) = date('now')          THEN t.id END) as tasks_today,
+      COUNT(DISTINCT CASE WHEN t.status != 'concluida'                                              THEN t.id END) as tasks_open,
+      COUNT(DISTINCT CASE WHEN t.status = 'concluida' AND t.completed_at >= datetime('now','-7 days') THEN t.id END) as tasks_done_week,
+      COUNT(DISTINCT CASE WHEN t.status NOT IN ('concluida') AND t.due_date < date('now')           THEN t.id END) as overdue_tasks,
+      COALESCE((
+        SELECT SUM(ts.minutes) FROM task_sessions ts
+        JOIN tasks tx ON tx.id = ts.task_id
+        WHERE ts.user_id = u.id AND ts.started_at >= datetime('now','-7 days') AND tx.tenant_id = ?
+      ), 0) as minutes_week
+    FROM users u
+    LEFT JOIN tasks t ON t.assigned_to = u.id AND t.tenant_id = ?
+    WHERE u.tenant_id = ? AND u.role IN ('team','user')
+    GROUP BY u.id ORDER BY active_task IS NOT NULL DESC, tasks_today DESC, u.name
+  `).all(tid, tid, tid, tid, tid);
+
+  const clientHours = db.prepare(`
+    SELECT ac.id as client_id, ac.name as client_name,
+      COALESCE(SUM(ts.minutes), 0) as minutes_week
+    FROM agency_clients ac
+    LEFT JOIN tasks t ON t.agency_client_id = ac.id AND t.tenant_id = ac.tenant_id
+    LEFT JOIN task_sessions ts ON ts.task_id = t.id AND ts.started_at >= datetime('now','-7 days')
+    WHERE ac.tenant_id = ?
+    GROUP BY ac.id HAVING minutes_week > 0
+    ORDER BY minutes_week DESC LIMIT 8
+  `).all(tid);
+
+  const bottlenecks = db.prepare(`
+    SELECT t.id, t.title, t.due_date, t.priority,
+      u.name as assigned_name, ac.name as client_name,
+      CAST(julianday('now') - julianday(t.due_date) AS INTEGER) as days_overdue
+    FROM tasks t
+    LEFT JOIN users u ON u.id = t.assigned_to
+    LEFT JOIN agency_clients ac ON ac.id = t.agency_client_id
+    WHERE t.tenant_id = ? AND t.status NOT IN ('concluida') AND t.due_date < date('now')
+    ORDER BY days_overdue DESC LIMIT 10
+  `).all(tid);
+
+  res.json({ team, clientHours, bottlenecks });
+});
+
 /* ── List ─────────────────────────────────────────────────────────────── */
 router.get('/', (req, res) => {
   const { assigned_to, status, client_id, due } = req.query as Record<string, string>;
