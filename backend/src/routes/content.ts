@@ -68,12 +68,20 @@ router.get('/batches/production', (req, res) => {
 
 // ── Bulk create feeds for multiple clients ───────────────────────────────────
 router.post('/batches/bulk-create', (req, res) => {
-  const { client_ids, month, year, default_template_id } = req.body as {
-    client_ids: number[]; month: number; year: number; default_template_id?: number;
+  const { client_ids, month, year, default_template_id, post_count = 0 } = req.body as {
+    client_ids: number[]; month: number; year: number; default_template_id?: number; post_count?: number;
   };
   if (!client_ids?.length || !month || !year) return res.status(400).json({ error: 'client_ids, month e year obrigatórios' });
 
   const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+
+  // Load template stages once if needed
+  let templateStages: any[] | null = null;
+  if (default_template_id && post_count > 0) {
+    const tpl = db.prepare('SELECT stages FROM workflow_templates WHERE id = ? AND tenant_id = ?').get(default_template_id, req.user.tenant_id) as any;
+    if (tpl) { try { templateStages = JSON.parse(tpl.stages); } catch {} }
+  }
+
   const created: any[] = [];
   const skipped: number[] = [];
 
@@ -82,9 +90,29 @@ router.post('/batches/bulk-create', (req, res) => {
     if (existing) { skipped.push(clientId); continue; }
     const orderNum = ((db.prepare('SELECT COUNT(*) as c FROM feed_batches WHERE tenant_id=? AND agency_client_id=?').get(req.user.tenant_id, clientId) as any).c as number) + 1;
     const name = `${String(orderNum).padStart(2, '0')} | Feed ${MONTHS_PT[Number(month) - 1]}`;
-    const r = db.prepare('INSERT INTO feed_batches (tenant_id, agency_client_id, name, month, year, order_num, default_template_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+    const batchResult = db.prepare('INSERT INTO feed_batches (tenant_id, agency_client_id, name, month, year, order_num, default_template_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
       .run(req.user.tenant_id, clientId, name, month, year, orderNum, default_template_id || null);
-    created.push({ id: r.lastInsertRowid, agency_client_id: clientId, name });
+    const batchId = batchResult.lastInsertRowid as number;
+
+    // Create posts
+    const postsCreated: number[] = [];
+    for (let i = 1; i <= post_count; i++) {
+      const postTitle = `Post ${i}`;
+      const postResult = db.prepare(`INSERT INTO content_pieces (tenant_id, agency_client_id, title, type, status, batch_id, created_by) VALUES (?, ?, ?, 'estatico', 'em_criacao', ?, ?)`)
+        .run(req.user.tenant_id, clientId, postTitle, batchId, req.user.id);
+      postsCreated.push(postResult.lastInsertRowid as number);
+
+      // Auto-apply template
+      if (templateStages) {
+        for (const s of templateStages) {
+          if (!s.active) continue;
+          db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, content_piece_id, agency_client_id, priority, stage, status) VALUES (?, ?, ?, ?, ?, ?, 'alta', ?, 'a_fazer')`)
+            .run(req.user.tenant_id, `${s.label}: ${postTitle}`, s.assigned_to || null, req.user.id, postsCreated[postsCreated.length - 1], clientId, s.stage);
+        }
+      }
+    }
+
+    created.push({ id: batchId, agency_client_id: clientId, name, posts_created: postsCreated.length });
   }
   res.json({ created, skipped });
 });

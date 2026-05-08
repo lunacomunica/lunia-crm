@@ -83,6 +83,7 @@ export default function Production() {
   const [bulkYear, setBulkYear] = useState(new Date().getFullYear());
   const [bulkTemplate, setBulkTemplate] = useState<number | ''>('');
   const [bulkClients, setBulkClients] = useState<Set<number>>(new Set());
+  const [bulkPostCount, setBulkPostCount] = useState(0);
   const [allClientsList, setAllClientsList] = useState<{ id: number; name: string }[]>([]);
   const [creatingBulk, setCreatingBulk] = useState(false);
   const [bulkResult, setBulkResult] = useState<{ created: number; skipped: number } | null>(null);
@@ -184,6 +185,7 @@ export default function Production() {
     setBulkYear(new Date().getFullYear());
     setBulkTemplate('');
     setBulkClients(new Set(allClientsList.map(c => c.id)));
+    setBulkPostCount(0);
     setBulkResult(null);
     setBulkModal(true);
   };
@@ -209,6 +211,7 @@ export default function Production() {
       month: bulkMonth,
       year: bulkYear,
       default_template_id: bulkTemplate ? Number(bulkTemplate) : undefined,
+      post_count: bulkPostCount > 0 ? bulkPostCount : undefined,
     });
     setBulkResult({ created: r.data.created.length, skipped: r.data.skipped.length });
     setCreatingBulk(false);
@@ -443,6 +446,7 @@ export default function Production() {
                 <p className="text-white font-semibold">Feeds criados com sucesso!</p>
                 <p className="text-sm" style={{ color: 'rgba(100,116,139,0.6)' }}>
                   {bulkResult.created} feed{bulkResult.created !== 1 ? 's' : ''} criado{bulkResult.created !== 1 ? 's' : ''}
+                  {bulkPostCount > 0 && ` · ${bulkResult.created * bulkPostCount} posts`}
                   {bulkResult.skipped > 0 && ` · ${bulkResult.skipped} já existia${bulkResult.skipped !== 1 ? 'm' : ''}`}
                 </p>
                 <button onClick={() => setBulkModal(false)}
@@ -479,6 +483,19 @@ export default function Production() {
                       <option value="">Sem template</option>
                       {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                     </select>
+                  </div>
+
+                  {/* Post count */}
+                  <div>
+                    <label className="text-xs mb-1.5 block font-semibold uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      Posts por feed <span style={{ color: 'rgba(100,116,139,0.35)' }}>(opcional — 0 = não criar posts agora)</span>
+                    </label>
+                    <input
+                      type="number" min={0} max={60} value={bulkPostCount}
+                      onChange={e => setBulkPostCount(Math.max(0, Math.min(60, Number(e.target.value))))}
+                      className="input-dark w-full"
+                      placeholder="0"
+                    />
                   </div>
 
                   {/* Client list */}
