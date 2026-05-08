@@ -10,11 +10,16 @@ router.get('/', (req, res) => {
 
   let q = `
     SELECT t.*,
-      u.name  as assigned_name,
+      u.name   as assigned_name,
       u.avatar as assigned_avatar,
-      ac.name as client_name,
-      cp.title as content_title,
-      c.name  as campaign_name,
+      u.job_title as assigned_job_title,
+      ac.name  as client_name,
+      cp.title  as content_title,
+      cp.media_url as content_media_url,
+      cp.caption   as content_caption,
+      cp.type      as content_type,
+      cp.status    as content_status,
+      c.name   as campaign_name,
       (SELECT started_at FROM task_sessions WHERE task_id = t.id AND ended_at IS NULL LIMIT 1) as session_started_at
     FROM tasks t
     LEFT JOIN users u ON u.id = t.assigned_to

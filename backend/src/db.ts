@@ -522,4 +522,37 @@ if (campaignCount === 0) {
   }
 }
 
+// Seed team users
+const teamCount = (db.prepare("SELECT COUNT(*) as count FROM users WHERE role IN ('team','user') AND tenant_id = 1").get() as any).count;
+if (teamCount === 0) {
+  const teamHash = '$2b$10$mrWKuVQVqaO.2Z5dvX3zde9Ldc3R2KqSkEVaWCxTcqVc9RQRRJqOe'; // admin123
+  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'team', ?)`).run('Amanda Cherem', 'amanda@lunacomunica.com', teamHash, 'Designer');
+  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'team', ?)`).run('Carlos Mota', 'carlos@lunacomunica.com', teamHash, 'Gestora de Tráfego');
+  db.prepare(`INSERT INTO users (tenant_id, name, email, password_hash, role, job_title) VALUES (1, ?, ?, ?, 'user', ?)`).run('Beatriz Lins', 'beatriz@lunacomunica.com', teamHash, 'Gestora de Projetos');
+}
+
+// Seed sample tasks
+const taskCount = (db.prepare('SELECT COUNT(*) as count FROM tasks WHERE tenant_id = 1').get() as any).count;
+if (taskCount === 0) {
+  const amanda = db.prepare("SELECT id FROM users WHERE email = 'amanda@lunacomunica.com'").get() as any;
+  const carlos = db.prepare("SELECT id FROM users WHERE email = 'carlos@lunacomunica.com'").get() as any;
+  const beatriz = db.prepare("SELECT id FROM users WHERE email = 'beatriz@lunacomunica.com'").get() as any;
+  const c1 = (db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1").get() as any)?.id;
+  const c2 = (db.prepare("SELECT id FROM agency_clients WHERE tenant_id = 1 ORDER BY id LIMIT 1 OFFSET 1").get() as any)?.id;
+  const posts = db.prepare("SELECT id, title FROM content_pieces WHERE tenant_id = 1 ORDER BY id LIMIT 6").all() as any[];
+
+  if (amanda && beatriz) {
+    const ins = db.prepare(`INSERT INTO tasks (tenant_id, title, description, assigned_to, created_by, content_piece_id, agency_client_id, priority, status, due_date, estimated_minutes) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, date('now'), ?)`);
+
+    if (posts[0]) ins.run('Criar arte — ' + posts[0].title, 'Seguir identidade visual da marca. Formato quadrado 1080x1080.', amanda?.id, beatriz?.id, posts[0].id, c1, 'urgente', 'a_fazer', 90);
+    if (posts[1]) ins.run('Criar arte — ' + posts[1].title, 'Versão reels vertical. Animação simples no texto.', amanda?.id, beatriz?.id, posts[1].id, c1, 'alta', 'a_fazer', 60);
+    if (posts[2]) ins.run('Criar arte — ' + posts[2].title, null, amanda?.id, beatriz?.id, posts[2].id, c1, 'media', 'a_fazer', 45);
+    if (posts[3]) ins.run('Configurar campanha Meta Ads', 'Subir criativos aprovados. CBO com 3 conjuntos de anúncio.', carlos?.id, beatriz?.id, null, c1, 'alta', 'a_fazer', 120);
+    if (posts[4]) ins.run('Criar arte — ' + posts[4].title, 'Cardápio de inverno. Tons quentes, minimalista.', amanda?.id, beatriz?.id, posts[4].id, c2, 'media', 'a_fazer', 60);
+    if (posts[5]) ins.run('Ajuste copy legenda', 'Cliente pediu tom mais descontraído. Ver comentário no post.', amanda?.id, beatriz?.id, posts[5].id, c2, 'alta', 'a_fazer', 30);
+
+    db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, agency_client_id, priority, status, due_date, estimated_minutes, total_minutes, completed_at) VALUES (1, 'Briefing criativo Studio Z', ?, ?, ?, 'media', 'concluida', date('now', '-1 days'), 60, 55, datetime('now', '-1 days'))`).run(amanda?.id, beatriz?.id, c1);
+  }
+}
+
 export default db;

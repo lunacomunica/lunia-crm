@@ -163,6 +163,16 @@ export default function Sidebar() {
           </div>
         )}
 
+        {/* Meu Espaço — team only */}
+        {!isInternal && (
+          <div>
+            <p className="section-label px-3 mb-2">Meu Espaço</p>
+            <div className="space-y-0.5">
+              <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
+            </div>
+          </div>
+        )}
+
         {/* Negócio — hidden for team */}
         {isInternal && (
           <div>
