@@ -1287,12 +1287,16 @@ function DetailPanel({ detail, acting, isAdmin, users, onClose, onStart, onPause
   const [posting, setPosting] = useState(false);
   const [handoffOpen, setHandoffOpen] = useState(false);
   const [handoff, setHandoff] = useState({ next_assigned_to: '', next_stage: 'design', next_title: '' });
+  const [editingDueDate, setEditingDueDate] = useState(false);
+  const [dueDate, setDueDate] = useState('');
   const commentsEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!detail) return;
     setHandoffOpen(false);
     setHandoff({ next_assigned_to: '', next_stage: 'design', next_title: '' });
+    setDueDate(detail.due_date || '');
+    setEditingDueDate(false);
     tasksApi.listComments(detail.id).then(r => setComments(Array.isArray(r.data) ? r.data : []));
   }, [detail?.id]);
 
@@ -1373,7 +1377,17 @@ function DetailPanel({ detail, acting, isAdmin, users, onClose, onStart, onPause
           <div className="grid grid-cols-2 gap-3">
             {detail.client_name && <InfoCard label="Cliente" value={detail.client_name} />}
             {detail.assigned_name && <InfoCard label="Responsável" value={detail.assigned_name} />}
-            {detail.due_date && <InfoCard label="Prazo" value={format(new Date(detail.due_date), "d MMM yyyy", { locale: ptBR })} />}
+            <div className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.08)' }}>
+              <p className="text-[10px] mb-1 font-semibold uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.5)' }}>Prazo</p>
+              <input type="date" value={dueDate}
+                onChange={e => setDueDate(e.target.value)}
+                onBlur={async e => {
+                  if (!detail) return;
+                  await tasksApi.update(detail.id, { due_date: e.target.value || null });
+                }}
+                className="text-sm text-white bg-transparent outline-none w-full cursor-pointer"
+                style={{ colorScheme: 'dark' }} />
+            </div>
           </div>
 
           {/* Time */}

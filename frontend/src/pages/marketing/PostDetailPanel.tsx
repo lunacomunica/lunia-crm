@@ -715,11 +715,15 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                             <option value="">Sem responsável</option>
                             {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
                           </select>
-                          {t.due_date && (
-                            <span className="text-[10px] flex-shrink-0 flex items-center gap-1" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                              <Calendar size={9} />{t.due_date.slice(0,10)}
-                            </span>
-                          )}
+                          <input type="date" value={t.due_date ? t.due_date.slice(0,10) : ''}
+                            onClick={e => e.stopPropagation()}
+                            onChange={async e => {
+                              const val = e.target.value || null;
+                              await tasksApi.update(t.id, { due_date: val });
+                              setTasks(prev => prev.map(x => x.id === t.id ? { ...x, due_date: val } : x));
+                            }}
+                            className="text-[11px] rounded-lg px-2 py-1 outline-none flex-shrink-0 cursor-pointer"
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: t.due_date ? 'rgba(148,163,184,0.7)' : 'rgba(100,116,139,0.3)', colorScheme: 'dark', width: '120px' }} />
                           <span className="text-[10px] flex-shrink-0" style={{ color: sc.color }}>{sc.label}</span>
                         </div>
                       </div>
