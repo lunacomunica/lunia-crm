@@ -85,6 +85,7 @@ export const contentApi = {
   deleteBatch: (id: number) => api.delete(`/content/batches/${id}`),
   getTasks: (id: number) => api.get(`/content/${id}/tasks`),
   createWorkflow: (id: number, stages: any[]) => api.post(`/content/${id}/workflow`, { stages }),
+  createBatchWorkflow: (batchId: number, stages: any[]) => api.post(`/content/batches/${batchId}/workflow`, { stages }),
 };
 
 export const campaignsApi = {

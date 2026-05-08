@@ -222,6 +222,18 @@ export default function ClientDetail() {
   const [deletingPost, setDeletingPost] = useState<number | null>(null);
   const [panelPost, setPanelPost] = useState<any | null>(null);
 
+  // Batch workflow modal
+  const [batchWorkflowModal, setBatchWorkflowModal] = useState(false);
+  const DEFAULT_WORKFLOW_STAGES = [
+    { stage: 'copy',    label: 'Copy',    active: true,  assigned_to: '', due_date: '' },
+    { stage: 'design',  label: 'Design',  active: true,  assigned_to: '', due_date: '' },
+    { stage: 'edicao',  label: 'Edição',  active: false, assigned_to: '', due_date: '' },
+    { stage: 'revisao', label: 'Revisão', active: true,  assigned_to: '', due_date: '' },
+  ];
+  const [workflowStages, setWorkflowStages] = useState(DEFAULT_WORKFLOW_STAGES);
+  const [savingWorkflow, setSavingWorkflow] = useState(false);
+  const [users, setUsers] = useState<any[]>([]);
+
   // Saving
   const [savingPos, setSavingPos] = useState(false);
   const [savedPos, setSavedPos] = useState(false);
@@ -270,6 +282,10 @@ export default function ClientDetail() {
     ]);
     setCampaigns(campRes.data);
     setTasks(taskRes.data || []);
+    if (users.length === 0) {
+      fetch('/api/users', { headers: { Authorization: `Bearer ${localStorage.getItem('lunia_token')}` } })
+        .then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
+    }
     setLoadingBatches(true);
     const batchRes = await contentApi.listBatches({ client_id: String(cid) });
     setBatches(batchRes.data);
@@ -301,6 +317,19 @@ export default function ClientDetail() {
     setSavingBatch(false); setBatchModal(false);
     await reloadBatches();
     setNavMonth({ month: Number(batchForm.month), year: Number(batchForm.year) });
+  };
+
+  const handleBatchWorkflow = async () => {
+    if (!selectedBatchId) return;
+    setSavingWorkflow(true);
+    const r = await contentApi.createBatchWorkflow(selectedBatchId, workflowStages);
+    setSavingWorkflow(false);
+    setBatchWorkflowModal(false);
+    setWorkflowStages(DEFAULT_WORKFLOW_STAGES);
+    if (r.data.created > 0) {
+      const taskRes = await tasksApi.list({ client_id: String(cid) });
+      setTasks(taskRes.data || []);
+    }
   };
 
   const createNewPost = async () => {
@@ -723,10 +752,19 @@ export default function ClientDetail() {
                       ))}
                     </div>
                     {selectedBatchId && (
-                      <button onClick={() => { setNewPostTitle(''); setShowNewPostModal(true); }}
-                        className="btn-primary text-xs px-2.5 py-1.5">
-                        <Plus size={11} /> Post
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {posts.length > 0 && (
+                          <button onClick={() => { setWorkflowStages(DEFAULT_WORKFLOW_STAGES); setBatchWorkflowModal(true); }}
+                            className="text-xs px-2.5 py-1.5 rounded-lg font-medium flex items-center gap-1.5"
+                            style={{ background: 'rgba(167,139,250,0.12)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
+                            <CheckSquare size={11} /> Iniciar produção
+                          </button>
+                        )}
+                        <button onClick={() => { setNewPostTitle(''); setShowNewPostModal(true); }}
+                          className="btn-primary text-xs px-2.5 py-1.5">
+                          <Plus size={11} /> Post
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -1114,6 +1152,69 @@ export default function ClientDetail() {
                 className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
                 style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
                 {savingBatch ? 'Criando…' : 'Criar Feed'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Batch workflow modal */}
+      {batchWorkflowModal && selectedBatch_cd && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}
+          onClick={() => setBatchWorkflowModal(false)}>
+          <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#0d0d22', border: '1px solid rgba(167,139,250,0.2)' }}
+            onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(167,139,250,0.1)' }}>
+              <div>
+                <p className="text-xs font-medium mb-0.5" style={{ color: 'rgba(167,139,250,0.6)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Produção em lote</p>
+                <h3 className="text-base font-semibold text-white">{selectedBatch_cd.name}</h3>
+                <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  {selectedBatch_cd.post_count} post{selectedBatch_cd.post_count !== 1 ? 's' : ''} · tasks criadas para todos
+                </p>
+              </div>
+              <button onClick={() => setBatchWorkflowModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
+            </div>
+            <div className="p-6 space-y-3">
+              {workflowStages.map((s, i) => (
+                <div key={s.stage} className="rounded-xl p-3 transition-all"
+                  style={{ background: s.active ? 'rgba(167,139,250,0.06)' : 'rgba(255,255,255,0.02)', border: s.active ? '1px solid rgba(167,139,250,0.15)' : '1px solid rgba(255,255,255,0.05)' }}>
+                  <div className="flex items-center gap-3 mb-2">
+                    <button onClick={() => setWorkflowStages(prev => prev.map((st, j) => j === i ? { ...st, active: !st.active } : st))}
+                      className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0 transition-all"
+                      style={{ background: s.active ? '#a78bfa' : 'rgba(255,255,255,0.05)', border: s.active ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.1)' }}>
+                      {s.active && <span style={{ color: 'white', fontSize: 10, lineHeight: 1 }}>✓</span>}
+                    </button>
+                    <span className="text-sm font-medium" style={{ color: s.active ? '#e2e8f0' : 'rgba(100,116,139,0.4)' }}>{s.label}</span>
+                  </div>
+                  {s.active && (
+                    <div className="grid grid-cols-2 gap-2 pl-7">
+                      <div>
+                        <label className="text-[10px] mb-1 block" style={{ color: 'rgba(100,116,139,0.5)' }}>Responsável</label>
+                        <select value={s.assigned_to}
+                          onChange={e => setWorkflowStages(prev => prev.map((st, j) => j === i ? { ...st, assigned_to: e.target.value } : st))}
+                          className="input-dark w-full text-xs py-1.5">
+                          <option value="">Sem responsável</option>
+                          {users.map(u => <option key={u.id} value={u.id}>{u.name}{u.job_title ? ` — ${u.job_title}` : ''}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-[10px] mb-1 block" style={{ color: 'rgba(100,116,139,0.5)' }}>Prazo</label>
+                        <input type="date" value={s.due_date}
+                          onChange={e => setWorkflowStages(prev => prev.map((st, j) => j === i ? { ...st, due_date: e.target.value } : st))}
+                          className="input-dark w-full text-xs py-1.5" />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="flex gap-2 px-6 pb-6">
+              <button onClick={() => setBatchWorkflowModal(false)} className="flex-1 py-2 rounded-lg text-sm"
+                style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>Cancelar</button>
+              <button onClick={handleBatchWorkflow} disabled={savingWorkflow || workflowStages.every(s => !s.active)}
+                className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
+                style={{ background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.3)' }}>
+                {savingWorkflow ? 'Criando…' : `Iniciar produção`}
               </button>
             </div>
           </div>

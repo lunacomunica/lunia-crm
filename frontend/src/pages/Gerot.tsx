@@ -33,6 +33,8 @@ interface Task {
   session_started_at: string | null;
   stage: string;
   parent_task_id: number | null;
+  batch_id: number | null;
+  batch_name: string | null;
   created_at: string;
   completed_at: string | null;
 }
@@ -661,12 +663,20 @@ function TeamPanel({ tasks, loading, activeTask, acting, onStart, onPause, onCom
 
   const myTasks = tasks.filter(t => t.status !== 'concluida');
   const todayTasks = myTasks.filter(t => t.due_date && isToday(new Date(t.due_date)));
-  const weekTasks = myTasks.filter(t => t.due_date && isThisWeek(new Date(t.due_date), { weekStartsOn: 1 }));
   const urgentCount = myTasks.filter(t => t.priority === 'urgente').length;
   const doneThisWeek = tasks.filter(t => t.status === 'concluida' && t.completed_at && isThisWeek(new Date(t.completed_at), { weekStartsOn: 1 }));
   const timeToday = tasks.filter(t => t.status === 'concluida').reduce((s, t) => s + t.total_minutes, 0);
 
-  const displayTasks = todayTasks.length > 0 ? todayTasks : myTasks.slice(0, 8);
+  const displayTasks = todayTasks.length > 0 ? todayTasks : myTasks;
+
+  // Group display tasks by batch; tasks without batch go to standalone group
+  const batchMap = new Map<string, { batchId: number | null; batchName: string | null; clientName: string | null; tasks: Task[] }>();
+  for (const t of displayTasks) {
+    const key = t.batch_id ? `batch-${t.batch_id}` : 'standalone';
+    if (!batchMap.has(key)) batchMap.set(key, { batchId: t.batch_id, batchName: t.batch_name, clientName: t.client_name, tasks: [] });
+    batchMap.get(key)!.tasks.push(t);
+  }
+  const groups = Array.from(batchMap.values()).sort((a, b) => (a.batchId ? 0 : 1) - (b.batchId ? 0 : 1));
 
   return (
     <div className="p-4 md:p-8 max-w-3xl">
@@ -729,7 +739,7 @@ function TeamPanel({ tasks, loading, activeTask, acting, onStart, onPause, onCom
         ))}
       </div>
 
-      {/* Tasks */}
+      {/* Tasks grouped by batch */}
       {loading ? (
         <div className="flex justify-center py-12">
           <div className="w-7 h-7 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
@@ -741,35 +751,81 @@ function TeamPanel({ tasks, loading, activeTask, acting, onStart, onPause, onCom
           <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma tarefa pendente para hoje.</p>
         </div>
       ) : (
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-wider mb-4"
-            style={{ color: 'rgba(100,116,139,0.5)' }}>
-            {todayTasks.length > 0 ? 'Suas tarefas de hoje' : 'Suas tarefas'}
-          </p>
-          <div className="space-y-3">
-            {displayTasks.map(task => (
-              <TeamTaskCard key={task.id} task={task} acting={acting} activeTask={activeTask}
-                onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
-            ))}
-          </div>
-
-          {weekTasks.length > displayTasks.length && (
-            <div className="mt-6">
-              <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                Esta semana
-              </p>
-              <div className="space-y-2 opacity-70">
-                {weekTasks.filter(t => !todayTasks.find(d => d.id === t.id)).map(task => (
-                  <TeamTaskCard key={task.id} task={task} acting={acting} activeTask={activeTask}
-                    onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
-                ))}
-              </div>
-            </div>
+        <div className="space-y-4">
+          {groups.map(group => (
+            <BatchGroup key={group.batchId ?? 'standalone'} group={group}
+              acting={acting} activeTask={activeTask}
+              onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
+          ))}
+          {doneThisWeek.length > 0 && (
+            <p className="text-xs text-center pt-2" style={{ color: 'rgba(100,116,139,0.35)' }}>
+              {doneThisWeek.length} tarefa{doneThisWeek.length > 1 ? 's' : ''} concluída{doneThisWeek.length > 1 ? 's' : ''} esta semana
+            </p>
           )}
         </div>
       )}
 
       <DetailPanel detail={detail} acting={acting} isAdmin={false} users={[]} onClose={() => setDetail(null)} onStart={onStart} onPause={onPause} onComplete={onComplete} onDelete={() => {}} />
+    </div>
+  );
+}
+
+/* ── Batch group for team panel ─────────────────────────────────────────── */
+function BatchGroup({ group, acting, activeTask, onStart, onPause, onComplete, onDetail }: {
+  group: { batchId: number | null; batchName: string | null; clientName: string | null; tasks: Task[] };
+  acting: number | null; activeTask: Task | undefined;
+  onStart: (id: number) => void; onPause: (id: number) => void;
+  onComplete: (id: number) => void; onDetail: (t: Task) => void;
+}) {
+  const [collapsed, setCollapsed] = useState(false);
+  const done = group.tasks.filter(t => t.status === 'concluida').length;
+  const total = group.tasks.length;
+  const hasRunning = group.tasks.some(t => t.status === 'em_andamento');
+
+  if (!group.batchId) {
+    return (
+      <div className="space-y-3">
+        {group.tasks.map(task => (
+          <TeamTaskCard key={task.id} task={task} acting={acting} activeTask={activeTask}
+            onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
+        ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-2xl overflow-hidden"
+      style={{ background: 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: hasRunning ? '1px solid rgba(59,130,246,0.2)' : '1px solid rgba(59,130,246,0.08)' }}>
+      {/* Batch header */}
+      <button className="w-full flex items-center gap-3 px-4 py-3 text-left"
+        style={{ borderBottom: collapsed ? 'none' : '1px solid rgba(59,130,246,0.06)' }}
+        onClick={() => setCollapsed(c => !c)}>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-semibold text-white">{group.batchName}</span>
+            {group.clientName && <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.15)' }}>{group.clientName}</span>}
+            {hasRunning && <span className="w-1.5 h-1.5 rounded-full animate-pulse flex-shrink-0" style={{ background: '#3b82f6' }} />}
+          </div>
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <div className="flex items-center gap-1.5">
+            <div className="w-16 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(59,130,246,0.1)' }}>
+              <div className="h-full rounded-full transition-all" style={{ width: `${total > 0 ? (done / total) * 100 : 0}%`, background: done === total ? '#34d399' : '#3b82f6' }} />
+            </div>
+            <span className="text-[10px]" style={{ color: done === total ? '#34d399' : 'rgba(100,116,139,0.5)' }}>{done}/{total}</span>
+          </div>
+          <span style={{ color: 'rgba(100,116,139,0.4)', transform: collapsed ? 'rotate(-90deg)' : 'rotate(0deg)', transition: 'transform 0.2s', display: 'inline-block' }}>▾</span>
+        </div>
+      </button>
+
+      {!collapsed && (
+        <div className="divide-y" style={{ borderColor: 'rgba(59,130,246,0.04)' }}>
+          {group.tasks.map(task => (
+            <TeamTaskCard key={task.id} task={task} acting={acting} activeTask={activeTask}
+              onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

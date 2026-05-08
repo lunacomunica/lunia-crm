@@ -68,12 +68,15 @@ router.get('/', (req, res) => {
       cp.caption   as content_caption,
       cp.type      as content_type,
       cp.status    as content_status,
+      cp.batch_id  as batch_id,
+      fb.name      as batch_name,
       c.name   as campaign_name,
       (SELECT started_at FROM task_sessions WHERE task_id = t.id AND ended_at IS NULL LIMIT 1) as session_started_at
     FROM tasks t
     LEFT JOIN users u ON u.id = t.assigned_to
     LEFT JOIN agency_clients ac ON ac.id = t.agency_client_id
     LEFT JOIN content_pieces cp ON cp.id = t.content_piece_id
+    LEFT JOIN feed_batches fb ON fb.id = cp.batch_id
     LEFT JOIN campaigns c ON c.id = t.campaign_id
     WHERE t.tenant_id = ?
   `;

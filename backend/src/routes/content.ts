@@ -40,6 +40,35 @@ router.delete('/batches/:id', (req, res) => {
   res.json({ ok: true });
 });
 
+router.post('/batches/:id/workflow', (req, res) => {
+  const batch = db.prepare('SELECT * FROM feed_batches WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id) as any;
+  if (!batch) return res.status(404).json({ error: 'Feed não encontrado' });
+
+  const posts = db.prepare('SELECT * FROM content_pieces WHERE batch_id = ? AND tenant_id = ?').all(req.params.id, req.user.tenant_id) as any[];
+  const { stages } = req.body as { stages: { stage: string; label: string; active: boolean; assigned_to?: number; due_date?: string }[] };
+
+  let created = 0;
+  for (const post of posts) {
+    for (const s of stages) {
+      if (!s.active) continue;
+      const exists = db.prepare('SELECT id FROM tasks WHERE content_piece_id = ? AND stage = ? AND tenant_id = ?').get(post.id, s.stage, req.user.tenant_id);
+      if (exists) continue;
+      db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, content_piece_id, agency_client_id, priority, stage, status, due_date) VALUES (?, ?, ?, ?, ?, ?, 'alta', ?, 'a_fazer', ?)`).run(
+        req.user.tenant_id,
+        `${s.label}: ${post.title}`,
+        s.assigned_to || null,
+        req.user.id,
+        post.id,
+        post.agency_client_id,
+        s.stage,
+        s.due_date || null
+      );
+      created++;
+    }
+  }
+  res.json({ created, posts: posts.length });
+});
+
 // ── Content Pieces ──────────────────────────────────────────────────────────
 
 router.get('/', (req, res) => {
