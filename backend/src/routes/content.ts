@@ -45,6 +45,8 @@ router.get('/batches/production', (req, res) => {
   const rows = db.prepare(`
     SELECT
       fb.id, fb.name, fb.month, fb.year, fb.agency_client_id,
+      fb.default_template_id,
+      wt.name as template_name,
       ac.name as client_name, ac.logo as client_logo,
       COUNT(DISTINCT cp.id) as post_count,
       COUNT(DISTINCT t.id) as task_count,
@@ -52,6 +54,7 @@ router.get('/batches/production', (req, res) => {
       SUM(CASE WHEN t.status != 'concluida' THEN 1 ELSE 0 END) as tasks_open
     FROM feed_batches fb
     LEFT JOIN agency_clients ac ON ac.id = fb.agency_client_id
+    LEFT JOIN workflow_templates wt ON wt.id = fb.default_template_id
     LEFT JOIN content_pieces cp ON cp.batch_id = fb.id AND cp.tenant_id = fb.tenant_id
     LEFT JOIN tasks t ON t.content_piece_id = cp.id
       AND t.stage IN ('copy','design','edicao','revisao')
@@ -63,15 +66,46 @@ router.get('/batches/production', (req, res) => {
   res.json(rows);
 });
 
+// ── Bulk create feeds for multiple clients ───────────────────────────────────
+router.post('/batches/bulk-create', (req, res) => {
+  const { client_ids, month, year, default_template_id } = req.body as {
+    client_ids: number[]; month: number; year: number; default_template_id?: number;
+  };
+  if (!client_ids?.length || !month || !year) return res.status(400).json({ error: 'client_ids, month e year obrigatórios' });
+
+  const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+  const created: any[] = [];
+  const skipped: number[] = [];
+
+  for (const clientId of client_ids) {
+    const existing = db.prepare('SELECT id FROM feed_batches WHERE tenant_id=? AND agency_client_id=? AND month=? AND year=?').get(req.user.tenant_id, clientId, month, year) as any;
+    if (existing) { skipped.push(clientId); continue; }
+    const orderNum = ((db.prepare('SELECT COUNT(*) as c FROM feed_batches WHERE tenant_id=? AND agency_client_id=?').get(req.user.tenant_id, clientId) as any).c as number) + 1;
+    const name = `${String(orderNum).padStart(2, '0')} | Feed ${MONTHS_PT[Number(month) - 1]}`;
+    const r = db.prepare('INSERT INTO feed_batches (tenant_id, agency_client_id, name, month, year, order_num, default_template_id) VALUES (?, ?, ?, ?, ?, ?, ?)')
+      .run(req.user.tenant_id, clientId, name, month, year, orderNum, default_template_id || null);
+    created.push({ id: r.lastInsertRowid, agency_client_id: clientId, name });
+  }
+  res.json({ created, skipped });
+});
+
 // ── Bulk workflow (apply to multiple batches) ────────────────────────────────
 router.post('/batches/bulk-workflow', (req, res) => {
-  const { batch_ids, stages } = req.body as { batch_ids: number[]; stages: { stage: string; label: string; active: boolean; assigned_to?: number; due_date?: string }[] };
+  const { batch_ids, stages, template_id } = req.body as {
+    batch_ids: number[];
+    stages: { stage: string; label: string; active: boolean; assigned_to?: number; due_date?: string }[];
+    template_id?: number;
+  };
   if (!batch_ids?.length || !stages?.length) return res.status(400).json({ error: 'batch_ids e stages obrigatórios' });
 
   let created = 0;
   for (const batchId of batch_ids) {
     const batch = db.prepare('SELECT * FROM feed_batches WHERE id = ? AND tenant_id = ?').get(batchId, req.user.tenant_id) as any;
     if (!batch) continue;
+    // Set default template on the feed so future posts auto-inherit it
+    if (template_id) {
+      db.prepare('UPDATE feed_batches SET default_template_id = ? WHERE id = ? AND tenant_id = ?').run(template_id, batchId, req.user.tenant_id);
+    }
     const posts = db.prepare('SELECT * FROM content_pieces WHERE batch_id = ? AND tenant_id = ?').all(batchId, req.user.tenant_id) as any[];
     for (const post of posts) {
       for (const s of stages) {
@@ -171,8 +205,39 @@ router.post('/', (req, res) => {
   const r = db.prepare(`INSERT INTO content_pieces (tenant_id, agency_client_id, title, type, caption, media_url, scheduled_date, objective, status, batch_id, created_by)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(req.user.tenant_id, agency_client_id, title, type, caption, media_url, scheduled_date || null, objective, status, batch_id || null, req.user.id);
 
+  const newPostId = r.lastInsertRowid as number;
+
+  // Auto-apply template if feed has one
+  if (batch_id) {
+    const batch = db.prepare(`
+      SELECT fb.default_template_id, wt.stages as template_stages
+      FROM feed_batches fb
+      LEFT JOIN workflow_templates wt ON wt.id = fb.default_template_id
+      WHERE fb.id = ? AND fb.tenant_id = ?
+    `).get(batch_id, req.user.tenant_id) as any;
+
+    if (batch?.default_template_id && batch?.template_stages) {
+      try {
+        const stages = JSON.parse(batch.template_stages);
+        for (const s of stages) {
+          if (!s.active) continue;
+          db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, content_piece_id, agency_client_id, priority, stage, status, due_date) VALUES (?, ?, ?, ?, ?, ?, 'alta', ?, 'a_fazer', ?)`).run(
+            req.user.tenant_id,
+            `${s.label}: ${title}`,
+            s.assigned_to || null,
+            req.user.id,
+            newPostId,
+            agency_client_id,
+            s.stage,
+            s.due_date || null
+          );
+        }
+      } catch {}
+    }
+  }
+
   res.status(201).json(db.prepare(`SELECT cp.*, ac.name as client_name FROM content_pieces cp
-    LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id WHERE cp.id = ?`).get(r.lastInsertRowid));
+    LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id WHERE cp.id = ?`).get(newPostId));
 });
 
 router.get('/:id/tasks', (req, res) => {

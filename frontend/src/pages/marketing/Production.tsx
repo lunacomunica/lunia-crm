@@ -5,7 +5,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import {
   AlertTriangle, Clock, CheckCircle2, ExternalLink, Layers,
-  CheckSquare, Square, Zap, Plus, X, Settings2, Trash2
+  CheckSquare, Square, Zap, Plus, X, Settings2, Trash2, CalendarPlus, Check
 } from 'lucide-react';
 
 interface ClientProduction {
@@ -18,6 +18,7 @@ interface BatchProduction {
   id: number; name: string; month: number; year: number; agency_client_id: number;
   client_name: string; client_logo: string | null;
   post_count: number; task_count: number; tasks_done: number; tasks_open: number;
+  default_template_id: number | null; template_name: string | null;
 }
 interface WorkflowTemplate {
   id: number; name: string; stages: WorkflowStage[];
@@ -32,6 +33,8 @@ const DEFAULT_STAGES: WorkflowStage[] = [
   { stage: 'edicao',  label: 'Edição',  active: false, assigned_to: '', due_date: '' },
   { stage: 'revisao', label: 'Revisão', active: true,  assigned_to: '', due_date: '' },
 ];
+
+const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
 function healthScore(c: ClientProduction) {
   if (c.ajuste_solicitado > 0 || c.tarefas_atrasadas > 0) return 'critico' as const;
@@ -74,6 +77,16 @@ export default function Production() {
   const [tplStages, setTplStages] = useState<WorkflowStage[]>(DEFAULT_STAGES);
   const [savingTpl, setSavingTpl] = useState(false);
 
+  // Bulk create feeds modal
+  const [bulkModal, setBulkModal] = useState(false);
+  const [bulkMonth, setBulkMonth] = useState(new Date().getMonth() + 1);
+  const [bulkYear, setBulkYear] = useState(new Date().getFullYear());
+  const [bulkTemplate, setBulkTemplate] = useState<number | ''>('');
+  const [bulkClients, setBulkClients] = useState<Set<number>>(new Set());
+  const [allClientsList, setAllClientsList] = useState<{ id: number; name: string }[]>([]);
+  const [creatingBulk, setCreatingBulk] = useState(false);
+  const [bulkResult, setBulkResult] = useState<{ created: number; skipped: number } | null>(null);
+
   useEffect(() => {
     if (tab === 'clientes' && clients.length === 0) {
       setLoadingClients(true);
@@ -88,6 +101,8 @@ export default function Production() {
     workflowTemplatesApi.list().then(r => setTemplates(r.data));
     fetch('/api/users', { headers: { Authorization: `Bearer ${localStorage.getItem('lunia_token')}` } })
       .then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
+    // Load all clients for bulk modal
+    agencyClientsApi.list().then((r: any) => setAllClientsList(r.data || [])).catch(() => {});
   }, []);
 
   const loadFeeds = async () => {
@@ -124,7 +139,7 @@ export default function Production() {
     const tpl = templates.find(t => t.id === selectedTemplate);
     if (!tpl) return;
     setApplying(true);
-    await contentApi.bulkWorkflow(Array.from(selected), tpl.stages);
+    await contentApi.bulkWorkflow(Array.from(selected), tpl.stages, selectedTemplate);
     setApplying(false);
     setSelected(new Set());
     await loadFeeds();
@@ -164,6 +179,42 @@ export default function Production() {
     if (selectedTemplate === id) setSelectedTemplate(null);
   };
 
+  const openBulkModal = () => {
+    setBulkMonth(new Date().getMonth() + 1);
+    setBulkYear(new Date().getFullYear());
+    setBulkTemplate('');
+    setBulkClients(new Set(allClientsList.map(c => c.id)));
+    setBulkResult(null);
+    setBulkModal(true);
+  };
+
+  const toggleBulkClient = (id: number) => {
+    setBulkClients(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  const toggleAllBulkClients = () => {
+    if (bulkClients.size === allClientsList.length) setBulkClients(new Set());
+    else setBulkClients(new Set(allClientsList.map(c => c.id)));
+  };
+
+  const executeBulkCreate = async () => {
+    if (bulkClients.size === 0) return;
+    setCreatingBulk(true);
+    const r = await contentApi.bulkCreateBatches({
+      client_ids: Array.from(bulkClients),
+      month: bulkMonth,
+      year: bulkYear,
+      default_template_id: bulkTemplate ? Number(bulkTemplate) : undefined,
+    });
+    setBulkResult({ created: r.data.created.length, skipped: r.data.skipped.length });
+    setCreatingBulk(false);
+    await loadFeeds();
+  };
+
   // ── Clients tab summary
   const totalAjuste   = clients.reduce((s, c) => s + c.ajuste_solicitado, 0);
   const totalPendente = clients.reduce((s, c) => s + c.aguardando_aprovacao, 0);
@@ -194,7 +245,7 @@ export default function Production() {
       {/* ── FEEDS TAB ──────────────────────────────────────────────────────── */}
       {tab === 'feeds' && (
         <>
-          {/* Summary + template controls */}
+          {/* Summary + controls */}
           <div className="flex items-center justify-between mb-6 gap-3 flex-wrap">
             <div className="flex items-center gap-4">
               <StatPill label="Sem fluxo" value={semFluxo.length} color="#f59e0b" />
@@ -202,6 +253,11 @@ export default function Production() {
               <StatPill label="Concluídos" value={concluido.length} color="#34d399" />
             </div>
             <div className="flex items-center gap-2">
+              <button onClick={openBulkModal}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-lg font-medium"
+                style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
+                <CalendarPlus size={14} /> Criar feeds do mês
+              </button>
               {templates.length > 0 && (
                 <select value={selectedTemplate ?? ''} onChange={e => setSelectedTemplate(Number(e.target.value) || null)}
                   className="input-dark text-sm py-1.5 pr-8 min-w-40">
@@ -214,7 +270,7 @@ export default function Production() {
                 style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.2)' }}>
                 <Plus size={12} /> Template
               </button>
-              {templates.length > 0 && templates.map(t => (
+              {templates.map(t => (
                 <button key={t.id} onClick={() => openEditTemplate(t)}
                   className="p-1.5 rounded-lg transition-all" title={`Editar ${t.name}`}
                   style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -359,11 +415,122 @@ export default function Production() {
         </>
       )}
 
-      {/* Template modal */}
+      {/* ── BULK CREATE MODAL ──────────────────────────────────────────────── */}
+      {bulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}
+          onClick={() => setBulkModal(false)}>
+          <div className="w-full max-w-lg rounded-2xl flex flex-col"
+            style={{ background: '#0d0d22', border: '1px solid rgba(59,130,246,0.2)', maxHeight: '90vh' }}
+            onClick={e => e.stopPropagation()}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-5 flex-shrink-0"
+              style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-widest mb-0.5" style={{ color: 'rgba(59,130,246,0.6)' }}>Produção</p>
+                <h3 className="text-base font-semibold text-white">Criar feeds do mês</h3>
+              </div>
+              <button onClick={() => setBulkModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
+            </div>
+
+            {bulkResult ? (
+              /* Success state */
+              <div className="p-8 text-center space-y-3">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto" style={{ background: 'rgba(52,211,153,0.15)' }}>
+                  <Check size={24} style={{ color: '#34d399' }} />
+                </div>
+                <p className="text-white font-semibold">Feeds criados com sucesso!</p>
+                <p className="text-sm" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                  {bulkResult.created} feed{bulkResult.created !== 1 ? 's' : ''} criado{bulkResult.created !== 1 ? 's' : ''}
+                  {bulkResult.skipped > 0 && ` · ${bulkResult.skipped} já existia${bulkResult.skipped !== 1 ? 'm' : ''}`}
+                </p>
+                <button onClick={() => setBulkModal(false)}
+                  className="mt-2 px-6 py-2 rounded-xl text-sm font-medium"
+                  style={{ background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
+                  Fechar
+                </button>
+              </div>
+            ) : (
+              <>
+                {/* Body */}
+                <div className="p-6 space-y-5 overflow-y-auto flex-1">
+                  {/* Month + Year */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs mb-1.5 block font-semibold uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.5)' }}>Mês</label>
+                      <select value={bulkMonth} onChange={e => setBulkMonth(Number(e.target.value))} className="input-dark w-full">
+                        {MONTHS_PT.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-xs mb-1.5 block font-semibold uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.5)' }}>Ano</label>
+                      <input type="number" value={bulkYear} onChange={e => setBulkYear(Number(e.target.value))}
+                        className="input-dark w-full" min={2024} max={2030} />
+                    </div>
+                  </div>
+
+                  {/* Template (optional) */}
+                  <div>
+                    <label className="text-xs mb-1.5 block font-semibold uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      Template de produção <span style={{ color: 'rgba(100,116,139,0.35)' }}>(opcional — novos posts herdarão automaticamente)</span>
+                    </label>
+                    <select value={bulkTemplate} onChange={e => setBulkTemplate(e.target.value ? Number(e.target.value) : '')} className="input-dark w-full">
+                      <option value="">Sem template</option>
+                      {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                  </div>
+
+                  {/* Client list */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                        Clientes ({bulkClients.size}/{allClientsList.length})
+                      </label>
+                      <button onClick={toggleAllBulkClients}
+                        className="text-[10px] px-2 py-0.5 rounded-md"
+                        style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)' }}>
+                        {bulkClients.size === allClientsList.length ? 'Desmarcar todos' : 'Selecionar todos'}
+                      </button>
+                    </div>
+                    <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                      {allClientsList.map(c => (
+                        <button key={c.id} onClick={() => toggleBulkClient(c.id)}
+                          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-left transition-all"
+                          style={{ background: bulkClients.has(c.id) ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.02)', border: bulkClients.has(c.id) ? '1px solid rgba(59,130,246,0.2)' : '1px solid rgba(255,255,255,0.05)' }}>
+                          <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                            style={{ background: bulkClients.has(c.id) ? '#3b82f6' : 'rgba(255,255,255,0.05)', border: bulkClients.has(c.id) ? 'none' : '1px solid rgba(255,255,255,0.12)' }}>
+                            {bulkClients.has(c.id) && <Check size={10} color="white" />}
+                          </div>
+                          <span className="text-sm text-white truncate">{c.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex gap-3 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(59,130,246,0.08)' }}>
+                  <button onClick={() => setBulkModal(false)}
+                    className="flex-1 py-2 rounded-xl text-sm" style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    Cancelar
+                  </button>
+                  <button onClick={executeBulkCreate} disabled={creatingBulk || bulkClients.size === 0}
+                    className="flex-1 py-2 rounded-xl text-sm font-medium text-white disabled:opacity-40"
+                    style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                    {creatingBulk ? 'Criando…' : `Criar ${bulkClients.size} feed${bulkClients.size !== 1 ? 's' : ''}`}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── TEMPLATE MODAL ─────────────────────────────────────────────────── */}
       {templateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }} onClick={() => setTemplateModal(false)}>
           <div className="w-full max-w-lg rounded-2xl flex flex-col" style={{ background: '#0d0d22', border: '1px solid rgba(167,139,250,0.2)', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
-            {/* Header — fixo */}
             <div className="flex items-center justify-between px-6 py-5 flex-shrink-0" style={{ borderBottom: '1px solid rgba(167,139,250,0.1)' }}>
               <h3 className="text-base font-semibold text-white">{editingTemplate ? 'Editar template' : 'Novo template'}</h3>
               <div className="flex items-center gap-2">
@@ -377,7 +544,6 @@ export default function Production() {
                 <button onClick={() => setTemplateModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
               </div>
             </div>
-            {/* Body — scrollável */}
             <div className="p-6 space-y-4 overflow-y-auto flex-1">
               <div>
                 <label className="text-xs mb-1 block" style={{ color: 'rgba(100,116,139,0.6)' }}>Nome do template</label>
@@ -406,7 +572,6 @@ export default function Production() {
                 ))}
               </div>
             </div>
-            {/* Footer — fixo */}
             <div className="flex gap-2 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(167,139,250,0.08)' }}>
               <button onClick={() => setTemplateModal(false)} className="flex-1 py-2 rounded-lg text-sm" style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>Cancelar</button>
               <button onClick={saveTemplate} disabled={savingTpl || !tplName.trim()} className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
@@ -468,6 +633,11 @@ function BatchCard({ batch: b, selected, onToggle }: { batch: BatchProduction; s
         <p className="text-[10px] truncate mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
           {b.name} · {b.post_count} post{b.post_count !== 1 ? 's' : ''}
         </p>
+        {b.template_name && (
+          <p className="text-[9px] mt-1 truncate" style={{ color: 'rgba(167,139,250,0.6)' }}>
+            ⚡ {b.template_name}
+          </p>
+        )}
         {b.task_count > 0 && (
           <div className="flex items-center gap-2 mt-1.5">
             <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(59,130,246,0.1)' }}>
