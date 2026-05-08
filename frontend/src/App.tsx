@@ -17,6 +17,9 @@ import Traffic from './pages/marketing/Traffic';
 import FeedPreview from './pages/marketing/FeedPreview';
 import Production from './pages/marketing/Production';
 import Tenants from './pages/admin/Tenants';
+import AgencyOverview from './pages/agency/Overview';
+import AgencyTeam from './pages/agency/Team';
+import AgencyPerformance from './pages/agency/Performance';
 import Gerot from './pages/Gerot';
 import Login from './pages/Login';
 
@@ -56,6 +59,9 @@ export default function App() {
             <Route path="gerot" element={<Gerot />} />
             <Route path="settings" element={<ManagerAndAbove><Settings /></ManagerAndAbove>} />
             <Route path="admin/tenants" element={<AdminOnly><Tenants /></AdminOnly>} />
+            <Route path="agency" element={<AdminOnly><AgencyOverview /></AdminOnly>} />
+            <Route path="agency/team" element={<AdminOnly><AgencyTeam /></AdminOnly>} />
+            <Route path="agency/performance" element={<AdminOnly><AgencyPerformance /></AdminOnly>} />
           </Route>
         </Routes>
       </BrowserRouter>

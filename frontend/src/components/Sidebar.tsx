@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid, Eye, ChevronDown
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid, Eye, ChevronDown, BarChart2
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
@@ -9,9 +9,9 @@ import { notificationsApi, agencyClientsApi } from '../api/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-function NavItem({ path, label, icon: Icon }: { path: string; label: string; icon: any }) {
+function NavItem({ path, label, icon: Icon, exact }: { path: string; label: string; icon: any; exact?: boolean }) {
   const { pathname } = useLocation();
-  const active = pathname.startsWith(path);
+  const active = exact ? pathname === path : pathname.startsWith(path);
   return (
     <Link to={path}
       className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative"
@@ -215,6 +215,12 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
           <>
             <NavSection label="Plataforma">
               <NavItem path="/admin/tenants" label="Workspaces" icon={Building2} />
+            </NavSection>
+
+            <NavSection label="Agência">
+              <NavItem path="/agency" label="Visão Geral" icon={LayoutDashboard} exact />
+              <NavItem path="/agency/team" label="Equipe" icon={Users} />
+              <NavItem path="/agency/performance" label="Performance" icon={BarChart2} />
             </NavSection>
 
             <NavSection label="Negócio">
