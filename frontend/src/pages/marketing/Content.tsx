@@ -79,7 +79,6 @@ function StatusDropdown({ current, onChange }: { current: ContentStatus; onChang
   );
 }
 
-const emptyPostForm = { title: '', scheduled_date: '', media_url: '', caption: '', objective: '', status: 'em_criacao' as ContentStatus };
 const emptyBatchForm = { agency_client_id: '', month: String(new Date().getMonth() + 1), year: String(new Date().getFullYear()) };
 const selectStyle = { background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.75rem', padding: '0.5rem 0.875rem', color: '#e2e8f0', fontSize: '0.8rem', outline: 'none', cursor: 'pointer' };
 
@@ -97,9 +96,9 @@ export default function MarketingContent() {
   const [batchForm, setBatchForm] = useState(emptyBatchForm);
   const [savingBatch, setSavingBatch] = useState(false);
 
-  const [postModal, setPostModal] = useState<{ piece?: ContentPiece } | null>(null);
-  const [postForm, setPostForm] = useState(emptyPostForm);
-  const [savingPost, setSavingPost] = useState(false);
+  const [newPostTitle, setNewPostTitle] = useState('');
+  const [showNewPostModal, setShowNewPostModal] = useState(false);
+  const [creatingPost, setCreatingPost] = useState(false);
   const [deletingPost, setDeletingPost] = useState<number | null>(null);
   const [panelPost, setPanelPost] = useState<ContentPiece | null>(null);
 
@@ -155,13 +154,12 @@ export default function MarketingContent() {
     setNavMonth(newMonth);
   };
 
-  const handleSavePost = async () => {
-    if (!postModal || !postForm.title.trim() || !selectedBatchId) return;
-    setSavingPost(true);
-    const data = { ...postForm, type: 'post', agency_client_id: Number(filterClient), batch_id: selectedBatchId };
-    if (postModal.piece) await contentApi.update(postModal.piece.id, data);
-    else await contentApi.create(data);
-    setSavingPost(false); setPostModal(null);
+  const createNewPost = async () => {
+    if (!newPostTitle.trim() || !selectedBatchId) return;
+    setCreatingPost(true);
+    const r = await contentApi.create({ title: newPostTitle.trim(), type: 'post', agency_client_id: Number(filterClient), batch_id: selectedBatchId, status: 'em_criacao' });
+    setCreatingPost(false); setShowNewPostModal(false);
+    setPanelPost(r.data);
     await reloadPosts(); reloadBatches();
   };
 
@@ -177,7 +175,7 @@ export default function MarketingContent() {
     reloadBatches();
   };
 
-  const openNewPost = () => { setPostModal({}); setPostForm(emptyPostForm); };
+  const openNewPost = () => { setNewPostTitle(''); setShowNewPostModal(true); };
   const openEditPost = (p: ContentPiece) => setPanelPost(p);
 
   // Calendar helpers
@@ -515,54 +513,28 @@ export default function MarketingContent() {
         </div>
       )}
 
-      {/* Post Modal */}
-      {postModal && (
+      {/* New post modal */}
+      {showNewPostModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4 animate-fade"
           style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
-          <div className="modal-card w-full max-w-lg animate-fade-up">
+          <div className="modal-card w-full max-w-sm animate-fade-up">
             <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
               <div>
-                <p className="section-label mb-0.5">{postModal.piece ? 'Editar' : 'Novo'}</p>
-                <h2 className="text-lg font-light text-white">
-                  {postModal.piece ? postModal.piece.title : `Post — ${selectedBatch?.name}`}
-                </h2>
+                <p className="section-label mb-0.5">Novo post</p>
+                <h2 className="text-lg font-light text-white">{selectedBatch?.name}</h2>
               </div>
-              <button onClick={() => setPostModal(null)} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}><X size={18} /></button>
+              <button onClick={() => setShowNewPostModal(false)} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}><X size={18} /></button>
             </div>
-            <div className="p-6 space-y-4 max-h-[65vh] overflow-y-auto">
-              <div>
-                <label className="label-dark">Título *</label>
-                <input value={postForm.title} onChange={e => setPostForm({ ...postForm, title: e.target.value })} className="input-dark" placeholder="Ex: Lançamento produto X" autoFocus />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label-dark">Data prevista</label>
-                  <input type="date" value={postForm.scheduled_date} onChange={e => setPostForm({ ...postForm, scheduled_date: e.target.value })} className="input-dark" />
-                </div>
-                <div>
-                  <label className="label-dark">Status</label>
-                  <select value={postForm.status} onChange={e => setPostForm({ ...postForm, status: e.target.value as ContentStatus })} className="input-dark" style={{ cursor: 'pointer' }}>
-                    {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="label-dark">URL da mídia</label>
-                <input value={postForm.media_url} onChange={e => setPostForm({ ...postForm, media_url: e.target.value })} className="input-dark" placeholder="Link da imagem (Drive, Dropbox…)" />
-              </div>
-              <div>
-                <label className="label-dark">Legenda</label>
-                <textarea value={postForm.caption} onChange={e => setPostForm({ ...postForm, caption: e.target.value })} rows={3} className="input-dark resize-none" placeholder="Texto do post…" />
-              </div>
-              <div>
-                <label className="label-dark">Objetivo estratégico</label>
-                <input value={postForm.objective} onChange={e => setPostForm({ ...postForm, objective: e.target.value })} className="input-dark" placeholder="Ex: Gerar leads, engajamento, lançamento" />
-              </div>
+            <div className="p-6">
+              <label className="label-dark">Título *</label>
+              <input value={newPostTitle} onChange={e => setNewPostTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && createNewPost()}
+                className="input-dark" placeholder="Ex: Lançamento produto X" autoFocus />
             </div>
             <div className="flex gap-3 px-6 pb-6">
-              <button onClick={() => setPostModal(null)} className="btn-ghost flex-1 justify-center">Cancelar</button>
-              <button onClick={handleSavePost} disabled={savingPost || !postForm.title.trim()} className="btn-primary flex-1 justify-center">
-                {savingPost ? 'Salvando…' : postModal.piece ? 'Salvar' : 'Criar Post'}
+              <button onClick={() => setShowNewPostModal(false)} className="btn-ghost flex-1 justify-center">Cancelar</button>
+              <button onClick={createNewPost} disabled={creatingPost || !newPostTitle.trim()} className="btn-primary flex-1 justify-center">
+                {creatingPost ? 'Criando…' : 'Criar Post'}
               </button>
             </div>
           </div>

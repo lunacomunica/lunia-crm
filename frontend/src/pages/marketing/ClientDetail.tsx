@@ -215,10 +215,10 @@ export default function ClientDetail() {
   const [batchForm, setBatchForm] = useState({ month: String(new Date().getMonth() + 1), year: String(new Date().getFullYear()) });
   const [savingBatch, setSavingBatch] = useState(false);
 
-  // Post modal
-  const [postModal, setPostModal] = useState<{ piece?: any } | null>(null);
-  const [postForm, setPostForm] = useState({ title: '', scheduled_date: '', media_url: '', caption: '', objective: '', status: 'em_criacao' as ContentStatus });
-  const [savingPost, setSavingPost] = useState(false);
+  // Post creation
+  const [newPostTitle, setNewPostTitle] = useState('');
+  const [showNewPostModal, setShowNewPostModal] = useState(false);
+  const [creatingPost, setCreatingPost] = useState(false);
   const [deletingPost, setDeletingPost] = useState<number | null>(null);
   const [panelPost, setPanelPost] = useState<any | null>(null);
 
@@ -303,15 +303,14 @@ export default function ClientDetail() {
     setNavMonth({ month: Number(batchForm.month), year: Number(batchForm.year) });
   };
 
-  const handleSavePost = async () => {
-    if (!postModal || !postForm.title.trim() || !selectedBatchId) return;
-    setSavingPost(true);
-    const data = { ...postForm, type: 'post', agency_client_id: cid, batch_id: selectedBatchId };
-    if (postModal.piece) await contentApi.update(postModal.piece.id, data);
-    else await contentApi.create(data);
-    setSavingPost(false); setPostModal(null);
-    const r = await contentApi.list({ batch_id: String(selectedBatchId) });
-    setPosts(r.data); reloadBatches();
+  const createNewPost = async () => {
+    if (!newPostTitle.trim() || !selectedBatchId) return;
+    setCreatingPost(true);
+    const r = await contentApi.create({ title: newPostTitle.trim(), type: 'post', agency_client_id: cid, batch_id: selectedBatchId, status: 'em_criacao' });
+    setCreatingPost(false); setShowNewPostModal(false);
+    setPanelPost(r.data);
+    const pr = await contentApi.list({ batch_id: String(selectedBatchId) });
+    setPosts(pr.data); reloadBatches();
   };
 
   const handleStatusChange = async (pieceId: number, status: ContentStatus) => {
@@ -724,7 +723,7 @@ export default function ClientDetail() {
                       ))}
                     </div>
                     {selectedBatchId && (
-                      <button onClick={() => { setPostModal({}); setPostForm({ title: '', scheduled_date: '', media_url: '', caption: '', objective: '', status: 'em_criacao' }); }}
+                      <button onClick={() => { setNewPostTitle(''); setShowNewPostModal(true); }}
                         className="btn-primary text-xs px-2.5 py-1.5">
                         <Plus size={11} /> Post
                       </button>
@@ -756,7 +755,7 @@ export default function ClientDetail() {
                       <div className="text-center py-10" style={{ color: 'rgba(100,116,139,0.4)' }}>
                         <FileImage size={28} className="mx-auto mb-2 opacity-30" />
                         <p className="text-sm mb-3">Nenhum post neste feed</p>
-                        <button onClick={() => { setPostModal({}); setPostForm({ title: '', scheduled_date: '', media_url: '', caption: '', objective: '', status: 'em_criacao' }); }}
+                        <button onClick={() => { setNewPostTitle(''); setShowNewPostModal(true); }}
                           className="btn-ghost text-xs px-3 py-1.5 mx-auto"><Plus size={12} /> Adicionar post</button>
                       </div>
                     ) : (
@@ -1121,52 +1120,30 @@ export default function ClientDetail() {
         </div>
       )}
 
-      {/* Post modal */}
-      {postModal && (
+      {/* New post modal */}
+      {showNewPostModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
-          <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)' }}>
+          <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)' }}>
             <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
-              <h3 className="text-base font-semibold text-white">{postModal.piece ? 'Editar post' : 'Novo post'}</h3>
-              <button onClick={() => setPostModal(null)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
+              <div>
+                <p className="text-xs font-medium mb-0.5" style={{ color: 'rgba(100,116,139,0.5)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Novo post</p>
+                <h3 className="text-base font-semibold text-white">{selectedBatch_cd?.name}</h3>
+              </div>
+              <button onClick={() => setShowNewPostModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
             </div>
-            <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
-              <div>
-                <label className={labelCls} style={labelStyle}>Título *</label>
-                <input value={postForm.title} onChange={e => setPostForm(p => ({ ...p, title: e.target.value }))}
-                  placeholder="Ex: Lançamento produto X" className={inputCls} style={inputStyle} autoFocus />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={labelCls} style={labelStyle}>Data prevista</label>
-                  <input type="date" value={postForm.scheduled_date} onChange={e => setPostForm(p => ({ ...p, scheduled_date: e.target.value }))}
-                    className={inputCls} style={inputStyle} />
-                </div>
-                <div>
-                  <label className={labelCls} style={labelStyle}>Status</label>
-                  <select value={postForm.status} onChange={e => setPostForm(p => ({ ...p, status: e.target.value as ContentStatus }))}
-                    className={inputCls} style={{ ...inputStyle, cursor: 'pointer' }}>
-                    {STATUS_ORDER.map(s => <option key={s} value={s}>{STATUS_CFG[s].label}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>URL da mídia</label>
-                <input value={postForm.media_url} onChange={e => setPostForm(p => ({ ...p, media_url: e.target.value }))}
-                  placeholder="Link da imagem…" className={inputCls} style={inputStyle} />
-              </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>Legenda</label>
-                <textarea value={postForm.caption} onChange={e => setPostForm(p => ({ ...p, caption: e.target.value }))}
-                  rows={3} placeholder="Texto do post…" className={inputCls} style={{ ...inputStyle, resize: 'none' }} />
-              </div>
+            <div className="p-6">
+              <label className={labelCls} style={labelStyle}>Título *</label>
+              <input value={newPostTitle} onChange={e => setNewPostTitle(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && createNewPost()}
+                placeholder="Ex: Lançamento produto X" className={inputCls} style={inputStyle} autoFocus />
             </div>
             <div className="flex gap-2 px-6 pb-6">
-              <button onClick={() => setPostModal(null)} className="flex-1 py-2 rounded-lg text-sm"
+              <button onClick={() => setShowNewPostModal(false)} className="flex-1 py-2 rounded-lg text-sm"
                 style={{ color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>Cancelar</button>
-              <button onClick={handleSavePost} disabled={savingPost || !postForm.title.trim()}
+              <button onClick={createNewPost} disabled={creatingPost || !newPostTitle.trim()}
                 className="flex-1 py-2 rounded-lg text-sm font-medium text-white disabled:opacity-40"
                 style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
-                {savingPost ? 'Salvando…' : postModal.piece ? 'Salvar' : 'Criar Post'}
+                {creatingPost ? 'Criando…' : 'Criar Post'}
               </button>
             </div>
           </div>
