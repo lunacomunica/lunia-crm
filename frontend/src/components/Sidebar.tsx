@@ -127,7 +127,7 @@ function NotificationBell() {
   );
 }
 
-const ROLE_LABEL: Record<string, string> = { superadmin: 'Super Admin', admin: 'Admin', user: 'Usuário', team: 'Time', client: 'Cliente' };
+const ROLE_LABEL: Record<string, string> = { superadmin: 'Super Admin', admin: 'Admin', user: 'Alta Gestão', team: 'Time', client: 'Cliente' };
 
 export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
   const { user, logout } = useAuth();
@@ -227,7 +227,7 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
               <div className="min-w-0">
                 <p className="text-xs font-medium text-white truncate">{user.name}</p>
                 <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>
-                  {ROLE_LABEL[user.role] || user.tenant}
+                  {(user as any).job_title || ROLE_LABEL[user.role] || user.tenant}
                 </p>
               </div>
             </div>
