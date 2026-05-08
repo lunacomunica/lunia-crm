@@ -3,7 +3,8 @@ import {
   Play, Pause, CheckCircle2, Plus, X, Clock, Calendar,
   FileImage, Megaphone, Timer, Trash2, Send, ArrowRight, Zap, AlertTriangle, CheckSquare
 } from 'lucide-react';
-import { tasksApi, agencyClientsApi } from '../api/client';
+import { tasksApi, agencyClientsApi, contentApi } from '../api/client';
+import PostDetailPanel from './marketing/PostDetailPanel';
 import { useAuth } from '../context/AuthContext';
 import { format, isToday, isThisWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -104,9 +105,19 @@ export default function Gerot() {
   const [saving, setSaving] = useState(false);
   const [acting, setActing] = useState<number | null>(null);
   const [detail, setDetail] = useState<Task | null>(null);
+  const [selectedPost, setSelectedPost] = useState<any | null>(null);
   const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
   const isManager = user?.role === 'user';
   const isTeam = user?.role === 'team';
+
+  const handleDetail = async (task: Task) => {
+    if (task.content_piece_id) {
+      const r = await contentApi.get(task.content_piece_id);
+      setSelectedPost(r.data);
+    } else {
+      setDetail(task);
+    }
+  };
 
   const load = async () => {
     setLoading(true);
@@ -184,8 +195,14 @@ export default function Gerot() {
 
   const activeTask = tasks.find(t => t.status === 'em_andamento');
 
-  if (isTeam) return <TeamPanel tasks={tasks} loading={loading} activeTask={activeTask} acting={acting} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={setDetail} detail={detail} setDetail={setDetail} />;
-  if (isManager) return <ManagerPanel users={users} tasks={tasks} loading={loading} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={setDetail} detail={detail} setDetail={setDetail} onOpenModal={() => { setModal(true); setForm(EMPTY_FORM); }} />;
+  if (isTeam) return <>
+    <TeamPanel tasks={tasks} loading={loading} activeTask={activeTask} acting={acting} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} detail={detail} setDetail={setDetail} />
+    {selectedPost && <PostDetailPanel post={selectedPost} onClose={() => setSelectedPost(null)} onUpdated={p => setSelectedPost(p)} onDeleted={() => { setSelectedPost(null); load(); }} />}
+  </>;
+  if (isManager) return <>
+    <ManagerPanel users={users} tasks={tasks} loading={loading} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} detail={detail} setDetail={setDetail} onOpenModal={() => { setModal(true); setForm(EMPTY_FORM); }} />
+    {selectedPost && <PostDetailPanel post={selectedPost} onClose={() => setSelectedPost(null)} onUpdated={p => setSelectedPost(p)} onDeleted={() => { setSelectedPost(null); load(); }} />}
+  </>;
 
   // ── Admin view ──────────────────────────────────────────────────────────
   const grouped = (['urgente', 'alta', 'media', 'baixa'] as const).map(p => ({
@@ -264,7 +281,7 @@ export default function Gerot() {
                   <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>({ptasks.length})</span>
                 </div>
                 <div className="space-y-2">
-                  {ptasks.map(task => <TaskRow key={task.id} task={task} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={setDetail} />)}
+                  {ptasks.map(task => <TaskRow key={task.id} task={task} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} />)}
                 </div>
               </div>
             );
@@ -277,7 +294,7 @@ export default function Gerot() {
                 <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>({done.length})</span>
               </div>
               <div className="space-y-2 opacity-50">
-                {done.map(task => <TaskRow key={task.id} task={task} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={setDetail} />)}
+                {done.map(task => <TaskRow key={task.id} task={task} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} />)}
               </div>
             </div>
           )}
@@ -291,6 +308,15 @@ export default function Gerot() {
       )}
 
       <DetailPanel detail={detail} acting={acting} isAdmin={isAdmin} users={users} onClose={() => setDetail(null)} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDelete={handleDelete} />
+
+      {selectedPost && (
+        <PostDetailPanel
+          post={selectedPost}
+          onClose={() => setSelectedPost(null)}
+          onUpdated={p => setSelectedPost(p)}
+          onDeleted={() => { setSelectedPost(null); load(); }}
+        />
+      )}
 
       {modal && (
         <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setModal(false)}>
