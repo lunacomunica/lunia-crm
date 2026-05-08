@@ -91,17 +91,63 @@ router.post('/', (req, res) => {
     LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id WHERE cp.id = ?`).get(r.lastInsertRowid));
 });
 
+router.get('/:id/tasks', (req, res) => {
+  const piece = db.prepare('SELECT id FROM content_pieces WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id);
+  if (!piece) return res.status(404).json({ error: 'Post não encontrado' });
+  const tasks = db.prepare(`
+    SELECT t.*, u.name as assignee_name
+    FROM tasks t
+    LEFT JOIN users u ON t.assigned_to = u.id
+    WHERE t.content_piece_id = ? AND t.tenant_id = ?
+      AND t.stage IN ('copy','design','edicao','revisao')
+    ORDER BY CASE t.stage WHEN 'copy' THEN 1 WHEN 'design' THEN 2 WHEN 'edicao' THEN 3 WHEN 'revisao' THEN 4 END
+  `).all(req.params.id, req.user.tenant_id);
+  res.json(tasks);
+});
+
+router.post('/:id/workflow', (req, res) => {
+  const piece = db.prepare('SELECT * FROM content_pieces WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id) as any;
+  if (!piece) return res.status(404).json({ error: 'Post não encontrado' });
+  const { stages } = req.body as { stages: { stage: string; label: string; active: boolean; assigned_to?: number; due_date?: string }[] };
+  let created = 0;
+  for (const s of stages) {
+    if (!s.active) continue;
+    const exists = db.prepare('SELECT id FROM tasks WHERE content_piece_id = ? AND stage = ? AND tenant_id = ?').get(piece.id, s.stage, req.user.tenant_id);
+    if (exists) continue;
+    db.prepare(`INSERT INTO tasks (tenant_id, title, assigned_to, created_by, content_piece_id, agency_client_id, priority, stage, status, due_date) VALUES (?, ?, ?, ?, ?, ?, 'alta', ?, 'a_fazer', ?)`).run(
+      req.user.tenant_id,
+      `${s.label}: ${piece.title}`,
+      s.assigned_to || null,
+      req.user.id,
+      piece.id,
+      piece.agency_client_id,
+      s.stage,
+      s.due_date || null
+    );
+    created++;
+  }
+  const tasks = db.prepare(`
+    SELECT t.*, u.name as assignee_name
+    FROM tasks t LEFT JOIN users u ON t.assigned_to = u.id
+    WHERE t.content_piece_id = ? AND t.tenant_id = ?
+      AND t.stage IN ('copy','design','edicao','revisao')
+    ORDER BY CASE t.stage WHEN 'copy' THEN 1 WHEN 'design' THEN 2 WHEN 'edicao' THEN 3 WHEN 'revisao' THEN 4 END
+  `).all(piece.id, req.user.tenant_id);
+  res.json({ created, tasks });
+});
+
 router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM content_pieces WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id) as any;
   if (!existing) return res.status(404).json({ error: 'Conteúdo não encontrado' });
 
-  const { title, type, caption, media_url, scheduled_date, objective, status, batch_id } = req.body;
+  const { title, type, caption, media_url, scheduled_date, objective, status, batch_id, copy_text } = req.body;
   const newStatus = status && VALID_STATUSES.includes(status) ? status : existing.status;
 
-  db.prepare(`UPDATE content_pieces SET title=?, type=?, caption=?, media_url=?, scheduled_date=?, objective=?, status=?, batch_id=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?`).run(
+  db.prepare(`UPDATE content_pieces SET title=?, type=?, caption=?, media_url=?, scheduled_date=?, objective=?, status=?, batch_id=?, copy_text=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?`).run(
     title ?? existing.title, type ?? existing.type, caption ?? existing.caption,
     media_url ?? existing.media_url, scheduled_date ?? existing.scheduled_date,
     objective ?? existing.objective, newStatus, batch_id !== undefined ? batch_id : existing.batch_id,
+    copy_text ?? existing.copy_text,
     req.params.id, req.user.tenant_id
   );
 

@@ -30,7 +30,7 @@ export interface AgencyClient {
 }
 
 export type ContentStatus = 'em_criacao' | 'em_revisao' | 'aguardando_aprovacao' | 'aprovado' | 'ajuste_solicitado' | 'agendado' | 'publicado';
-export type ContentType = 'post' | 'reels' | 'story' | 'carrossel';
+export type ContentType = 'post' | 'reels' | 'story' | 'carrossel' | 'estatico';
 
 export interface ContentPiece {
   id: number;
@@ -43,6 +43,7 @@ export interface ContentPiece {
   scheduled_date: string | null;
   objective: string | null;
   status: ContentStatus;
+  copy_text?: string | null;
   creator_name?: string;
   comments?: ContentComment[];
   created_at: string;

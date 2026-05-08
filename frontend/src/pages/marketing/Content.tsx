@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Plus, X, Trash2, FileImage, ChevronDown, ChevronLeft, ChevronRight, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye, List, CalendarDays, LayoutGrid } from 'lucide-react';
 import { contentApi, agencyClientsApi } from '../../api/client';
+import PostDetailPanel from './PostDetailPanel';
 import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -90,6 +91,7 @@ export default function MarketingContent() {
   const [postForm, setPostForm] = useState(emptyPostForm);
   const [savingPost, setSavingPost] = useState(false);
   const [deletingPost, setDeletingPost] = useState<number | null>(null);
+  const [panelPost, setPanelPost] = useState<ContentPiece | null>(null);
 
   const selectedBatch = batches.find(b => b.month === navMonth.month && b.year === navMonth.year) ?? null;
   const selectedBatchId = selectedBatch?.id ?? null;
@@ -166,10 +168,7 @@ export default function MarketingContent() {
   };
 
   const openNewPost = () => { setPostModal({}); setPostForm(emptyPostForm); };
-  const openEditPost = (p: ContentPiece) => {
-    setPostModal({ piece: p });
-    setPostForm({ title: p.title, scheduled_date: p.scheduled_date?.slice(0, 10) || '', media_url: p.media_url || '', caption: p.caption || '', objective: p.objective || '', status: p.status });
-  };
+  const openEditPost = (p: ContentPiece) => setPanelPost(p);
 
   // Calendar helpers
   const calDays = eachDayOfInterval({ start: startOfMonth(calMonth), end: endOfMonth(calMonth) });
@@ -577,6 +576,23 @@ export default function MarketingContent() {
             </div>
           </div>
         </div>
+      )}
+
+      {panelPost && (
+        <PostDetailPanel
+          post={panelPost}
+          onClose={() => setPanelPost(null)}
+          onUpdated={updated => {
+            setPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
+            setPanelPost(updated);
+            reloadBatches();
+          }}
+          onDeleted={() => {
+            setPosts(prev => prev.filter(p => p.id !== panelPost.id));
+            setPanelPost(null);
+            reloadBatches();
+          }}
+        />
       )}
     </div>
   );

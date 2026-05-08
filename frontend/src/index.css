@@ -298,6 +298,14 @@ html, body {
   }
   .animate-fade { animation: fadeIn 0.2s ease-out both; }
 
+  @keyframes slide-right {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  .animate-slide-right {
+    animation: slide-right 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
   @keyframes pulseGlow {
     0%, 100% { box-shadow: 0 0 8px rgba(59,130,246,0.3); }
     50%       { box-shadow: 0 0 22px rgba(59,130,246,0.65); }

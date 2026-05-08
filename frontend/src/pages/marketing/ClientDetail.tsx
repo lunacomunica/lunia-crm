@@ -9,6 +9,7 @@ import {
   Image, Video, MousePointerClick, Link, FileText
 } from 'lucide-react';
 import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi } from '../../api/client';
+import PostDetailPanel from './PostDetailPanel';
 import { ContentStatus, Campaign, CampaignCreative, CampaignPlatform, CampaignStatus, CampaignObjective, CreativeType, CreativeStatus } from '../../types';
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -210,6 +211,7 @@ export default function ClientDetail() {
   const [postForm, setPostForm] = useState({ title: '', scheduled_date: '', media_url: '', caption: '', objective: '', status: 'em_criacao' as ContentStatus });
   const [savingPost, setSavingPost] = useState(false);
   const [deletingPost, setDeletingPost] = useState<number | null>(null);
+  const [panelPost, setPanelPost] = useState<any | null>(null);
 
   // Saving
   const [savingPos, setSavingPos] = useState(false);
@@ -780,7 +782,7 @@ export default function ClientDetail() {
                                   <StatusDropdown current={p.status} onChange={s => handleStatusChange(p.id, s)} />
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                  <button onClick={() => { setPostModal({ piece: p }); setPostForm({ title: p.title, scheduled_date: p.scheduled_date?.slice(0,10) || '', media_url: p.media_url || '', caption: p.caption || '', objective: p.objective || '', status: p.status }); }}
+                                  <button onClick={() => setPanelPost(p)}
                                     className="p-1.5 rounded-lg transition-all" style={{ color: 'rgba(100,116,139,0.5)' }}
                                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
@@ -826,7 +828,7 @@ export default function ClientDetail() {
                                     {dp.map((p: any) => {
                                       const color = STATUS_CFG[p.status as ContentStatus]?.color || '#94a3b8';
                                       return (
-                                        <div key={p.id} onClick={() => { setPostModal({ piece: p }); setPostForm({ title: p.title, scheduled_date: p.scheduled_date?.slice(0,10) || '', media_url: p.media_url || '', caption: p.caption || '', objective: p.objective || '', status: p.status }); }}
+                                        <div key={p.id} onClick={() => setPanelPost(p)}
                                           className="flex items-center gap-0.5 px-1 py-0.5 rounded cursor-pointer text-[9px] truncate hover:opacity-80 transition-opacity mb-0.5"
                                           style={{ background: `${color}18`, border: `1px solid ${color}28`, color }}>
                                           <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: color }} />{p.title}
@@ -858,7 +860,7 @@ export default function ClientDetail() {
                                 const cfg = STATUS_CFG[p.status as ContentStatus];
                                 return (
                                   <div key={p.id} className="relative group cursor-pointer" style={{ aspectRatio: '1' }}
-                                    onClick={() => { setPostModal({ piece: p }); setPostForm({ title: p.title, scheduled_date: p.scheduled_date?.slice(0,10) || '', media_url: p.media_url || '', caption: p.caption || '', objective: p.objective || '', status: p.status }); }}>
+                                    onClick={() => setPanelPost(p)}>
                                     {p.media_url ? (
                                       <img src={toDisplayUrl(p.media_url)} alt={p.title} className="w-full h-full object-cover" />
                                     ) : (
@@ -1177,6 +1179,23 @@ export default function ClientDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {panelPost && (
+        <PostDetailPanel
+          post={panelPost}
+          onClose={() => setPanelPost(null)}
+          onUpdated={updated => {
+            setPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
+            setPanelPost(updated);
+            reloadBatches();
+          }}
+          onDeleted={() => {
+            setPosts(prev => prev.filter(p => p.id !== panelPost.id));
+            setPanelPost(null);
+            reloadBatches();
+          }}
+        />
       )}
 
       {/* Campaign detail panel */}

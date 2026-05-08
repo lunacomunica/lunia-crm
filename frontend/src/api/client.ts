@@ -83,6 +83,8 @@ export const contentApi = {
   listBatches: (params?: Record<string, string>) => api.get('/content/batches', { params }),
   createBatch: (data: any) => api.post('/content/batches', data),
   deleteBatch: (id: number) => api.delete(`/content/batches/${id}`),
+  getTasks: (id: number) => api.get(`/content/${id}/tasks`),
+  createWorkflow: (id: number, stages: any[]) => api.post(`/content/${id}/workflow`, { stages }),
 };
 
 export const campaignsApi = {
