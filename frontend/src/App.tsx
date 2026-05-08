@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, type ReactNode } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/Layout';
 import Dashboard from './pages/Dashboard';
@@ -37,20 +37,20 @@ export default function App() {
           <Route path="/login" element={<LoginGuard />} />
           <Route path="/" element={<PrivateRoutes />}>
             <Route index element={<DefaultRedirect />} />
-            <Route path="dashboard" element={<Dashboard />} />
-            <Route path="contacts" element={<Contacts />} />
-            <Route path="conversations" element={<Conversations />} />
-            <Route path="instagram" element={<Instagram />} />
-            <Route path="funnel" element={<Funnel />} />
-            <Route path="products" element={<Products />} />
+            <Route path="dashboard" element={<InternalOnly><Dashboard /></InternalOnly>} />
+            <Route path="contacts" element={<InternalOnly><Contacts /></InternalOnly>} />
+            <Route path="conversations" element={<InternalOnly><Conversations /></InternalOnly>} />
+            <Route path="instagram" element={<InternalOnly><Instagram /></InternalOnly>} />
+            <Route path="funnel" element={<InternalOnly><Funnel /></InternalOnly>} />
+            <Route path="products" element={<InternalOnly><Products /></InternalOnly>} />
             <Route path="marketing/clients" element={<MarketingClients />} />
             <Route path="marketing/content" element={<MarketingContent />} />
             <Route path="marketing/traffic" element={<Traffic />} />
             <Route path="marketing/portal/:clientId" element={<ClientPortal />} />
             <Route path="marketing/feed/:clientId" element={<FeedPreview />} />
             <Route path="gerot" element={<Gerot />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="admin/tenants" element={<Tenants />} />
+            <Route path="settings" element={<InternalOnly><Settings /></InternalOnly>} />
+            <Route path="admin/tenants" element={<AdminOnly><Tenants /></AdminOnly>} />
           </Route>
         </Routes>
       </BrowserRouter>
@@ -58,10 +58,22 @@ export default function App() {
   );
 }
 
+function InternalOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role === 'team') return <Navigate to="/gerot" replace />;
+  return <>{children}</>;
+}
+
+function AdminOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+  if (user?.role !== 'admin' && user?.role !== 'superadmin') return <Navigate to="/gerot" replace />;
+  return <>{children}</>;
+}
+
 function DefaultRedirect() {
   const { user } = useAuth();
   if (user?.role === 'client' && user.client_id) return <Navigate to={`/marketing/portal/${user.client_id}`} replace />;
-  if (user?.role === 'team') return <Navigate to="/marketing/clients" replace />;
+  if (user?.role === 'team') return <Navigate to="/gerot" replace />;
   return <Navigate to="/dashboard" replace />;
 }
 
