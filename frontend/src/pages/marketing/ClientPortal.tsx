@@ -1628,21 +1628,6 @@ export default function ClientPortal() {
           )}
         </div>
 
-        {/* Flow indicator */}
-        <div className="hidden sm:flex items-center gap-0 rounded-2xl overflow-hidden"
-          style={{ border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
-          {OFFER_TYPES.map((ot, i) => (
-            <div key={ot.id} className="flex-1 flex items-center justify-center gap-2 py-3 relative">
-              <div className="w-1.5 h-1.5 rounded-full" style={{ background: ot.color, boxShadow: `0 0 6px ${ot.color}` }} />
-              <span className="text-xs font-semibold tracking-wide" style={{ color: ot.color }}>{ot.label}</span>
-              {i < OFFER_TYPES.length - 1 && (
-                <ChevronRight size={12} className="absolute right-0 top-1/2 -translate-y-1/2"
-                  style={{ color: 'rgba(100,116,139,0.2)' }} />
-              )}
-            </div>
-          ))}
-        </div>
-
         {/* Esteira */}
         {loadingProds ? (
           <div className="flex justify-center py-16">
