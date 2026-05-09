@@ -978,7 +978,7 @@ export default function ClientPortal() {
     const [localGoals, setLocalGoals] = useState<any[]>(goals);
     const [saving, setSaving] = useState(false);
     const [modal, setModal] = useState<any>(null);
-    const [form, setForm] = useState({ metric: 'custom', label: '', target: '', unit: '', icon: 'target' });
+    const [form, setForm] = useState({ metric: 'custom', label: '', target: '', unit: '', icon: 'target', due_date: '' });
     const [editingValue, setEditingValue] = useState<number | null>(null); // goal id being edited
     const [valueDraft, setValueDraft] = useState('');
     const [savingValue, setSavingValue] = useState(false);
@@ -1042,17 +1042,17 @@ export default function ClientPortal() {
     };
 
     const openAdd = () => {
-      setForm({ metric: 'posts_month', label: 'Posts publicados/mês', target: '', unit: 'posts', icon: 'grid' });
+      setForm({ metric: 'posts_month', label: 'Posts publicados/mês', target: '', unit: 'posts', icon: 'grid', due_date: '' });
       setModal({});
     };
 
     const openEdit = (g: any, i: number) => {
-      setForm({ metric: g.metric, label: g.label, target: String(g.target), unit: g.unit || '', icon: g.icon || 'target' });
+      setForm({ metric: g.metric, label: g.label, target: String(g.target), unit: g.unit || '', icon: g.icon || 'target', due_date: g.due_date || '' });
       setModal({ ...g, _idx: i });
     };
 
     const saveModal = async () => {
-      const entry = { metric: form.metric, label: form.label, target: parseFloat(form.target) || 0, unit: form.unit, icon: form.icon };
+      const entry = { metric: form.metric, label: form.label, target: parseFloat(form.target) || 0, unit: form.unit, icon: form.icon, due_date: form.due_date || null };
       let next: any[];
       if (modal?._idx !== undefined) {
         next = localGoals.map((g, i) => i === modal._idx ? entry : g);
@@ -1217,7 +1217,7 @@ export default function ClientPortal() {
                         </div>
                       )}
 
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-[10px] px-2 py-0.5 rounded-full"
                           style={{ background: `${color}12`, color, border: `1px solid ${color}25` }}>
                           {STATUS_LABELS[status]}
@@ -1227,6 +1227,24 @@ export default function ClientPortal() {
                           <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.25)' }}>· automático</span>
                         )}
                       </div>
+                      {g.due_date && (() => {
+                        const days = Math.ceil((new Date(g.due_date).getTime() - Date.now()) / 86400000);
+                        const overdue = days < 0;
+                        const urgent = days >= 0 && days <= 14;
+                        const dueColor = overdue ? '#f87171' : urgent ? '#f59e0b' : 'rgba(100,116,139,0.4)';
+                        return (
+                          <div className="flex items-center gap-1 mt-1.5">
+                            <Clock size={9} style={{ color: dueColor }} />
+                            <span className="text-[10px]" style={{ color: dueColor }}>
+                              {overdue
+                                ? `Prazo encerrado há ${Math.abs(days)} dia${Math.abs(days) > 1 ? 's' : ''}`
+                                : days === 0
+                                ? 'Prazo: hoje'
+                                : `${days} dia${days > 1 ? 's' : ''} restante${days > 1 ? 's' : ''}`}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>
@@ -1284,6 +1302,11 @@ export default function ClientPortal() {
                       </button>
                     ))}
                   </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Prazo</label>
+                  <input type="date" value={form.due_date} onChange={e => setForm(f => ({ ...f, due_date: e.target.value }))}
+                    className={inputCls} style={{ ...inputStyle, colorScheme: 'dark' }} />
                 </div>
               </div>
               <div className="flex items-center justify-between px-6 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>

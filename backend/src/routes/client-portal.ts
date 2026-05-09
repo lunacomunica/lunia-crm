@@ -76,8 +76,8 @@ router.put('/:clientId/goals', (req, res) => {
   if (!Array.isArray(goals)) return res.status(400).json({ error: 'goals must be an array' });
 
   db.prepare('DELETE FROM client_goals WHERE agency_client_id = ?').run(cid);
-  const ins = db.prepare('INSERT INTO client_goals (agency_client_id, metric, label, target, unit, icon, current_value) VALUES (?, ?, ?, ?, ?, ?, ?)');
-  for (const g of goals) ins.run(cid, g.metric, g.label, g.target, g.unit || '', g.icon || 'target', g.current_value ?? 0);
+  const ins = db.prepare('INSERT INTO client_goals (agency_client_id, metric, label, target, unit, icon, current_value, due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?)');
+  for (const g of goals) ins.run(cid, g.metric, g.label, g.target, g.unit || '', g.icon || 'target', g.current_value ?? 0, (g as any).due_date ?? null);
 
   res.json(db.prepare('SELECT * FROM client_goals WHERE agency_client_id = ? ORDER BY id').all(cid));
 });
