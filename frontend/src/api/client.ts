@@ -164,6 +164,7 @@ export const clientPortalApi = {
   updateGoals: (clientId: number, goals: any[]) => api.put(`/client-portal/${clientId}/goals`, { goals }),
   positioning: (clientId: number) => api.get(`/client-portal/${clientId}/positioning`),
   updatePositioning: (clientId: number, data: any) => api.put(`/client-portal/${clientId}/positioning`, data),
+  updateGoalValue: (clientId: number, goalId: number, current_value: number) => api.patch(`/client-portal/${clientId}/goals/${goalId}/value`, { current_value }),
   products: (clientId: number) => api.get(`/client-portal/${clientId}/products`),
   createProduct: (clientId: number, data: any) => api.post(`/client-portal/${clientId}/products`, data),
   updateProduct: (clientId: number, id: number, data: any) => api.put(`/client-portal/${clientId}/products/${id}`, data),

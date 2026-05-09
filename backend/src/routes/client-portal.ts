@@ -72,14 +72,21 @@ router.get('/:clientId/goals', (req, res) => {
 
 router.put('/:clientId/goals', (req, res) => {
   const cid = Number(req.params.clientId);
-  const { goals } = req.body as { goals: { metric: string; label: string; target: number; unit: string; icon: string }[] };
+  const { goals } = req.body as { goals: { metric: string; label: string; target: number; unit: string; icon: string; current_value?: number }[] };
   if (!Array.isArray(goals)) return res.status(400).json({ error: 'goals must be an array' });
 
   db.prepare('DELETE FROM client_goals WHERE agency_client_id = ?').run(cid);
-  const ins = db.prepare('INSERT INTO client_goals (agency_client_id, metric, label, target, unit, icon) VALUES (?, ?, ?, ?, ?, ?)');
-  for (const g of goals) ins.run(cid, g.metric, g.label, g.target, g.unit || '', g.icon || 'target');
+  const ins = db.prepare('INSERT INTO client_goals (agency_client_id, metric, label, target, unit, icon, current_value) VALUES (?, ?, ?, ?, ?, ?, ?)');
+  for (const g of goals) ins.run(cid, g.metric, g.label, g.target, g.unit || '', g.icon || 'target', g.current_value ?? 0);
 
   res.json(db.prepare('SELECT * FROM client_goals WHERE agency_client_id = ? ORDER BY id').all(cid));
+});
+
+router.patch('/:clientId/goals/:id/value', (req, res) => {
+  const { current_value } = req.body;
+  db.prepare("UPDATE client_goals SET current_value = ?, updated_at = datetime('now') WHERE id = ? AND agency_client_id = ?")
+    .run(Number(current_value) || 0, req.params.id, req.params.clientId);
+  res.json(db.prepare('SELECT * FROM client_goals WHERE id = ?').get(req.params.id));
 });
 
 /* ── Positioning ──────────────────────────────────────────────────────────── */

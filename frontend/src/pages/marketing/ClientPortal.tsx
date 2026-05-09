@@ -979,6 +979,9 @@ export default function ClientPortal() {
     const [saving, setSaving] = useState(false);
     const [modal, setModal] = useState<any>(null);
     const [form, setForm] = useState({ metric: 'custom', label: '', target: '', unit: '', icon: 'target' });
+    const [editingValue, setEditingValue] = useState<number | null>(null); // goal id being edited
+    const [valueDraft, setValueDraft] = useState('');
+    const [savingValue, setSavingValue] = useState(false);
     useEffect(() => { setLocalGoals(goals); }, [goals]);
 
     const PRESET_METRICS = [
@@ -991,16 +994,27 @@ export default function ClientPortal() {
 
     const ICONS: Record<string, any> = { grid: Grid3x3, users: Users, trending: TrendingUp, dollar: DollarSign, zap: Zap, target: Target };
 
-    const getCurrentValue = (metric: string) => {
-      if (!summary) return 0;
-      switch (metric) {
-        case 'posts_month': return summary.posts?.published_month ?? 0;
-        case 'leads_month': return summary.campaigns?.leads ?? 0;
-        case 'reach_month': return summary.campaigns?.reach ?? 0;
-        case 'revenue':     return summary.campaigns?.revenue ?? 0;
-        case 'roas':        return summary.roas ?? 0;
-        default: return 0;
+    const AUTO_METRICS = ['posts_month', 'leads_month', 'reach_month', 'revenue', 'roas'];
+
+    const getCurrentValue = (g: any) => {
+      switch (g.metric) {
+        case 'posts_month': return summary?.posts?.published_month ?? 0;
+        case 'leads_month': return summary?.campaigns?.leads ?? 0;
+        case 'reach_month': return summary?.campaigns?.reach ?? 0;
+        case 'revenue':     return summary?.campaigns?.revenue ?? 0;
+        case 'roas':        return summary?.roas ?? 0;
+        default:            return g.current_value ?? 0;
       }
+    };
+
+    const saveCurrentValue = async (g: any) => {
+      setSavingValue(true);
+      const val = parseFloat(valueDraft) || 0;
+      const r = await clientPortalApi.updateGoalValue(cid, g.id, val);
+      setLocalGoals(prev => prev.map(x => x.id === g.id ? { ...x, current_value: val } : x));
+      setGoals((prev: any[]) => prev.map((x: any) => x.id === g.id ? { ...x, current_value: val } : x));
+      setSavingValue(false);
+      setEditingValue(null);
     };
 
     const fmtVal = (metric: string, unit: string, v: number) => {
@@ -1061,8 +1075,8 @@ export default function ClientPortal() {
     };
 
     // Summary
-    const onTrack = localGoals.filter((g: any) => { const pct = g.target > 0 ? (getCurrentValue(g.metric) / g.target) * 100 : 0; return pct >= 70; }).length;
-    const atRisk  = localGoals.filter((g: any) => { const pct = g.target > 0 ? (getCurrentValue(g.metric) / g.target) * 100 : 0; return pct < 40; }).length;
+    const onTrack = localGoals.filter((g: any) => { const pct = g.target > 0 ? (getCurrentValue(g) / g.target) * 100 : 0; return pct >= 70; }).length;
+    const atRisk  = localGoals.filter((g: any) => { const pct = g.target > 0 ? (getCurrentValue(g) / g.target) * 100 : 0; return pct < 40; }).length;
 
     const inputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(226,232,240,0.9)' };
     const inputCls = 'w-full rounded-xl px-3 py-2.5 text-sm outline-none';
@@ -1122,19 +1136,21 @@ export default function ClientPortal() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {localGoals.map((g: any, i: number) => {
-              const current = getCurrentValue(g.metric);
+              const current = getCurrentValue(g);
               const pct = g.target > 0 ? Math.min((current / g.target) * 100, 100) : 0;
               const status = statusOf(pct);
               const color = STATUS_COLORS[status];
               const Icon = ICONS[g.icon] || Target;
               const circumference = 2 * Math.PI * 28;
               const dash = (pct / 100) * circumference;
+              const isAuto = AUTO_METRICS.includes(g.metric);
+              const isEditingThis = editingValue === g.id;
 
               return (
                 <div key={i} className="group rounded-2xl p-5 relative"
                   style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: `1px solid ${color}15` }}>
 
-                  {/* Edit button */}
+                  {/* Edit meta button */}
                   {isAdmin && (
                     <button onClick={() => openEdit(g, i)}
                       className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
@@ -1161,20 +1177,55 @@ export default function ClientPortal() {
                     {/* Content */}
                     <div className="flex-1 min-w-0 pt-1">
                       <p className="text-xs font-medium mb-2 truncate" style={{ color: 'rgba(100,116,139,0.55)' }}>{g.label}</p>
-                      <div className="flex items-baseline gap-1.5 mb-1">
-                        <span className="text-2xl font-bold leading-none" style={{ color }}>
-                          {fmtVal(g.metric, g.unit, current)}
-                        </span>
-                        <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                          / {fmtTarget(g)}
-                        </span>
-                      </div>
+
+                      {/* Current value — editable if manual */}
+                      {isEditingThis ? (
+                        <div className="flex items-center gap-2 mb-2">
+                          <input
+                            autoFocus
+                            type="number"
+                            value={valueDraft}
+                            onChange={e => setValueDraft(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveCurrentValue(g); if (e.key === 'Escape') setEditingValue(null); }}
+                            className="w-28 rounded-lg px-2 py-1 text-sm font-bold outline-none"
+                            style={{ background: 'rgba(255,255,255,0.06)', border: `1px solid ${color}40`, color }}
+                          />
+                          <button onClick={() => saveCurrentValue(g)} disabled={savingValue}
+                            className="text-[10px] px-2 py-1 rounded-lg font-medium"
+                            style={{ background: `${color}20`, color, border: `1px solid ${color}30` }}>
+                            {savingValue ? '…' : 'Ok'}
+                          </button>
+                          <button onClick={() => setEditingValue(null)}
+                            className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>✕</button>
+                        </div>
+                      ) : (
+                        <div className="flex items-baseline gap-1.5 mb-1">
+                          <span className="text-2xl font-bold leading-none" style={{ color }}>
+                            {fmtVal(g.metric, g.unit, current)}
+                          </span>
+                          <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                            / {fmtTarget(g)}
+                          </span>
+                          {isAdmin && !isAuto && (
+                            <button
+                              onClick={() => { setValueDraft(String(current)); setEditingValue(g.id); }}
+                              className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity text-[10px] px-1.5 py-0.5 rounded"
+                              style={{ color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                              atualizar
+                            </button>
+                          )}
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2">
                         <span className="text-[10px] px-2 py-0.5 rounded-full"
                           style={{ background: `${color}12`, color, border: `1px solid ${color}25` }}>
                           {STATUS_LABELS[status]}
                         </span>
                         <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.35)' }}>{pct.toFixed(0)}%</span>
+                        {isAuto && (
+                          <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.25)' }}>· automático</span>
+                        )}
                       </div>
                     </div>
                   </div>

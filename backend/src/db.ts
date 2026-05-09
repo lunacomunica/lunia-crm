@@ -363,6 +363,7 @@ const migrations = [
     agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, agency_client_id)
   )`,
+  "ALTER TABLE client_goals ADD COLUMN current_value REAL DEFAULT 0",
   `CREATE TABLE IF NOT EXISTS client_products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
