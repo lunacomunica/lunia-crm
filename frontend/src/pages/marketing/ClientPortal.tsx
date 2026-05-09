@@ -975,18 +975,21 @@ export default function ClientPortal() {
   }
 
   function PageMetas() {
-    const [editing, setEditing] = useState(false);
-    const [localGoals, setLocalGoals] = useState(goals);
+    const [localGoals, setLocalGoals] = useState<any[]>(goals);
     const [saving, setSaving] = useState(false);
+    const [modal, setModal] = useState<any>(null);
+    const [form, setForm] = useState({ metric: 'custom', label: '', target: '', unit: '', icon: 'target' });
     useEffect(() => { setLocalGoals(goals); }, [goals]);
 
-    const METRICS = [
-      { metric: 'posts_month', label: 'Posts publicados/mês', unit: 'posts' },
-      { metric: 'leads_month', label: 'Leads gerados/mês', unit: 'leads' },
-      { metric: 'reach_month', label: 'Alcance médio/mês', unit: 'impressões' },
-      { metric: 'revenue', label: 'Faturamento gerado', unit: 'R$' },
-      { metric: 'roas', label: 'ROAS mínimo', unit: 'x' },
+    const PRESET_METRICS = [
+      { metric: 'posts_month', label: 'Posts publicados/mês', unit: 'posts', icon: 'grid' },
+      { metric: 'leads_month', label: 'Leads gerados/mês',   unit: 'leads', icon: 'users' },
+      { metric: 'reach_month', label: 'Alcance médio/mês',   unit: 'impressões', icon: 'trending' },
+      { metric: 'revenue',     label: 'Faturamento gerado',  unit: 'R$', icon: 'dollar' },
+      { metric: 'roas',        label: 'ROAS mínimo',         unit: 'x', icon: 'zap' },
     ];
+
+    const ICONS: Record<string, any> = { grid: Grid3x3, users: Users, trending: TrendingUp, dollar: DollarSign, zap: Zap, target: Target };
 
     const getCurrentValue = (metric: string) => {
       if (!summary) return 0;
@@ -994,109 +997,265 @@ export default function ClientPortal() {
         case 'posts_month': return summary.posts?.published_month ?? 0;
         case 'leads_month': return summary.campaigns?.leads ?? 0;
         case 'reach_month': return summary.campaigns?.reach ?? 0;
-        case 'revenue': return summary.campaigns?.revenue ?? 0;
-        case 'roas': return summary.roas ?? 0;
+        case 'revenue':     return summary.campaigns?.revenue ?? 0;
+        case 'roas':        return summary.roas ?? 0;
         default: return 0;
       }
     };
 
-    const fmtVal = (metric: string, v: number) => {
-      if (metric === 'revenue') return fmtR(v);
-      if (metric === 'roas') return `${v.toFixed(1)}x`;
+    const fmtVal = (metric: string, unit: string, v: number) => {
+      if (metric === 'revenue' || unit === 'R$') return fmtR(v);
+      if (metric === 'roas' || unit === 'x') return `${v.toFixed(1)}x`;
       if (metric === 'reach_month') return fmtN(v);
-      return String(v);
+      return fmtN(v);
     };
+
+    const fmtTarget = (g: any) => {
+      if (g.metric === 'revenue' || g.unit === 'R$') return fmtR(g.target);
+      if (g.metric === 'roas' || g.unit === 'x') return `${g.target}x`;
+      return `${fmtN(g.target)}${g.unit ? ' ' + g.unit : ''}`;
+    };
+
+    const statusOf = (pct: number) => pct >= 100 ? 'concluida' : pct >= 70 ? 'caminho' : pct >= 40 ? 'atencao' : 'risco';
+    const STATUS_COLORS: Record<string, string> = { concluida: '#34d399', caminho: '#60a5fa', atencao: '#f59e0b', risco: '#f87171' };
+    const STATUS_LABELS: Record<string, string> = { concluida: 'Concluída', caminho: 'No caminho', atencao: 'Atenção', risco: 'Em risco' };
 
     const save = async () => {
       setSaving(true);
       const r = await clientPortalApi.updateGoals(cid, localGoals);
       setGoals(r.data);
-      setEditing(false);
       setSaving(false);
     };
 
+    const openAdd = () => {
+      setForm({ metric: 'posts_month', label: 'Posts publicados/mês', target: '', unit: 'posts', icon: 'grid' });
+      setModal({});
+    };
+
+    const openEdit = (g: any, i: number) => {
+      setForm({ metric: g.metric, label: g.label, target: String(g.target), unit: g.unit || '', icon: g.icon || 'target' });
+      setModal({ ...g, _idx: i });
+    };
+
+    const saveModal = async () => {
+      const entry = { metric: form.metric, label: form.label, target: parseFloat(form.target) || 0, unit: form.unit, icon: form.icon };
+      let next: any[];
+      if (modal?._idx !== undefined) {
+        next = localGoals.map((g, i) => i === modal._idx ? entry : g);
+      } else {
+        next = [...localGoals, entry];
+      }
+      setLocalGoals(next);
+      setSaving(true);
+      const r = await clientPortalApi.updateGoals(cid, next);
+      setGoals(r.data);
+      setSaving(false);
+      setModal(null);
+    };
+
+    const removeGoal = async (idx: number) => {
+      const next = localGoals.filter((_, i) => i !== idx);
+      setLocalGoals(next);
+      const r = await clientPortalApi.updateGoals(cid, next);
+      setGoals(r.data);
+    };
+
+    // Summary
+    const onTrack = localGoals.filter((g: any) => { const pct = g.target > 0 ? (getCurrentValue(g.metric) / g.target) * 100 : 0; return pct >= 70; }).length;
+    const atRisk  = localGoals.filter((g: any) => { const pct = g.target > 0 ? (getCurrentValue(g.metric) / g.target) * 100 : 0; return pct < 40; }).length;
+
+    const inputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(226,232,240,0.9)' };
+    const inputCls = 'w-full rounded-xl px-3 py-2.5 text-sm outline-none';
+    const labelStyle = { color: 'rgba(100,116,139,0.55)', fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 6, display: 'block' };
+
     return (
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex items-end justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-white mb-1">Metas</h2>
             <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Objetivos e progresso em tempo real</p>
           </div>
-          {isAdmin && !editing && (
-            <button onClick={() => setEditing(true)} className="flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg"
-              style={{ background: 'rgba(59,130,246,0.08)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.15)' }}>
-              <Pencil size={11} /> {localGoals.length === 0 ? 'Definir metas' : 'Editar metas'}
+          {isAdmin && (
+            <button onClick={openAdd}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
+              style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)' }}>
+              <Plus size={14} /> Nova meta
             </button>
-          )}
-          {editing && (
-            <div className="flex gap-2">
-              <button onClick={() => { setEditing(false); setLocalGoals(goals); }} className="text-xs px-3 py-2 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}>Cancelar</button>
-              <button onClick={save} disabled={saving} className="btn-primary text-xs py-2 px-4">{saving ? 'Salvando…' : 'Salvar'}</button>
-            </div>
           )}
         </div>
 
-        {localGoals.length === 0 && !editing ? (
+        {/* Summary strip */}
+        {localGoals.length > 0 && (
+          <div className="flex gap-3">
+            {[
+              { label: 'No caminho', count: onTrack, color: '#60a5fa' },
+              { label: 'Em risco', count: atRisk, color: '#f87171' },
+              { label: 'Total', count: localGoals.length, color: 'rgba(100,116,139,0.5)' },
+            ].map(s => (
+              <div key={s.label} className="flex items-center gap-2 px-4 py-2 rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <span className="text-lg font-bold" style={{ color: s.color }}>{s.count}</span>
+                <span className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{s.label}</span>
+              </div>
+            ))}
+            {isAdmin && (
+              <button onClick={save} disabled={saving}
+                className="ml-auto flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl"
+                style={{ background: 'rgba(52,211,153,0.08)', color: '#34d399', border: '1px solid rgba(52,211,153,0.15)' }}>
+                {saving ? 'Salvando…' : '✓ Salvar ordem'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Empty */}
+        {localGoals.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 rounded-2xl"
             style={{ border: '1px dashed rgba(59,130,246,0.12)', background: 'linear-gradient(145deg,#0d0d22,#0f0f28)' }}>
             <Target size={36} className="mb-3" style={{ color: 'rgba(59,130,246,0.15)' }} />
             <p className="text-sm font-medium text-white mb-1">Nenhuma meta definida</p>
             <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
-              {isAdmin ? 'Clique em "Definir metas" para começar.' : 'A agência ainda não definiu as metas.'}
+              {isAdmin ? 'Clique em "Nova meta" para começar.' : 'A agência ainda não definiu as metas.'}
             </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {(editing ? localGoals : goals).map((g: any, i: number) => {
+            {localGoals.map((g: any, i: number) => {
               const current = getCurrentValue(g.metric);
               const pct = g.target > 0 ? Math.min((current / g.target) * 100, 100) : 0;
-              const color = pct >= 100 ? '#34d399' : pct >= 70 ? '#60a5fa' : pct >= 40 ? '#f59e0b' : '#f87171';
+              const status = statusOf(pct);
+              const color = STATUS_COLORS[status];
+              const Icon = ICONS[g.icon] || Target;
+              const circumference = 2 * Math.PI * 28;
+              const dash = (pct / 100) * circumference;
 
               return (
-                <div key={g.metric || i} className="rounded-2xl p-5"
-                  style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  {editing ? (
-                    <div className="space-y-2">
-                      <select value={g.metric}
-                        onChange={e => { const m = METRICS.find(x => x.metric === e.target.value); setLocalGoals((prev: any[]) => prev.map((x: any, j: number) => j === i ? { ...x, metric: e.target.value, label: m?.label || x.label, unit: m?.unit || x.unit } : x)); }}
-                        className="input-dark text-sm py-1.5 w-full">
-                        {METRICS.map(m => <option key={m.metric} value={m.metric}>{m.label}</option>)}
-                      </select>
-                      <div className="flex gap-2 items-center">
-                        <input value={g.label} onChange={e => setLocalGoals((prev: any[]) => prev.map((x: any, j: number) => j === i ? { ...x, label: e.target.value } : x))}
-                          placeholder="Label..." className="input-dark text-sm py-1.5 flex-1" />
-                        <input type="number" value={g.target} onChange={e => setLocalGoals((prev: any[]) => prev.map((x: any, j: number) => j === i ? { ...x, target: Number(e.target.value) } : x))}
-                          className="input-dark text-sm py-1.5 w-20 text-center" />
-                        <button onClick={() => setLocalGoals((prev: any[]) => prev.filter((_: any, j: number) => j !== i))}>
-                          <Trash2 size={14} style={{ color: 'rgba(248,113,113,0.5)' }} />
-                        </button>
+                <div key={i} className="group rounded-2xl p-5 relative"
+                  style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: `1px solid ${color}15` }}>
+
+                  {/* Edit button */}
+                  {isAdmin && (
+                    <button onClick={() => openEdit(g, i)}
+                      className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg"
+                      style={{ color: 'rgba(100,116,139,0.5)', background: 'rgba(255,255,255,0.04)' }}>
+                      <Pencil size={11} />
+                    </button>
+                  )}
+
+                  <div className="flex items-start gap-4">
+                    {/* Circular progress */}
+                    <div className="relative flex-shrink-0" style={{ width: 72, height: 72 }}>
+                      <svg width="72" height="72" viewBox="0 0 72 72" style={{ transform: 'rotate(-90deg)' }}>
+                        <circle cx="36" cy="36" r="28" fill="none" stroke={`${color}15`} strokeWidth="6" />
+                        <circle cx="36" cy="36" r="28" fill="none" stroke={color} strokeWidth="6"
+                          strokeLinecap="round"
+                          strokeDasharray={`${dash} ${circumference - dash}`}
+                          style={{ transition: 'stroke-dasharray 0.7s ease', filter: `drop-shadow(0 0 4px ${color}60)` }} />
+                      </svg>
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Icon size={16} style={{ color }} />
                       </div>
                     </div>
-                  ) : (
-                    <>
-                      <p className="text-xs font-medium mb-4" style={{ color: 'rgba(100,116,139,0.6)' }}>{g.label}</p>
-                      <div className="flex items-baseline gap-2 mb-3">
-                        <span className="text-3xl font-bold" style={{ color }}>{fmtVal(g.metric, current)}</span>
-                        <span className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                          / {g.metric === 'revenue' ? fmtR(g.target) : g.metric === 'roas' ? `${g.target}x` : g.metric === 'reach_month' ? fmtN(g.target) : `${g.target} ${g.unit}`}
+
+                    {/* Content */}
+                    <div className="flex-1 min-w-0 pt-1">
+                      <p className="text-xs font-medium mb-2 truncate" style={{ color: 'rgba(100,116,139,0.55)' }}>{g.label}</p>
+                      <div className="flex items-baseline gap-1.5 mb-1">
+                        <span className="text-2xl font-bold leading-none" style={{ color }}>
+                          {fmtVal(g.metric, g.unit, current)}
+                        </span>
+                        <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                          / {fmtTarget(g)}
                         </span>
                       </div>
-                      <div className="h-1.5 rounded-full overflow-hidden mb-2" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: color, transition: 'width 0.7s ease' }} />
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full"
+                          style={{ background: `${color}12`, color, border: `1px solid ${color}25` }}>
+                          {STATUS_LABELS[status]}
+                        </span>
+                        <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.35)' }}>{pct.toFixed(0)}%</span>
                       </div>
-                      <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{pct.toFixed(0)}% da meta</p>
-                    </>
-                  )}
+                    </div>
+                  </div>
                 </div>
               );
             })}
-            {editing && localGoals.length < METRICS.length && (
-              <button onClick={() => { const unused = METRICS.find(m => !localGoals.some((g: any) => g.metric === m.metric)); if (unused) setLocalGoals((g: any[]) => [...g, { metric: unused.metric, label: unused.label, target: 0, unit: unused.unit }]); }}
-                className="rounded-2xl p-5 flex items-center justify-center gap-2 text-sm transition-colors"
-                style={{ border: '1px dashed rgba(59,130,246,0.15)', color: 'rgba(59,130,246,0.4)' }}>
-                <Plus size={14} /> Adicionar meta
-              </button>
-            )}
+          </div>
+        )}
+
+        {/* Modal */}
+        {modal !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
+            <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)' }}>
+              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <h3 className="text-base font-semibold text-white">{modal?._idx !== undefined ? 'Editar meta' : 'Nova meta'}</h3>
+                <button onClick={() => setModal(null)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
+              </div>
+              <div className="px-6 py-5 space-y-4">
+                <div>
+                  <label style={labelStyle}>Tipo de métrica</label>
+                  <select value={form.metric}
+                    onChange={e => {
+                      const preset = PRESET_METRICS.find(m => m.metric === e.target.value);
+                      setForm(f => ({ ...f, metric: e.target.value, label: preset?.label || f.label, unit: preset?.unit || f.unit, icon: preset?.icon || 'target' }));
+                    }}
+                    className={inputCls} style={{ ...inputStyle, cursor: 'pointer' }}>
+                    {PRESET_METRICS.map(m => <option key={m.metric} value={m.metric}>{m.label}</option>)}
+                    <option value="custom">Personalizada</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={labelStyle}>Nome da meta</label>
+                  <input value={form.label} onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
+                    placeholder="Ex: Seguidores no Instagram" className={inputCls} style={inputStyle} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label style={labelStyle}>Meta (valor alvo)</label>
+                    <input type="number" value={form.target} onChange={e => setForm(f => ({ ...f, target: e.target.value }))}
+                      placeholder="0" className={inputCls} style={inputStyle} />
+                  </div>
+                  <div>
+                    <label style={labelStyle}>Unidade</label>
+                    <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                      placeholder="posts, leads, R$…" className={inputCls} style={inputStyle} />
+                  </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>Ícone</label>
+                  <div className="flex gap-2">
+                    {Object.entries(ICONS).map(([key, Ic]: [string, any]) => (
+                      <button key={key} onClick={() => setForm(f => ({ ...f, icon: key }))}
+                        className="w-9 h-9 rounded-xl flex items-center justify-center transition-all"
+                        style={{ background: form.icon === key ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)', border: `1px solid ${form.icon === key ? 'rgba(59,130,246,0.35)' : 'rgba(255,255,255,0.06)'}` }}>
+                        <Ic size={14} style={{ color: form.icon === key ? '#60a5fa' : 'rgba(100,116,139,0.5)' }} />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center justify-between px-6 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div>
+                  {modal?._idx !== undefined && (
+                    <button onClick={() => { removeGoal(modal._idx); setModal(null); }}
+                      className="text-xs px-3 py-1.5 rounded-lg"
+                      style={{ color: 'rgba(239,68,68,0.6)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                      Remover
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setModal(null)} className="text-xs px-4 py-2 rounded-xl"
+                    style={{ color: 'rgba(100,116,139,0.6)' }}>Cancelar</button>
+                  <button onClick={saveModal} disabled={saving || !form.label.trim() || !form.target}
+                    className="text-xs px-5 py-2 rounded-xl font-medium text-white disabled:opacity-40"
+                    style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                    {saving ? 'Salvando…' : 'Salvar'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -1377,69 +1536,95 @@ export default function ClientPortal() {
     const labelStyle = { color: 'rgba(100,116,139,0.55)', fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 6, display: 'block' };
 
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
         {/* Header */}
-        <div className="flex items-end justify-between">
+        <div className="flex items-start justify-between gap-4">
           <div>
             <h2 className="text-2xl font-semibold text-white mb-1">Esteira de Ofertas</h2>
-            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Toda boa estratégia começa com uma oferta bem estruturada</p>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>
+              Toda boa estratégia começa com uma oferta bem estruturada
+            </p>
           </div>
           {isAdmin && (
             <button onClick={openNew}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
-              style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)' }}>
+              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.8)' }}>
               <Plus size={14} /> Novo produto
             </button>
           )}
         </div>
 
+        {/* Flow indicator */}
+        <div className="hidden sm:flex items-center gap-0 rounded-2xl overflow-hidden"
+          style={{ border: '1px solid rgba(255,255,255,0.05)', background: 'rgba(255,255,255,0.02)' }}>
+          {OFFER_TYPES.map((ot, i) => (
+            <div key={ot.id} className="flex-1 flex items-center justify-center gap-2 py-3 relative">
+              <div className="w-1.5 h-1.5 rounded-full" style={{ background: ot.color, boxShadow: `0 0 6px ${ot.color}` }} />
+              <span className="text-xs font-semibold tracking-wide" style={{ color: ot.color }}>{ot.label}</span>
+              {i < OFFER_TYPES.length - 1 && (
+                <ChevronRight size={12} className="absolute right-0 top-1/2 -translate-y-1/2"
+                  style={{ color: 'rgba(100,116,139,0.2)' }} />
+              )}
+            </div>
+          ))}
+        </div>
+
         {/* Esteira */}
         {loadingProds ? (
-          <div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+          <div className="flex justify-center py-16">
+            <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             {OFFER_TYPES.map(ot => {
               const cols = products.filter(p => p.offer_type === ot.id && p.active);
               return (
-                <div key={ot.id} className="rounded-2xl overflow-hidden"
-                  style={{ border: `1px solid ${ot.color}18`, background: 'linear-gradient(145deg,#0d0d22,#0f0f28)' }}>
-                  {/* Column header */}
-                  <div className="px-5 py-4" style={{ borderBottom: `1px solid ${ot.color}12` }}>
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 rounded-full" style={{ background: ot.color, boxShadow: `0 0 6px ${ot.color}80` }} />
-                      <span className="text-xs font-bold tracking-widest uppercase" style={{ color: ot.color }}>{ot.label}</span>
-                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full"
-                        style={{ background: `${ot.color}15`, color: ot.color }}>{cols.length}</span>
-                    </div>
-                    <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{ot.desc}</p>
+                <div key={ot.id} className="flex flex-col rounded-2xl overflow-hidden"
+                  style={{ border: `1px solid ${ot.color}20`, background: '#0b0b1e', minHeight: 220 }}>
+
+                  {/* Column header — fixed height */}
+                  <div className="px-4 py-3 flex items-center gap-2 flex-shrink-0"
+                    style={{ background: `${ot.color}08`, borderBottom: `1px solid ${ot.color}15` }}>
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{ background: ot.color, boxShadow: `0 0 5px ${ot.color}` }} />
+                    <span className="text-[11px] font-bold tracking-widest uppercase flex-1" style={{ color: ot.color }}>
+                      {ot.label}
+                    </span>
+                    <span className="text-[10px] w-5 h-5 rounded-full flex items-center justify-center"
+                      style={{ background: `${ot.color}18`, color: ot.color }}>{cols.length}</span>
                   </div>
 
-                  {/* Products */}
-                  <div className="p-3 space-y-2 min-h-[80px]">
+                  {/* Products — flex-1 so all columns stretch equally */}
+                  <div className="flex-1 p-3 space-y-2">
                     {cols.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-8">
-                        <p className="text-xs" style={{ color: 'rgba(100,116,139,0.25)' }}>Nenhum produto aqui</p>
+                      <div className="h-full flex flex-col items-center justify-center py-10 gap-3">
+                        <p className="text-xs" style={{ color: 'rgba(100,116,139,0.2)' }}>Nenhum produto aqui</p>
                         {isAdmin && (
-                          <button onClick={() => { setForm(f => ({ ...f, offer_type: ot.id })); setModalTab('cadastro'); setModal({}); }}
-                            className="mt-2 text-[10px] px-2.5 py-1 rounded-lg"
-                            style={{ color: ot.color, border: `1px solid ${ot.color}25` }}>
+                          <button
+                            onClick={() => { setForm(f => ({ ...f, offer_type: ot.id })); setModalTab('cadastro'); setModal({}); }}
+                            className="text-[11px] px-3 py-1.5 rounded-lg transition-colors"
+                            style={{ color: ot.color, border: `1px solid ${ot.color}30`, background: `${ot.color}08` }}>
                             + Adicionar
                           </button>
                         )}
                       </div>
                     ) : cols.map(p => (
-                      <div key={p.id} className="group rounded-xl px-4 py-3"
-                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <div key={p.id} className="group rounded-xl px-3 py-3 transition-colors"
+                        style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = `${ot.color}30`)}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{p.name}</p>
-                            {p.category && <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>{p.category}</p>}
+                            <p className="text-sm font-medium text-white leading-snug truncate">{p.name}</p>
+                            {p.category && (
+                              <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>{p.category}</p>
+                            )}
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <span className="text-sm font-semibold" style={{ color: ot.color }}>{fmtPrice(p.price)}</span>
                             {isAdmin && (
                               <button onClick={() => openEdit(p)}
-                                className="opacity-0 group-hover:opacity-100 ml-1 p-1 rounded-lg transition-opacity"
+                                className="opacity-0 group-hover:opacity-100 p-1 rounded-lg transition-opacity"
                                 style={{ color: 'rgba(100,116,139,0.5)' }}>
                                 <Pencil size={11} />
                               </button>
@@ -1447,14 +1632,15 @@ export default function ClientPortal() {
                           </div>
                         </div>
                         {p.promise && (
-                          <p className="text-[11px] mt-2 leading-relaxed" style={{ color: 'rgba(148,163,184,0.5)' }}>
-                            {p.promise}
-                          </p>
+                          <p className="text-[11px] mt-2 leading-relaxed line-clamp-2"
+                            style={{ color: 'rgba(148,163,184,0.45)' }}>{p.promise}</p>
                         )}
                         {p.target_audience && (
                           <div className="flex items-center gap-1 mt-2">
-                            <Users size={9} style={{ color: 'rgba(100,116,139,0.35)' }} />
-                            <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.35)' }}>{p.target_audience}</span>
+                            <Users size={9} style={{ color: 'rgba(100,116,139,0.3)' }} />
+                            <span className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.3)' }}>
+                              {p.target_audience}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1467,16 +1653,18 @@ export default function ClientPortal() {
         )}
 
         {/* Inativos */}
-        {products.filter(p => !p.active).length > 0 && isAdmin && (
+        {isAdmin && products.filter(p => !p.active).length > 0 && (
           <div>
-            <p className="text-[10px] font-semibold tracking-widest uppercase mb-3" style={{ color: 'rgba(100,116,139,0.3)' }}>Inativos</p>
-            <div className="space-y-2">
+            <p className="text-[10px] font-semibold tracking-widest uppercase mb-3"
+              style={{ color: 'rgba(100,116,139,0.25)' }}>Inativos</p>
+            <div className="space-y-1.5">
               {products.filter(p => !p.active).map(p => (
                 <div key={p.id} className="group flex items-center gap-3 px-4 py-3 rounded-xl"
                   style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  <span className="flex-1 text-sm line-through" style={{ color: 'rgba(100,116,139,0.35)' }}>{p.name}</span>
-                  <button onClick={() => openEdit(p)} className="opacity-0 group-hover:opacity-100 text-xs px-2 py-1 rounded-lg"
-                    style={{ color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <span className="flex-1 text-sm line-through" style={{ color: 'rgba(100,116,139,0.3)' }}>{p.name}</span>
+                  <button onClick={() => openEdit(p)}
+                    className="opacity-0 group-hover:opacity-100 text-[11px] px-2 py-1 rounded-lg transition-opacity"
+                    style={{ color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
                     Reativar
                   </button>
                 </div>
