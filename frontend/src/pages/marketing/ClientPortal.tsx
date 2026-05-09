@@ -489,24 +489,31 @@ export default function ClientPortal() {
       setEditingMsg(false);
     };
 
-    const nextScheduled = pieces
-      .filter(p => p.scheduled_date && ['aprovado', 'agendado'].includes(p.status))
-      .sort((a, b) => new Date(a.scheduled_date!).getTime() - new Date(b.scheduled_date!).getTime())[0];
-
     const pendingApproval = s?.posts?.pending_approval ?? 0;
     const needsAdjust = s?.posts?.needs_adjustment ?? 0;
+    const pendingPieces: any[] = s?.pendingPieces ?? [];
+    const nextBatch = s?.nextBatch ?? null;
+    const lastApproved = s?.lastApproved ?? null;
+    const lastUpdate = s?.lastAgencyUpdate ?? null;
+
+    const MONTHS_PT_SHORT = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez'];
 
     const mods = (() => { try { return typeof client?.modules === 'string' ? JSON.parse(client.modules) : (client?.modules || {}); } catch { return {}; } })();
     const pillars = [
-      { key: 'posicionamento',     label: 'Posicionamento',  color: '#a78bfa', active: !!mods.posicionamento },
-      { key: 'marketing',          label: 'Marketing',       color: '#34d399', active: !!(mods.marketing_conteudo || mods.marketing_trafego) },
-      { key: 'comercial',          label: 'Comercial',       color: '#fb923c', active: !!mods.comercial },
+      { key: 'posicionamento', label: 'Posicionamento', color: '#a78bfa', active: !!mods.posicionamento },
+      { key: 'marketing',      label: 'Marketing',      color: '#34d399', active: !!(mods.marketing_conteudo || mods.marketing_trafego) },
+      { key: 'comercial',      label: 'Comercial',      color: '#fb923c', active: !!mods.comercial },
     ];
     const activeCount = pillars.filter(p => p.active).length;
     const flywheelPct = activeCount / 3;
 
+    const statusLabel: Record<string, string> = {
+      em_criacao: 'Em criação', em_revisao: 'Em revisão', aguardando_aprovacao: 'Aguardando aprovação',
+      aprovado: 'Aprovado', ajuste_solicitado: 'Ajuste solicitado', agendado: 'Agendado', publicado: 'Publicado',
+    };
+
     return (
-      <div className="space-y-8">
+      <div className="space-y-6">
 
         {/* Header */}
         <div>
@@ -518,24 +525,172 @@ export default function ClientPortal() {
           </p>
         </div>
 
+        {/* Action cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Pending approvals */}
+          <button onClick={() => setPage('conteudos')}
+            className="group text-left rounded-2xl p-5 transition-all"
+            style={{
+              background: pendingApproval > 0 ? 'linear-gradient(135deg,rgba(245,158,11,0.10),rgba(245,158,11,0.05))' : 'linear-gradient(135deg,#0d0d22,#0f0f28)',
+              border: `1px solid ${pendingApproval > 0 ? 'rgba(245,158,11,0.25)' : 'rgba(255,255,255,0.05)'}`,
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ background: pendingApproval > 0 ? 'rgba(245,158,11,0.15)' : 'rgba(255,255,255,0.05)' }}>
+                <CheckCircle2 size={16} style={{ color: pendingApproval > 0 ? '#f59e0b' : 'rgba(100,116,139,0.4)' }} />
+              </div>
+              {pendingApproval > 0 && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+                  {pendingApproval} novo{pendingApproval > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <p className="text-sm font-semibold mb-0.5" style={{ color: pendingApproval > 0 ? '#f59e0b' : 'rgba(100,116,139,0.5)' }}>
+              {pendingApproval > 0
+                ? `${pendingApproval} peça${pendingApproval > 1 ? 's' : ''} aguardando aprovação`
+                : 'Nenhuma peça pendente'}
+            </p>
+            <p className="text-xs" style={{ color: 'rgba(100,116,139,0.45)' }}>
+              {pendingApproval > 0 ? 'Clique para revisar e aprovar →' : 'Tudo em dia por aqui'}
+            </p>
+          </button>
+
+          {/* Next batch delivery */}
+          <div className="rounded-2xl p-5"
+            style={{
+              background: nextBatch ? 'linear-gradient(135deg,rgba(52,211,153,0.08),rgba(52,211,153,0.03))' : 'linear-gradient(135deg,#0d0d22,#0f0f28)',
+              border: `1px solid ${nextBatch ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.05)'}`,
+            }}>
+            <div className="flex items-start justify-between mb-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                style={{ background: nextBatch ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.05)' }}>
+                <Calendar size={16} style={{ color: nextBatch ? '#34d399' : 'rgba(100,116,139,0.4)' }} />
+              </div>
+              {nextBatch && (
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
+                  Próxima entrega
+                </span>
+              )}
+            </div>
+            <p className="text-sm font-semibold mb-0.5" style={{ color: nextBatch ? '#34d399' : 'rgba(100,116,139,0.5)' }}>
+              {nextBatch
+                ? `Conteúdos de ${MONTHS_PT_SHORT[(nextBatch.month ?? 1) - 1]} ${nextBatch.year}`
+                : 'Sem entregas previstas'}
+            </p>
+            <p className="text-xs" style={{ color: 'rgba(100,116,139,0.45)' }}>
+              {nextBatch
+                ? `${nextBatch.total ?? 0} peça${(nextBatch.total ?? 0) !== 1 ? 's' : ''} planejada${(nextBatch.total ?? 0) !== 1 ? 's' : ''}`
+                : 'Nenhum feed agendado ainda'}
+            </p>
+          </div>
+        </div>
+
+        {/* Resumo do momento */}
+        <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <p className="text-[10px] font-semibold tracking-widest uppercase mb-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Resumo do momento</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <p className="text-[10px] mb-1" style={{ color: 'rgba(100,116,139,0.4)' }}>Última aprovação</p>
+              {lastApproved ? (
+                <>
+                  <p className="text-sm font-medium text-white leading-tight">{lastApproved.title}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: '#34d399' }}>
+                    {format(new Date(lastApproved.updated_at), "d 'de' MMM", { locale: ptBR })}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm" style={{ color: 'rgba(100,116,139,0.3)' }}>—</p>
+              )}
+            </div>
+            <div>
+              <p className="text-[10px] mb-1" style={{ color: 'rgba(100,116,139,0.4)' }}>Próxima entrega</p>
+              {nextBatch ? (
+                <>
+                  <p className="text-sm font-medium text-white leading-tight">
+                    Conteúdos de {MONTHS_PT_SHORT[(nextBatch.month ?? 1) - 1]}
+                  </p>
+                  <p className="text-[10px] mt-0.5" style={{ color: '#60a5fa' }}>{nextBatch.total ?? 0} peças</p>
+                </>
+              ) : (
+                <p className="text-sm" style={{ color: 'rgba(100,116,139,0.3)' }}>—</p>
+              )}
+            </div>
+            <div>
+              <p className="text-[10px] mb-1" style={{ color: 'rgba(100,116,139,0.4)' }}>Última atualização</p>
+              {lastUpdate ? (
+                <>
+                  <p className="text-sm font-medium text-white leading-tight">{lastUpdate.title}</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                    {statusLabel[lastUpdate.status] ?? lastUpdate.status} · {format(new Date(lastUpdate.updated_at), "d 'de' MMM", { locale: ptBR })}
+                  </p>
+                </>
+              ) : (
+                <p className="text-sm" style={{ color: 'rgba(100,116,139,0.3)' }}>—</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Pending pieces list */}
+        {pendingPieces.length > 0 && (
+          <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(245,158,11,0.15)' }}>
+            <div className="px-5 py-3 flex items-center justify-between"
+              style={{ background: 'rgba(245,158,11,0.06)', borderBottom: '1px solid rgba(245,158,11,0.1)' }}>
+              <div className="flex items-center gap-2">
+                <Clock size={12} style={{ color: '#f59e0b' }} />
+                <span className="text-xs font-semibold" style={{ color: '#f59e0b' }}>
+                  Aguardando sua aprovação ({pendingPieces.length})
+                </span>
+              </div>
+              <button onClick={() => setPage('conteudos')} className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                Ver tudo →
+              </button>
+            </div>
+            <div style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)' }}>
+              {pendingPieces.slice(0, 5).map((piece: any, i: number) => (
+                <button key={piece.id} onClick={() => setPage('conteudos')}
+                  className="w-full flex items-center gap-3 px-5 py-3 text-left transition-colors"
+                  style={{ borderTop: i > 0 ? '1px solid rgba(255,255,255,0.04)' : undefined }}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.04)')}
+                  onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: '#f59e0b' }} />
+                  <span className="flex-1 text-sm text-white truncate">{piece.title}</span>
+                  {piece.scheduled_date && (
+                    <span className="text-[10px] flex-shrink-0" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                      {format(new Date(piece.scheduled_date), "d MMM", { locale: ptBR })}
+                    </span>
+                  )}
+                  <ChevronRight size={12} style={{ color: 'rgba(100,116,139,0.3)', flexShrink: 0 }} />
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Ajustes pendentes */}
+        {needsAdjust > 0 && (
+          <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+            style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)' }}>
+            <RotateCcw size={13} style={{ color: '#f97316', flexShrink: 0 }} />
+            <span className="text-sm" style={{ color: 'rgba(226,232,240,0.6)' }}>
+              <span className="font-medium" style={{ color: '#f97316' }}>{needsAdjust} ajuste{needsAdjust > 1 ? 's' : ''}</span> solicitado{needsAdjust > 1 ? 's' : ''} — a equipe está trabalhando nisso
+            </span>
+          </div>
+        )}
+
         {/* CEO Message */}
-        <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(135deg,#0d0d22,#0f0f28)', border: '1px solid rgba(167,139,250,0.15)' }}>
+        <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(135deg,#0d0d22,#0f0f28)', border: '1px solid rgba(167,139,250,0.12)' }}>
           {editingMsg ? (
             <div className="space-y-4">
-              <textarea
-                value={msgDraft}
-                onChange={e => setMsgDraft(e.target.value)}
-                rows={5}
+              <textarea value={msgDraft} onChange={e => setMsgDraft(e.target.value)} rows={5}
                 placeholder="Escreva sua mensagem mensal para este cliente…"
                 className="w-full bg-transparent resize-none text-sm leading-relaxed outline-none"
-                style={{ color: 'rgba(226,232,240,0.85)', caretColor: '#a78bfa' }}
-                autoFocus
-              />
+                style={{ color: 'rgba(226,232,240,0.85)', caretColor: '#a78bfa' }} autoFocus />
               <div className="flex gap-2 justify-end">
                 <button onClick={() => { setEditingMsg(false); setMsgDraft(client?.ceo_message || ''); }}
-                  className="text-xs px-3 py-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}>
-                  Cancelar
-                </button>
+                  className="text-xs px-3 py-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}>Cancelar</button>
                 <button onClick={saveMsg} disabled={savingMsg}
                   className="text-xs px-4 py-1.5 rounded-lg font-medium"
                   style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.25)' }}>
@@ -546,37 +701,33 @@ export default function ClientPortal() {
           ) : (
             <div>
               {client?.ceo_message ? (
-                <p className="text-sm leading-relaxed whitespace-pre-wrap mb-6"
+                <p className="text-sm leading-relaxed whitespace-pre-wrap mb-5"
                   style={{ color: 'rgba(226,232,240,0.8)', fontStyle: 'italic' }}>
                   "{client.ceo_message}"
                 </p>
               ) : isAdmin ? (
-                <p className="text-sm mb-6" style={{ color: 'rgba(100,116,139,0.4)', fontStyle: 'italic' }}>
-                  Clique em editar para escrever sua mensagem mensal para este cliente…
+                <p className="text-sm mb-5" style={{ color: 'rgba(100,116,139,0.35)', fontStyle: 'italic' }}>
+                  Clique em editar para escrever sua mensagem mensal…
                 </p>
               ) : (
-                <p className="text-sm mb-6" style={{ color: 'rgba(100,116,139,0.4)', fontStyle: 'italic' }}>
+                <p className="text-sm mb-5" style={{ color: 'rgba(100,116,139,0.35)', fontStyle: 'italic' }}>
                   Em breve você receberá uma mensagem personalizada aqui.
                 </p>
               )}
-
-              {/* Assinatura */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0"
-                    style={{ border: '1px solid rgba(167,139,250,0.3)', boxShadow: '0 0 12px rgba(167,139,250,0.2)' }}>
-                    {user?.avatar ? (
-                      <img src={user.avatar} alt="CEO" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
-                        style={{ background: 'linear-gradient(135deg,#a78bfa,#6366f1)' }}>
-                        {user?.name?.charAt(0).toUpperCase()}
-                      </div>
-                    )}
+                    style={{ border: '1px solid rgba(167,139,250,0.25)', boxShadow: '0 0 10px rgba(167,139,250,0.15)' }}>
+                    {user?.avatar
+                      ? <img src={user.avatar} alt="CEO" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
+                          style={{ background: 'linear-gradient(135deg,#a78bfa,#6366f1)' }}>
+                          {user?.name?.charAt(0).toUpperCase()}
+                        </div>}
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-white">{user?.name || 'Vanessa Raeski'}</p>
-                    <p className="text-[10px]" style={{ color: 'rgba(167,139,250,0.6)' }}>CEO, Luna Comunica</p>
+                    <p className="text-[10px]" style={{ color: 'rgba(167,139,250,0.55)' }}>CEO, Luna Comunica</p>
                   </div>
                 </div>
                 {isAdmin && (
@@ -593,124 +744,71 @@ export default function ClientPortal() {
           )}
         </div>
 
-        {/* Next delivery */}
-        {nextScheduled && (
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
-            style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)' }}>
-            <Calendar size={14} style={{ color: '#34d399', flexShrink: 0 }} />
-            <p className="text-sm" style={{ color: 'rgba(226,232,240,0.7)' }}>
-              Próxima entrega: <span className="font-medium text-white">{nextScheduled.title}</span>
-              {nextScheduled.scheduled_date && (
-                <span style={{ color: '#34d399' }}>
-                  {' '}— {format(new Date(nextScheduled.scheduled_date), "d 'de' MMMM", { locale: ptBR })}
-                </span>
-              )}
-            </p>
-          </div>
-        )}
-
-        {/* Alerts */}
-        {(pendingApproval > 0 || needsAdjust > 0) && (
-          <div className="flex flex-wrap gap-3">
-            {pendingApproval > 0 && (
-              <button onClick={() => setPage('conteudos')}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all"
-                style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.13)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.08)')}>
-                <Clock size={13} style={{ color: '#f59e0b' }} />
-                <span className="text-sm font-medium" style={{ color: '#f59e0b' }}>
-                  {pendingApproval} peça{pendingApproval > 1 ? 's' : ''} aguardando sua aprovação →
-                </span>
-              </button>
-            )}
-            {needsAdjust > 0 && (
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl"
-                style={{ background: 'rgba(249,115,22,0.08)', border: '1px solid rgba(249,115,22,0.2)' }}>
-                <RotateCcw size={13} style={{ color: '#f97316' }} />
-                <span className="text-sm" style={{ color: '#f97316' }}>
-                  {needsAdjust} ajuste{needsAdjust > 1 ? 's' : ''} em andamento
-                </span>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* Flywheel */}
         <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.05)' }}>
           <div className="flex flex-col sm:flex-row items-center gap-8">
-            {/* SVG circular progress */}
-            <div className="relative flex-shrink-0" style={{ width: 160, height: 160 }}>
-              <svg width="160" height="160" viewBox="0 0 160 160" style={{ transform: 'rotate(-90deg)' }}>
+            <div className="relative flex-shrink-0" style={{ width: 140, height: 140 }}>
+              <svg width="140" height="140" viewBox="0 0 140 140" style={{ transform: 'rotate(-90deg)' }}>
                 {pillars.map((p, i) => {
-                  const r = 64;
+                  const r = 56;
                   const circ = 2 * Math.PI * r;
                   const gapDeg = 8;
                   const segDeg = (360 - gapDeg * 3) / 3;
                   const startDeg = i * (segDeg + gapDeg);
-                  const startRad = (startDeg * Math.PI) / 180;
-                  const endRad = ((startDeg + segDeg) * Math.PI) / 180;
                   const dashLen = (segDeg / 360) * circ;
                   const dashOffset = circ - (startDeg / 360) * circ;
                   return (
                     <g key={p.key}>
-                      {/* Track */}
-                      <circle cx="80" cy="80" r={r} fill="none"
-                        stroke={`${p.color}15`} strokeWidth="10"
+                      <circle cx="70" cy="70" r={r} fill="none"
+                        stroke={`${p.color}20`} strokeWidth="9"
                         strokeDasharray={`${dashLen} ${circ - dashLen}`}
-                        strokeDashoffset={dashOffset}
-                        strokeLinecap="round" />
-                      {/* Fill */}
+                        strokeDashoffset={dashOffset} strokeLinecap="round" />
                       {p.active && (
-                        <circle cx="80" cy="80" r={r} fill="none"
-                          stroke={p.color} strokeWidth="10"
+                        <circle cx="70" cy="70" r={r} fill="none"
+                          stroke={p.color} strokeWidth="9"
                           strokeDasharray={`${dashLen} ${circ - dashLen}`}
-                          strokeDashoffset={dashOffset}
-                          strokeLinecap="round"
-                          style={{ filter: `drop-shadow(0 0 6px ${p.color}80)` }} />
+                          strokeDashoffset={dashOffset} strokeLinecap="round"
+                          style={{ filter: `drop-shadow(0 0 5px ${p.color}70)` }} />
                       )}
                     </g>
                   );
                 })}
               </svg>
-              {/* Center text */}
               <div className="absolute inset-0 flex flex-col items-center justify-center">
-                <span className="text-3xl font-bold text-white">{activeCount}</span>
-                <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>de 3 pilares</span>
+                <span className="text-2xl font-bold text-white">{activeCount}</span>
+                <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.45)' }}>de 3 pilares</span>
               </div>
             </div>
-
-            {/* Pillars list */}
-            <div className="flex-1 w-full space-y-4">
+            <div className="flex-1 w-full space-y-3">
               <div>
-                <h3 className="text-base font-semibold text-white mb-0.5">Flywheel do Negócio</h3>
-                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.45)' }}>
-                  {activeCount === 3 ? 'Todos os pilares ativos — negócio em plena velocidade 🚀' : `${3 - activeCount} pilar${3 - activeCount > 1 ? 'es' : ''} ainda não ativado${3 - activeCount > 1 ? 's' : ''}`}
+                <h3 className="text-sm font-semibold text-white mb-0.5">Flywheel do Negócio</h3>
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                  {activeCount === 3 ? 'Todos os pilares ativos 🚀' : `${3 - activeCount} pilar${3 - activeCount > 1 ? 'es' : ''} ainda não ativado${3 - activeCount > 1 ? 's' : ''}`}
                 </p>
               </div>
-              <div className="space-y-2.5">
+              <div className="space-y-2">
                 {pillars.map(p => (
                   <div key={p.key} className="flex items-center gap-3">
-                    <div className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: p.active ? p.color : 'rgba(255,255,255,0.1)', boxShadow: p.active ? `0 0 6px ${p.color}80` : 'none' }} />
+                    <div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                      style={{ background: p.active ? p.color : 'rgba(255,255,255,0.1)', boxShadow: p.active ? `0 0 5px ${p.color}80` : 'none' }} />
                     <div className="flex-1 flex items-center justify-between">
-                      <span className="text-sm" style={{ color: p.active ? 'rgba(226,232,240,0.85)' : 'rgba(100,116,139,0.4)' }}>{p.label}</span>
+                      <span className="text-xs" style={{ color: p.active ? 'rgba(226,232,240,0.8)' : 'rgba(100,116,139,0.35)' }}>{p.label}</span>
                       <span className="text-[10px] px-2 py-0.5 rounded-full"
-                        style={{ background: p.active ? `${p.color}15` : 'rgba(255,255,255,0.04)', color: p.active ? p.color : 'rgba(100,116,139,0.3)', border: `1px solid ${p.active ? p.color + '30' : 'rgba(255,255,255,0.05)'}` }}>
+                        style={{ background: p.active ? `${p.color}12` : 'rgba(255,255,255,0.03)', color: p.active ? p.color : 'rgba(100,116,139,0.25)', border: `1px solid ${p.active ? p.color + '25' : 'rgba(255,255,255,0.04)'}` }}>
                         {p.active ? 'Ativo' : 'Inativo'}
                       </span>
                     </div>
                   </div>
                 ))}
               </div>
-              {/* Progress bar */}
-              <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+              <div className="h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
                 <div className="h-full rounded-full transition-all duration-700"
                   style={{ width: `${flywheelPct * 100}%`, background: activeCount === 3 ? 'linear-gradient(90deg,#a78bfa,#34d399,#fb923c)' : activeCount === 2 ? 'linear-gradient(90deg,#a78bfa,#34d399)' : '#a78bfa' }} />
               </div>
             </div>
           </div>
         </div>
+
       </div>
     );
   }

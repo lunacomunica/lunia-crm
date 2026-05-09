@@ -32,7 +32,36 @@ router.get('/:clientId/summary', (req, res) => {
   const roas = campaigns.spent > 0 ? (campaigns.revenue / campaigns.spent) : 0;
   const cpl = campaigns.leads > 0 ? (campaigns.spent / campaigns.leads) : 0;
 
-  res.json({ posts, campaigns, roas, cpl });
+  const lastApproved = db.prepare(`
+    SELECT title, scheduled_date, updated_at FROM content_pieces
+    WHERE agency_client_id = ? AND status IN ('aprovado','agendado','publicado')
+    ORDER BY updated_at DESC LIMIT 1
+  `).get(cid) as any;
+
+  const nextBatch = db.prepare(`
+    SELECT fb.name, fb.month, fb.year,
+      COUNT(cp.id) as total,
+      COUNT(CASE WHEN cp.status = 'aguardando_aprovacao' THEN 1 END) as pending
+    FROM feed_batches fb
+    LEFT JOIN content_pieces cp ON cp.batch_id = fb.id
+    WHERE fb.agency_client_id = ?
+      AND (fb.year > strftime('%Y','now') OR (fb.year = CAST(strftime('%Y','now') AS INTEGER) AND fb.month >= CAST(strftime('%m','now') AS INTEGER)))
+    GROUP BY fb.id ORDER BY fb.year, fb.month LIMIT 1
+  `).get(cid) as any;
+
+  const pendingPieces = db.prepare(`
+    SELECT id, title, type, scheduled_date FROM content_pieces
+    WHERE agency_client_id = ? AND status = 'aguardando_aprovacao'
+    ORDER BY updated_at DESC LIMIT 10
+  `).all(cid) as any[];
+
+  const lastAgencyUpdate = db.prepare(`
+    SELECT title, status, updated_at FROM content_pieces
+    WHERE agency_client_id = ?
+    ORDER BY updated_at DESC LIMIT 1
+  `).get(cid) as any;
+
+  res.json({ posts, campaigns, roas, cpl, lastApproved, nextBatch, pendingPieces, lastAgencyUpdate });
 });
 
 /* ── Goals ────────────────────────────────────────────────────────────────── */
