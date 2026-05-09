@@ -69,6 +69,13 @@ router.put('/:id', (req, res) => {
   res.json(db.prepare('SELECT * FROM agency_clients WHERE id = ?').get(req.params.id));
 });
 
+router.patch('/:id/modules', (req, res) => {
+  if (req.user.role === 'team') return res.status(403).json({ error: 'Sem permissão' });
+  const { modules } = req.body;
+  db.prepare("UPDATE agency_clients SET modules=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?").run(JSON.stringify(modules), req.params.id, req.user.tenant_id);
+  res.json({ ok: true });
+});
+
 router.patch('/:id/ceo-message', (req, res) => {
   if (req.user.role === 'team') return res.status(403).json({ error: 'Sem permissão' });
   const { ceo_message } = req.body;

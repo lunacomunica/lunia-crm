@@ -254,6 +254,10 @@ export default function ClientDetail() {
   // Client data form
   const [dataForm, setDataForm] = useState({ name: '', segment: '', instagram_handle: '', contact_name: '', contact_email: '', logo: '' });
 
+  // Modules (flywheel)
+  const [modules, setModules] = useState({ posicionamento: false, marketing_conteudo: false, marketing_trafego: false, comercial: false });
+  const [savingModules, setSavingModules] = useState(false);
+
   const load = async () => {
     setLoading(true);
     const [cRes, posRes, goalsRes] = await Promise.all([
@@ -274,6 +278,10 @@ export default function ClientDetail() {
       cases: typeof pos.cases === 'string' ? JSON.parse(pos.cases || '[]') : (pos.cases || []),
     });
     setGoals(goalsRes.data || []);
+    try {
+      const mods = typeof c.modules === 'string' ? JSON.parse(c.modules) : (c.modules || {});
+      setModules(m => ({ ...m, ...mods }));
+    } catch {}
     setLoading(false);
   };
 
@@ -495,6 +503,13 @@ export default function ClientDetail() {
     await agencyClientsApi.update(cid, dataForm);
     setClient((c: any) => ({ ...c, ...dataForm }));
     setSavingData(false);
+  };
+
+  const saveModules = async () => {
+    setSavingModules(true);
+    await agencyClientsApi.updateModules(cid, modules);
+    setClient((c: any) => ({ ...c, modules: JSON.stringify(modules) }));
+    setSavingModules(false);
   };
 
   if (loading) return (
@@ -1120,6 +1135,7 @@ export default function ClientDetail() {
 
       {/* ──────────────────── DADOS ──────────────────── */}
       {tab === 'dados' && (
+        <>
         <Section title="Dados do Cliente">
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1163,6 +1179,43 @@ export default function ClientDetail() {
             </button>
           </div>
         </Section>
+
+        <Section title="Módulos Ativos (Flywheel)">
+          <div className="space-y-4">
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.6)' }}>
+              Defina quais pilares estão ativos para este cliente. O progresso aparece no portal.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                { key: 'posicionamento',      label: 'Posicionamento',       color: '#a78bfa' },
+                { key: 'marketing_conteudo',  label: 'Marketing de Conteúdo', color: '#34d399' },
+                { key: 'marketing_trafego',   label: 'Marketing de Tráfego',  color: '#60a5fa' },
+                { key: 'comercial',           label: 'Comercial',             color: '#fb923c' },
+              ] as const).map(({ key, label, color }) => (
+                <button key={key}
+                  onClick={() => setModules(m => ({ ...m, [key]: !m[key] }))}
+                  className="flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
+                  style={{
+                    background: modules[key] ? `${color}15` : 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${modules[key] ? color + '40' : 'rgba(255,255,255,0.06)'}`,
+                  }}>
+                  <div className="w-4 h-4 rounded flex items-center justify-center flex-shrink-0"
+                    style={{ background: modules[key] ? color : 'rgba(255,255,255,0.08)', border: `1px solid ${modules[key] ? color : 'rgba(255,255,255,0.1)'}` }}>
+                    {modules[key] && <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </div>
+                  <span className="text-sm font-medium" style={{ color: modules[key] ? color : 'rgba(148,163,184,0.7)' }}>{label}</span>
+                </button>
+              ))}
+            </div>
+            <button onClick={saveModules} disabled={savingModules}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40"
+              style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+              <Save size={14} />
+              {savingModules ? 'Salvando…' : 'Salvar módulos'}
+            </button>
+          </div>
+        </Section>
+        </>
       )}
 
       {/* Batch modal */}

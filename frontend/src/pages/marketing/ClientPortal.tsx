@@ -48,7 +48,7 @@ const CAMPAIGN_STATUS_CFG: Record<string, { label: string; color: string; bg: st
 
 const TYPE_LABEL: Record<string, string> = { post: 'Post', reels: 'Reels', story: 'Story', carrossel: 'Carrossel' };
 
-type PageId = 'visao' | 'produtos' | 'metas' | 'conteudos' | 'performance' | 'trafico' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline' | 'crm_conversas';
+type PageId = 'visao' | 'posicionamento' | 'produtos' | 'metas' | 'conteudos' | 'performance' | 'trafico' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline' | 'crm_conversas';
 
 const STAGES_CRM = [
   { id: 'novo',       label: 'Novo',        color: '#94a3b8' },
@@ -87,9 +87,10 @@ function PortalSidebar({
     {
       label: 'Negócio',
       items: [
-        { id: 'visao'    as PageId, label: 'Visão Geral', icon: LayoutDashboard, badge: 0 },
-        { id: 'produtos' as PageId, label: 'Produtos',    icon: Briefcase,       badge: 0 },
-        { id: 'metas'    as PageId, label: 'Metas',       icon: Target,          badge: 0 },
+        { id: 'visao'          as PageId, label: 'Visão Geral',    icon: LayoutDashboard, badge: 0 },
+        { id: 'posicionamento' as PageId, label: 'Posicionamento', icon: Star,            badge: 0 },
+        { id: 'produtos'       as PageId, label: 'Produtos',       icon: Briefcase,       badge: 0 },
+        { id: 'metas'          as PageId, label: 'Metas',          icon: Target,          badge: 0 },
       ],
     },
     {
@@ -495,28 +496,14 @@ export default function ClientPortal() {
     const pendingApproval = s?.posts?.pending_approval ?? 0;
     const needsAdjust = s?.posts?.needs_adjustment ?? 0;
 
-    const flyItems = [
-      { label: 'Conteúdo', color: '#a78bfa', metrics: [
-        { label: 'Publicados', value: s?.posts?.published ?? 0 },
-        { label: 'Este mês', value: s?.posts?.published_month ?? 0 },
-        { label: 'Total planejado', value: s?.posts?.total ?? 0 },
-      ]},
-      { label: 'Alcance', color: '#60a5fa', metrics: [
-        { label: 'Impressões', value: fmtN(s?.campaigns?.reach ?? 0) },
-        { label: 'Cliques', value: fmtN(s?.campaigns?.clicks ?? 0) },
-        { label: 'Campanhas ativas', value: s?.campaigns?.active ?? 0 },
-      ]},
-      { label: 'Leads', color: '#34d399', metrics: [
-        { label: 'Conversões', value: s?.campaigns?.leads ?? 0 },
-        { label: 'CPL médio', value: s?.cpl > 0 ? fmtR(s.cpl) : '—' },
-        { label: 'Investido', value: s?.campaigns?.spent > 0 ? fmtR(s.campaigns.spent) : '—' },
-      ]},
-      { label: 'Receita', color: '#f59e0b', metrics: [
-        { label: 'Faturamento', value: s?.campaigns?.revenue > 0 ? fmtR(s.campaigns.revenue) : '—' },
-        { label: 'ROAS médio', value: s?.roas > 0 ? `${s.roas.toFixed(1)}x` : '—' },
-        { label: 'Retorno', value: s?.campaigns?.revenue > 0 ? fmtR(s.campaigns.revenue - s.campaigns.spent) : '—' },
-      ]},
+    const mods = (() => { try { return typeof client?.modules === 'string' ? JSON.parse(client.modules) : (client?.modules || {}); } catch { return {}; } })();
+    const pillars = [
+      { key: 'posicionamento',     label: 'Posicionamento',  color: '#a78bfa', active: !!mods.posicionamento },
+      { key: 'marketing',          label: 'Marketing',       color: '#34d399', active: !!(mods.marketing_conteudo || mods.marketing_trafego) },
+      { key: 'comercial',          label: 'Comercial',       color: '#fb923c', active: !!mods.comercial },
     ];
+    const activeCount = pillars.filter(p => p.active).length;
+    const flywheelPct = activeCount / 3;
 
     return (
       <div className="space-y-8">
@@ -650,28 +637,79 @@ export default function ClientPortal() {
         )}
 
         {/* Flywheel */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-          {flyItems.map((item, i) => (
-            <div key={item.label} className="relative rounded-2xl p-5"
-              style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: `1px solid ${item.color}18` }}>
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-bold tracking-wide" style={{ color: item.color }}>{item.label}</span>
-                {i < flyItems.length - 1 && (
-                  <ChevronRight size={12} className="hidden lg:block" style={{ color: 'rgba(100,116,139,0.2)' }} />
-                )}
+        <div className="rounded-2xl p-6" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <div className="flex flex-col sm:flex-row items-center gap-8">
+            {/* SVG circular progress */}
+            <div className="relative flex-shrink-0" style={{ width: 160, height: 160 }}>
+              <svg width="160" height="160" viewBox="0 0 160 160" style={{ transform: 'rotate(-90deg)' }}>
+                {pillars.map((p, i) => {
+                  const r = 64;
+                  const circ = 2 * Math.PI * r;
+                  const gapDeg = 8;
+                  const segDeg = (360 - gapDeg * 3) / 3;
+                  const startDeg = i * (segDeg + gapDeg);
+                  const startRad = (startDeg * Math.PI) / 180;
+                  const endRad = ((startDeg + segDeg) * Math.PI) / 180;
+                  const dashLen = (segDeg / 360) * circ;
+                  const dashOffset = circ - (startDeg / 360) * circ;
+                  return (
+                    <g key={p.key}>
+                      {/* Track */}
+                      <circle cx="80" cy="80" r={r} fill="none"
+                        stroke={`${p.color}15`} strokeWidth="10"
+                        strokeDasharray={`${dashLen} ${circ - dashLen}`}
+                        strokeDashoffset={dashOffset}
+                        strokeLinecap="round" />
+                      {/* Fill */}
+                      {p.active && (
+                        <circle cx="80" cy="80" r={r} fill="none"
+                          stroke={p.color} strokeWidth="10"
+                          strokeDasharray={`${dashLen} ${circ - dashLen}`}
+                          strokeDashoffset={dashOffset}
+                          strokeLinecap="round"
+                          style={{ filter: `drop-shadow(0 0 6px ${p.color}80)` }} />
+                      )}
+                    </g>
+                  );
+                })}
+              </svg>
+              {/* Center text */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-3xl font-bold text-white">{activeCount}</span>
+                <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>de 3 pilares</span>
               </div>
-              <div className="space-y-3">
-                {item.metrics.map(m => (
-                  <div key={m.label}>
-                    <p className="text-lg font-bold leading-none text-white">{m.value}</p>
-                    <p className="text-[10px] mt-1" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+            </div>
+
+            {/* Pillars list */}
+            <div className="flex-1 w-full space-y-4">
+              <div>
+                <h3 className="text-base font-semibold text-white mb-0.5">Flywheel do Negócio</h3>
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.45)' }}>
+                  {activeCount === 3 ? 'Todos os pilares ativos — negócio em plena velocidade 🚀' : `${3 - activeCount} pilar${3 - activeCount > 1 ? 'es' : ''} ainda não ativado${3 - activeCount > 1 ? 's' : ''}`}
+                </p>
+              </div>
+              <div className="space-y-2.5">
+                {pillars.map(p => (
+                  <div key={p.key} className="flex items-center gap-3">
+                    <div className="w-2 h-2 rounded-full flex-shrink-0"
+                      style={{ background: p.active ? p.color : 'rgba(255,255,255,0.1)', boxShadow: p.active ? `0 0 6px ${p.color}80` : 'none' }} />
+                    <div className="flex-1 flex items-center justify-between">
+                      <span className="text-sm" style={{ color: p.active ? 'rgba(226,232,240,0.85)' : 'rgba(100,116,139,0.4)' }}>{p.label}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full"
+                        style={{ background: p.active ? `${p.color}15` : 'rgba(255,255,255,0.04)', color: p.active ? p.color : 'rgba(100,116,139,0.3)', border: `1px solid ${p.active ? p.color + '30' : 'rgba(255,255,255,0.05)'}` }}>
+                        {p.active ? 'Ativo' : 'Inativo'}
+                      </span>
+                    </div>
                   </div>
                 ))}
               </div>
-              <div className="absolute bottom-0 left-0 right-0 h-0.5 rounded-b-2xl"
-                style={{ background: `linear-gradient(90deg,${item.color}40,transparent)` }} />
+              {/* Progress bar */}
+              <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
+                <div className="h-full rounded-full transition-all duration-700"
+                  style={{ width: `${flywheelPct * 100}%`, background: activeCount === 3 ? 'linear-gradient(90deg,#a78bfa,#34d399,#fb923c)' : activeCount === 2 ? 'linear-gradient(90deg,#a78bfa,#34d399)' : '#a78bfa' }} />
+              </div>
             </div>
-          ))}
+          </div>
         </div>
       </div>
     );
@@ -1697,16 +1735,17 @@ export default function ClientPortal() {
   }
 
   const pageComponents: Record<PageId, JSX.Element> = {
-    visao:         <PageVisaoGeral />,
-    produtos:      <PageProdutos />,
-    metas:         <PageMetas />,
-    conteudos:     <PageConteudos />,
-    performance:   <PagePerformance />,
-    trafico:       <PageTrafico />,
-    crm_dashboard: <PageCrmDashboard />,
-    crm_contatos:  <PageCrmContatos />,
-    crm_pipeline:  <PageCrmPipeline />,
-    crm_conversas: <PageCrmConversas />,
+    visao:           <PageVisaoGeral />,
+    posicionamento:  <PagePosicionamento />,
+    produtos:        <PageProdutos />,
+    metas:           <PageMetas />,
+    conteudos:       <PageConteudos />,
+    performance:     <PagePerformance />,
+    trafico:         <PageTrafico />,
+    crm_dashboard:   <PageCrmDashboard />,
+    crm_contatos:    <PageCrmContatos />,
+    crm_pipeline:    <PageCrmPipeline />,
+    crm_conversas:   <PageCrmConversas />,
   };
 
   return (

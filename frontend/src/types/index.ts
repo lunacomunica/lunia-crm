@@ -27,6 +27,7 @@ export interface AgencyClient {
   content_count?: number;
   pending_approvals?: number;
   ceo_message?: string | null;
+  modules?: string | null;
   created_at: string;
 }
 
