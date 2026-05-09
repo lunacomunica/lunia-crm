@@ -103,4 +103,43 @@ router.put('/:clientId/positioning', (req, res) => {
   res.json(db.prepare('SELECT * FROM client_positioning WHERE agency_client_id = ?').get(cid));
 });
 
+/* ── Client Products ──────────────────────────────────────────────────────── */
+router.get('/:clientId/products', (req, res) => {
+  const rows = db.prepare('SELECT * FROM client_products WHERE agency_client_id = ? ORDER BY offer_type, name').all(Number(req.params.clientId));
+  res.json(rows);
+});
+
+router.post('/:clientId/products', (req, res) => {
+  const cid = Number(req.params.clientId);
+  const { name, price = 0, unit = 'un', category = '', offer_type = 'alicerce', active = 1, target_audience = '', promise = '', deliverables = '' } = req.body;
+  if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
+  const r = db.prepare(`
+    INSERT INTO client_products (agency_client_id, name, price, unit, category, offer_type, active, target_audience, promise, deliverables)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(cid, name, price, unit, category, offer_type, active ? 1 : 0, target_audience, promise, deliverables);
+  res.status(201).json(db.prepare('SELECT * FROM client_products WHERE id = ?').get(r.lastInsertRowid));
+});
+
+router.put('/:clientId/products/:id', (req, res) => {
+  const { name, price, unit, category, offer_type, active, target_audience, promise, deliverables } = req.body;
+  const existing = db.prepare('SELECT * FROM client_products WHERE id = ? AND agency_client_id = ?').get(req.params.id, req.params.clientId) as any;
+  if (!existing) return res.status(404).json({ error: 'Produto não encontrado' });
+  db.prepare(`
+    UPDATE client_products SET name=?, price=?, unit=?, category=?, offer_type=?, active=?, target_audience=?, promise=?, deliverables=?, updated_at=datetime('now')
+    WHERE id=? AND agency_client_id=?
+  `).run(
+    name ?? existing.name, price ?? existing.price, unit ?? existing.unit,
+    category ?? existing.category, offer_type ?? existing.offer_type,
+    active !== undefined ? (active ? 1 : 0) : existing.active,
+    target_audience ?? existing.target_audience, promise ?? existing.promise,
+    deliverables ?? existing.deliverables, req.params.id, req.params.clientId
+  );
+  res.json(db.prepare('SELECT * FROM client_products WHERE id = ?').get(req.params.id));
+});
+
+router.delete('/:clientId/products/:id', (req, res) => {
+  db.prepare('DELETE FROM client_products WHERE id = ? AND agency_client_id = ?').run(req.params.id, req.params.clientId);
+  res.json({ ok: true });
+});
+
 export default router;

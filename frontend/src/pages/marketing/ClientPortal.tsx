@@ -1319,20 +1319,297 @@ export default function ClientPortal() {
   }
 
   function PageProdutos() {
+    const [products, setProducts] = useState<any[]>([]);
+    const [loadingProds, setLoadingProds] = useState(true);
+    const [modal, setModal] = useState<any>(null); // null | {} | existing product
+    const [modalTab, setModalTab] = useState<'cadastro' | 'proposta'>('cadastro');
+    const [form, setForm] = useState({ name: '', price: '', unit: 'un', category: '', offer_type: 'alicerce', active: true, target_audience: '', promise: '', deliverables: '' });
+    const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState<number | null>(null);
+
+    useEffect(() => {
+      clientPortalApi.products(cid).then(r => { setProducts(r.data); setLoadingProds(false); });
+    }, []);
+
+    const openNew = () => {
+      setForm({ name: '', price: '', unit: 'un', category: '', offer_type: 'alicerce', active: true, target_audience: '', promise: '', deliverables: '' });
+      setModalTab('cadastro');
+      setModal({});
+    };
+
+    const openEdit = (p: any) => {
+      setForm({ name: p.name, price: String(p.price ?? ''), unit: p.unit ?? 'un', category: p.category ?? '', offer_type: p.offer_type ?? 'alicerce', active: !!p.active, target_audience: p.target_audience ?? '', promise: p.promise ?? '', deliverables: p.deliverables ?? '' });
+      setModalTab('cadastro');
+      setModal(p);
+    };
+
+    const save = async () => {
+      setSaving(true);
+      const payload = { ...form, price: parseFloat(form.price) || 0 };
+      if (modal?.id) {
+        const r = await clientPortalApi.updateProduct(cid, modal.id, payload);
+        setProducts(prev => prev.map(p => p.id === modal.id ? r.data : p));
+      } else {
+        const r = await clientPortalApi.createProduct(cid, payload);
+        setProducts(prev => [...prev, r.data]);
+      }
+      setSaving(false);
+      setModal(null);
+    };
+
+    const remove = async (id: number) => {
+      setDeleting(id);
+      await clientPortalApi.deleteProduct(cid, id);
+      setProducts(prev => prev.filter(p => p.id !== id));
+      setDeleting(null);
+    };
+
+    const fmtPrice = (v: number) => v > 0 ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v) : '—';
+
+    const OFFER_TYPES = [
+      { id: 'entrada',        label: 'Entrada',        color: '#34d399', desc: 'Oferta acessível, porta de entrada do cliente' },
+      { id: 'alicerce',       label: 'Alicerce',       color: '#60a5fa', desc: 'Produto principal, entrega de valor central' },
+      { id: 'acompanhamento', label: 'Acompanhamento', color: '#a78bfa', desc: 'Recorrência e continuidade do relacionamento' },
+    ] as const;
+
+    const inputCls = 'w-full rounded-xl px-3 py-2.5 text-sm outline-none bg-transparent';
+    const inputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(226,232,240,0.9)' };
+    const labelStyle = { color: 'rgba(100,116,139,0.55)', fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 6, display: 'block' };
+
     return (
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-2xl font-semibold text-white mb-1">Produtos</h2>
-          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Catálogo e ofertas do seu negócio</p>
+      <div className="space-y-8">
+        {/* Header */}
+        <div className="flex items-end justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-white mb-1">Esteira de Ofertas</h2>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Toda boa estratégia começa com uma oferta bem estruturada</p>
+          </div>
+          {isAdmin && (
+            <button onClick={openNew}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium text-white"
+              style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.25)' }}>
+              <Plus size={14} /> Novo produto
+            </button>
+          )}
         </div>
-        <div className="flex flex-col items-center justify-center py-24 rounded-2xl"
-          style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
-          <Briefcase size={40} className="mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
-          <p className="text-white font-medium mb-1">Em breve</p>
-          <p className="text-sm text-center max-w-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
-            Cadastre seus produtos e serviços para vincular às campanhas e metas.
-          </p>
-        </div>
+
+        {/* Esteira */}
+        {loadingProds ? (
+          <div className="flex justify-center py-16"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" /></div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {OFFER_TYPES.map(ot => {
+              const cols = products.filter(p => p.offer_type === ot.id && p.active);
+              return (
+                <div key={ot.id} className="rounded-2xl overflow-hidden"
+                  style={{ border: `1px solid ${ot.color}18`, background: 'linear-gradient(145deg,#0d0d22,#0f0f28)' }}>
+                  {/* Column header */}
+                  <div className="px-5 py-4" style={{ borderBottom: `1px solid ${ot.color}12` }}>
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 rounded-full" style={{ background: ot.color, boxShadow: `0 0 6px ${ot.color}80` }} />
+                      <span className="text-xs font-bold tracking-widest uppercase" style={{ color: ot.color }}>{ot.label}</span>
+                      <span className="ml-auto text-[10px] px-1.5 py-0.5 rounded-full"
+                        style={{ background: `${ot.color}15`, color: ot.color }}>{cols.length}</span>
+                    </div>
+                    <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{ot.desc}</p>
+                  </div>
+
+                  {/* Products */}
+                  <div className="p-3 space-y-2 min-h-[80px]">
+                    {cols.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-8">
+                        <p className="text-xs" style={{ color: 'rgba(100,116,139,0.25)' }}>Nenhum produto aqui</p>
+                        {isAdmin && (
+                          <button onClick={() => { setForm(f => ({ ...f, offer_type: ot.id })); setModalTab('cadastro'); setModal({}); }}
+                            className="mt-2 text-[10px] px-2.5 py-1 rounded-lg"
+                            style={{ color: ot.color, border: `1px solid ${ot.color}25` }}>
+                            + Adicionar
+                          </button>
+                        )}
+                      </div>
+                    ) : cols.map(p => (
+                      <div key={p.id} className="group rounded-xl px-4 py-3"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{p.name}</p>
+                            {p.category && <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>{p.category}</p>}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <span className="text-sm font-semibold" style={{ color: ot.color }}>{fmtPrice(p.price)}</span>
+                            {isAdmin && (
+                              <button onClick={() => openEdit(p)}
+                                className="opacity-0 group-hover:opacity-100 ml-1 p-1 rounded-lg transition-opacity"
+                                style={{ color: 'rgba(100,116,139,0.5)' }}>
+                                <Pencil size={11} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                        {p.promise && (
+                          <p className="text-[11px] mt-2 leading-relaxed" style={{ color: 'rgba(148,163,184,0.5)' }}>
+                            {p.promise}
+                          </p>
+                        )}
+                        {p.target_audience && (
+                          <div className="flex items-center gap-1 mt-2">
+                            <Users size={9} style={{ color: 'rgba(100,116,139,0.35)' }} />
+                            <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.35)' }}>{p.target_audience}</span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Inativos */}
+        {products.filter(p => !p.active).length > 0 && isAdmin && (
+          <div>
+            <p className="text-[10px] font-semibold tracking-widest uppercase mb-3" style={{ color: 'rgba(100,116,139,0.3)' }}>Inativos</p>
+            <div className="space-y-2">
+              {products.filter(p => !p.active).map(p => (
+                <div key={p.id} className="group flex items-center gap-3 px-4 py-3 rounded-xl"
+                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <span className="flex-1 text-sm line-through" style={{ color: 'rgba(100,116,139,0.35)' }}>{p.name}</span>
+                  <button onClick={() => openEdit(p)} className="opacity-0 group-hover:opacity-100 text-xs px-2 py-1 rounded-lg"
+                    style={{ color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    Reativar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Modal */}
+        {modal !== null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.8)', backdropFilter: 'blur(10px)' }}>
+            <div className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)' }}>
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+                <h3 className="text-base font-semibold text-white">{modal?.id ? 'Editar produto' : 'Novo produto'}</h3>
+                <button onClick={() => setModal(null)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
+              </div>
+
+              {/* Modal tabs */}
+              <div className="flex px-6 pt-4 gap-1" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                {(['cadastro', 'proposta'] as const).map(t => (
+                  <button key={t} onClick={() => setModalTab(t)}
+                    className="px-4 py-2 text-xs font-semibold rounded-t-lg capitalize transition-colors"
+                    style={{
+                      color: modalTab === t ? '#60a5fa' : 'rgba(100,116,139,0.5)',
+                      background: modalTab === t ? 'rgba(59,130,246,0.08)' : 'transparent',
+                      borderBottom: modalTab === t ? '2px solid #60a5fa' : '2px solid transparent',
+                    }}>
+                    {t === 'cadastro' ? 'Cadastro' : 'Proposta'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Modal body */}
+              <div className="px-6 py-5 space-y-4">
+                {modalTab === 'cadastro' ? (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Nome do produto *</label>
+                      <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                        placeholder="Ex: Consultoria Mensal" className={inputCls} style={inputStyle} />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label style={labelStyle}>Preço (R$)</label>
+                        <input value={form.price} onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
+                          type="number" placeholder="0,00" className={inputCls} style={inputStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Unidade</label>
+                        <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                          placeholder="un, mês, hora…" className={inputCls} style={inputStyle} />
+                      </div>
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Categoria</label>
+                      <input value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                        placeholder="Ex: Consultoria, Produto Digital…" className={inputCls} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Posição na esteira</label>
+                      <div className="grid grid-cols-3 gap-2">
+                        {OFFER_TYPES.map(ot => (
+                          <button key={ot.id} onClick={() => setForm(f => ({ ...f, offer_type: ot.id }))}
+                            className="py-2.5 rounded-xl text-xs font-semibold transition-all"
+                            style={{
+                              background: form.offer_type === ot.id ? `${ot.color}15` : 'rgba(255,255,255,0.03)',
+                              border: `1px solid ${form.offer_type === ot.id ? ot.color + '40' : 'rgba(255,255,255,0.06)'}`,
+                              color: form.offer_type === ot.id ? ot.color : 'rgba(100,116,139,0.5)',
+                            }}>
+                            {ot.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <button onClick={() => setForm(f => ({ ...f, active: !f.active }))}
+                        className="w-10 h-5 rounded-full transition-all flex-shrink-0 relative"
+                        style={{ background: form.active ? 'rgba(52,211,153,0.4)' : 'rgba(255,255,255,0.08)', border: `1px solid ${form.active ? '#34d399' : 'rgba(255,255,255,0.1)'}` }}>
+                        <div className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
+                          style={{ left: form.active ? 'calc(100% - 18px)' : '2px' }} />
+                      </button>
+                      <span className="text-sm" style={{ color: 'rgba(148,163,184,0.7)' }}>Produto ativo</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <label style={labelStyle}>Para quem é</label>
+                      <textarea value={form.target_audience} onChange={e => setForm(f => ({ ...f, target_audience: e.target.value }))}
+                        rows={2} placeholder="Descreva o perfil ideal de cliente para este produto…"
+                        className={inputCls + ' resize-none'} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>Promessa</label>
+                      <textarea value={form.promise} onChange={e => setForm(f => ({ ...f, promise: e.target.value }))}
+                        rows={3} placeholder="Qual transformação ou resultado este produto entrega?"
+                        className={inputCls + ' resize-none'} style={inputStyle} />
+                    </div>
+                    <div>
+                      <label style={labelStyle}>O que entrega</label>
+                      <textarea value={form.deliverables} onChange={e => setForm(f => ({ ...f, deliverables: e.target.value }))}
+                        rows={3} placeholder="Liste o que está incluído: sessões, materiais, acessos…"
+                        className={inputCls + ' resize-none'} style={inputStyle} />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Modal footer */}
+              <div className="flex items-center justify-between px-6 py-4" style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                <div>
+                  {modal?.id && (
+                    <button onClick={() => { remove(modal.id); setModal(null); }} disabled={deleting === modal.id}
+                      className="text-xs px-3 py-1.5 rounded-lg"
+                      style={{ color: 'rgba(239,68,68,0.6)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                      {deleting === modal.id ? 'Removendo…' : 'Excluir'}
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setModal(null)} className="text-xs px-4 py-2 rounded-xl"
+                    style={{ color: 'rgba(100,116,139,0.6)' }}>Cancelar</button>
+                  <button onClick={save} disabled={saving || !form.name.trim()}
+                    className="text-xs px-5 py-2 rounded-xl font-medium text-white disabled:opacity-40"
+                    style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                    {saving ? 'Salvando…' : 'Salvar'}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }

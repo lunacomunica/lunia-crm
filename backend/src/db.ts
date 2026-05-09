@@ -363,6 +363,21 @@ const migrations = [
     agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
     PRIMARY KEY (user_id, agency_client_id)
   )`,
+  `CREATE TABLE IF NOT EXISTS client_products (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    price REAL DEFAULT 0,
+    unit TEXT DEFAULT 'un',
+    category TEXT,
+    offer_type TEXT DEFAULT 'alicerce',
+    active INTEGER DEFAULT 1,
+    target_audience TEXT,
+    promise TEXT,
+    deliverables TEXT,
+    created_at TEXT DEFAULT (datetime('now')),
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`,
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }
