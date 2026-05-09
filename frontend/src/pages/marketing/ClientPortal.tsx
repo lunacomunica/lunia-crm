@@ -1554,7 +1554,8 @@ export default function ClientPortal() {
   function PageProdutos() {
     const [products, setProducts] = useState<any[]>([]);
     const [loadingProds, setLoadingProds] = useState(true);
-    const [modal, setModal] = useState<any>(null); // null | {} | existing product
+    const [view, setView] = useState<'kanban' | 'lista'>('kanban');
+    const [modal, setModal] = useState<any>(null);
     const [modalTab, setModalTab] = useState<'cadastro' | 'proposta'>('cadastro');
     const [form, setForm] = useState({ name: '', price: '', unit: 'un', category: '', offer_type: 'alicerce', active: true, target_audience: '', promise: '', deliverables: '' });
     const [saving, setSaving] = useState(false);
@@ -1609,75 +1610,86 @@ export default function ClientPortal() {
     const inputStyle = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(226,232,240,0.9)' };
     const labelStyle = { color: 'rgba(100,116,139,0.55)', fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase' as const, marginBottom: 6, display: 'block' };
 
+    const activeProducts = products.filter(p => p.active);
+
     return (
-      <div className="space-y-6">
+      <div className="flex flex-col gap-5" style={{ minHeight: 'calc(100vh - 120px)' }}>
         {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
           <div>
-            <h2 className="text-2xl font-semibold text-white mb-1">Esteira de Ofertas</h2>
-            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>
+            <h2 className="text-2xl font-semibold text-white mb-0.5">Esteira de Ofertas</h2>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.45)' }}>
               Toda boa estratégia começa com uma oferta bem estruturada
             </p>
           </div>
-          {isAdmin && (
-            <button onClick={openNew}
-              className="flex-shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
-              style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.8)' }}>
-              <Plus size={14} /> Novo produto
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* View toggle */}
+            <div className="flex p-0.5 rounded-xl gap-0.5" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              {([
+                { id: 'kanban', icon: <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="1" width="4" height="12" rx="1" fill="currentColor" opacity="0.9"/><rect x="6" y="1" width="4" height="8" rx="1" fill="currentColor" opacity="0.9"/><rect x="11" y="1" width="2" height="5" rx="1" fill="currentColor" opacity="0.5"/></svg> },
+                { id: 'lista',  icon: <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="2" rx="1" fill="currentColor"/><rect x="1" y="6" width="12" height="2" rx="1" fill="currentColor"/><rect x="1" y="10" width="8" height="2" rx="1" fill="currentColor"/></svg> },
+              ] as const).map(v => (
+                <button key={v.id} onClick={() => setView(v.id)}
+                  className="px-3 py-1.5 rounded-lg transition-all"
+                  style={{
+                    background: view === v.id ? 'rgba(255,255,255,0.08)' : 'transparent',
+                    color: view === v.id ? 'rgba(226,232,240,0.9)' : 'rgba(100,116,139,0.45)',
+                  }}>
+                  {v.icon}
+                </button>
+              ))}
+            </div>
+            {isAdmin && (
+              <button onClick={openNew}
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
+                style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.09)', color: 'rgba(226,232,240,0.8)' }}>
+                <Plus size={14} /> Novo produto
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Esteira */}
         {loadingProds ? (
-          <div className="flex justify-center py-16">
+          <div className="flex-1 flex items-center justify-center">
             <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        ) : view === 'kanban' ? (
+          /* ── Kanban ── */
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
             {OFFER_TYPES.map(ot => {
-              const cols = products.filter(p => p.offer_type === ot.id && p.active);
+              const cols = activeProducts.filter(p => p.offer_type === ot.id);
               return (
                 <div key={ot.id} className="flex flex-col rounded-2xl overflow-hidden"
-                  style={{ border: `1px solid ${ot.color}20`, background: '#0b0b1e', minHeight: 220 }}>
-
-                  {/* Column header — fixed height */}
+                  style={{ border: `1px solid ${ot.color}20`, background: '#0b0b1e' }}>
                   <div className="px-4 py-3 flex items-center gap-2 flex-shrink-0"
                     style={{ background: `${ot.color}08`, borderBottom: `1px solid ${ot.color}15` }}>
                     <div className="w-1.5 h-1.5 rounded-full flex-shrink-0"
                       style={{ background: ot.color, boxShadow: `0 0 5px ${ot.color}` }} />
-                    <span className="text-[11px] font-bold tracking-widest uppercase flex-1" style={{ color: ot.color }}>
-                      {ot.label}
-                    </span>
+                    <span className="text-[11px] font-bold tracking-widest uppercase flex-1" style={{ color: ot.color }}>{ot.label}</span>
                     <span className="text-[10px] w-5 h-5 rounded-full flex items-center justify-center"
                       style={{ background: `${ot.color}18`, color: ot.color }}>{cols.length}</span>
                   </div>
-
-                  {/* Products — flex-1 so all columns stretch equally */}
                   <div className="flex-1 p-3 space-y-2">
                     {cols.length === 0 ? (
-                      <div className="h-full flex flex-col items-center justify-center py-10 gap-3">
+                      <div className="h-full min-h-[120px] flex flex-col items-center justify-center gap-3">
                         <p className="text-xs" style={{ color: 'rgba(100,116,139,0.2)' }}>Nenhum produto aqui</p>
                         {isAdmin && (
-                          <button
-                            onClick={() => { setForm(f => ({ ...f, offer_type: ot.id })); setModalTab('cadastro'); setModal({}); }}
-                            className="text-[11px] px-3 py-1.5 rounded-lg transition-colors"
+                          <button onClick={() => { setForm(f => ({ ...f, offer_type: ot.id })); setModalTab('cadastro'); setModal({}); }}
+                            className="text-[11px] px-3 py-1.5 rounded-lg"
                             style={{ color: ot.color, border: `1px solid ${ot.color}30`, background: `${ot.color}08` }}>
                             + Adicionar
                           </button>
                         )}
                       </div>
                     ) : cols.map(p => (
-                      <div key={p.id} className="group rounded-xl px-3 py-3 transition-colors"
+                      <div key={p.id} className="group rounded-xl px-3 py-3 transition-all"
                         style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)' }}
                         onMouseEnter={e => (e.currentTarget.style.borderColor = `${ot.color}30`)}
                         onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}>
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-white leading-snug truncate">{p.name}</p>
-                            {p.category && (
-                              <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>{p.category}</p>
-                            )}
+                            {p.category && <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>{p.category}</p>}
                           </div>
                           <div className="flex items-center gap-1 flex-shrink-0">
                             <span className="text-sm font-semibold" style={{ color: ot.color }}>{fmtPrice(p.price)}</span>
@@ -1690,17 +1702,75 @@ export default function ClientPortal() {
                             )}
                           </div>
                         </div>
-                        {p.promise && (
-                          <p className="text-[11px] mt-2 leading-relaxed line-clamp-2"
-                            style={{ color: 'rgba(148,163,184,0.45)' }}>{p.promise}</p>
-                        )}
+                        {p.promise && <p className="text-[11px] mt-2 leading-relaxed line-clamp-2" style={{ color: 'rgba(148,163,184,0.4)' }}>{p.promise}</p>}
                         {p.target_audience && (
                           <div className="flex items-center gap-1 mt-2">
                             <Users size={9} style={{ color: 'rgba(100,116,139,0.3)' }} />
-                            <span className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.3)' }}>
-                              {p.target_audience}
-                            </span>
+                            <span className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.3)' }}>{p.target_audience}</span>
                           </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* ── Lista ── */
+          <div className="flex flex-col gap-2 flex-1">
+            {activeProducts.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center py-20 rounded-2xl"
+                style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
+                <Briefcase size={36} className="mb-3" style={{ color: 'rgba(100,116,139,0.15)' }} />
+                <p className="text-sm font-medium text-white mb-1">Nenhum produto cadastrado</p>
+                {isAdmin && <button onClick={openNew} className="text-xs mt-2 px-4 py-2 rounded-xl"
+                  style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
+                  + Adicionar primeiro produto
+                </button>}
+              </div>
+            ) : OFFER_TYPES.map(ot => {
+              const group = activeProducts.filter(p => p.offer_type === ot.id);
+              if (group.length === 0) return null;
+              return (
+                <div key={ot.id}>
+                  <div className="flex items-center gap-2 px-1 mb-2">
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: ot.color }} />
+                    <span className="text-[10px] font-bold tracking-widest uppercase" style={{ color: ot.color }}>{ot.label}</span>
+                    <div className="flex-1 h-px" style={{ background: `${ot.color}15` }} />
+                  </div>
+                  <div className="space-y-1.5 mb-4">
+                    {group.map(p => (
+                      <div key={p.id} className="group rounded-xl px-5 py-4 flex items-center gap-4 transition-all"
+                        style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)' }}
+                        onMouseEnter={e => (e.currentTarget.style.borderColor = `${ot.color}25`)}
+                        onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}>
+                        {/* Name + category */}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{p.name}</p>
+                          {p.category && <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{p.category}</p>}
+                        </div>
+                        {/* Promise */}
+                        {p.promise && (
+                          <p className="hidden md:block flex-1 text-xs leading-relaxed line-clamp-1"
+                            style={{ color: 'rgba(148,163,184,0.45)', maxWidth: 300 }}>{p.promise}</p>
+                        )}
+                        {/* Para quem */}
+                        {p.target_audience && (
+                          <div className="hidden lg:flex items-center gap-1.5 flex-shrink-0" style={{ maxWidth: 180 }}>
+                            <Users size={10} style={{ color: 'rgba(100,116,139,0.35)' }} />
+                            <span className="text-[11px] truncate" style={{ color: 'rgba(100,116,139,0.35)' }}>{p.target_audience}</span>
+                          </div>
+                        )}
+                        {/* Price */}
+                        <span className="text-sm font-bold flex-shrink-0" style={{ color: ot.color }}>{fmtPrice(p.price)}</span>
+                        {/* Edit */}
+                        {isAdmin && (
+                          <button onClick={() => openEdit(p)}
+                            className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-opacity flex-shrink-0"
+                            style={{ color: 'rgba(100,116,139,0.5)', background: 'rgba(255,255,255,0.04)' }}>
+                            <Pencil size={12} />
+                          </button>
                         )}
                       </div>
                     ))}
@@ -2379,7 +2449,7 @@ export default function ClientPortal() {
         isAdmin={isAdmin} onBack={() => navigate('/marketing/clients')}
       />
 
-      <main className="flex-1 md:ml-60 overflow-y-auto min-w-0">
+      <main className="flex-1 md:ml-60 overflow-y-auto min-w-0 w-full">
         {/* Mobile top bar */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 sticky top-0 z-20"
           style={{ background: '#05050f', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
@@ -2390,8 +2460,8 @@ export default function ClientPortal() {
         </div>
 
         <div className={page === 'crm_pipeline' || page === 'crm_conversas'
-          ? 'p-6 md:p-8 h-[calc(100vh-56px)] flex flex-col'
-          : 'p-6 md:p-10 max-w-4xl'}>
+          ? 'p-4 md:p-6 h-[calc(100vh-56px)] flex flex-col'
+          : 'p-4 md:p-8 w-full'}>
           {pageComponents[page]}
         </div>
       </main>
