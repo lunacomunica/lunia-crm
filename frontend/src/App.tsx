@@ -35,12 +35,25 @@ function PrivateRoutes() {
   return <Layout />;
 }
 
+function PortalGuard({ children }: { children: ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center" style={{ background: '#05050f' }}>
+      <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+        style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+    </div>
+  );
+  if (!user) return <Navigate to="/login" replace />;
+  return <>{children}</>;
+}
+
 export default function App() {
   return (
     <AuthProvider>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginGuard />} />
+          <Route path="/marketing/portal/:clientId" element={<PortalGuard><ClientPortal /></PortalGuard>} />
           <Route path="/" element={<PrivateRoutes />}>
             <Route index element={<DefaultRedirect />} />
             <Route path="dashboard" element={<InternalOnly><Dashboard /></InternalOnly>} />
@@ -54,7 +67,6 @@ export default function App() {
             <Route path="marketing/clients/:id" element={<ManagerAndAbove><ClientDetail /></ManagerAndAbove>} />
             <Route path="marketing/content" element={<MarketingContent />} />
             <Route path="marketing/traffic" element={<Traffic />} />
-            <Route path="marketing/portal/:clientId" element={<ClientPortal />} />
             <Route path="marketing/feed/:clientId" element={<FeedPreview />} />
             <Route path="gerot" element={<Gerot />} />
             <Route path="settings" element={<NotClient><Settings /></NotClient>} />
