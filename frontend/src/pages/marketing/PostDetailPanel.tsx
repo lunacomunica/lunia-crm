@@ -495,41 +495,42 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
           {/* ── POST TAB ── */}
           {panelTab === 'post' && (<>
 
-            {/* Caption */}
+            {/* Title */}
             <div>
-              <label className={labelCls} style={labelStyle}>Legenda</label>
-              <textarea ref={captionRef} value={form.caption}
-                onChange={e => {
-                  setForm(f => ({ ...f, caption: e.target.value }));
-                  e.target.style.height = 'auto';
-                  e.target.style.height = e.target.scrollHeight + 'px';
-                }}
-                rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none', overflow: 'hidden', minHeight: '96px' }}
-                placeholder="Texto do post para publicação…" />
+              <label className={labelCls} style={labelStyle}>Título</label>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                className={inputCls} style={inputStyle} placeholder="Título do post" />
             </div>
 
-            {/* Copy */}
-            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.1)' }}>
-              <div className="px-4 py-2.5" style={{ background: 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(59,130,246,0.7)' }}>Copy</span>
+            {/* Type */}
+            <div>
+              <label className={labelCls} style={labelStyle}>Tipo</label>
+              <div className="flex rounded-xl overflow-hidden"
+                style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                {POST_TYPES.map(t => (
+                  <button key={t.value}
+                    onClick={() => { setForm(f => ({ ...f, type: t.value })); setMediaFiles([]); }}
+                    className="flex-1 py-2 text-xs font-medium transition-all"
+                    style={{ color: form.type === t.value ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: form.type === t.value ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
+                    {t.label}
+                  </button>
+                ))}
               </div>
-              <div className="p-4 space-y-3">
-                <div>
-                  <label className={labelCls} style={labelStyle}>Hook / Título</label>
-                  <input value={form.copy_hook} onChange={e => setForm(f => ({ ...f, copy_hook: e.target.value }))}
-                    className={inputCls} style={inputStyle} placeholder="Frase de abertura que prende a atenção…" />
-                </div>
-                <div>
-                  <label className={labelCls} style={labelStyle}>Corpo</label>
-                  <textarea value={form.copy_text} onChange={e => setForm(f => ({ ...f, copy_text: e.target.value }))}
-                    rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none' }}
-                    placeholder="Desenvolvimento do texto…" />
-                </div>
-                <div>
-                  <label className={labelCls} style={labelStyle}>CTA</label>
-                  <input value={form.copy_cta} onChange={e => setForm(f => ({ ...f, copy_cta: e.target.value }))}
-                    className={inputCls} style={inputStyle} placeholder="Chamada para ação final…" />
-                </div>
+            </div>
+
+            {/* Date + Time */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls} style={labelStyle}>Data prevista</label>
+                <input type="date" value={form.scheduled_date}
+                  onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                  className={inputCls} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelCls} style={labelStyle}>Horário</label>
+                <input type="time" value={form.scheduled_time}
+                  onChange={e => setForm(f => ({ ...f, scheduled_time: e.target.value }))}
+                  className={inputCls} style={inputStyle} />
               </div>
             </div>
 
@@ -579,49 +580,23 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                 </div>
               )}
             </div>
+
+            {/* Caption */}
+            <div>
+              <label className={labelCls} style={labelStyle}>Legenda</label>
+              <textarea ref={captionRef} value={form.caption}
+                onChange={e => {
+                  setForm(f => ({ ...f, caption: e.target.value }));
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+                rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none', overflow: 'hidden', minHeight: '96px' }}
+                placeholder="Texto do post para publicação…" />
+            </div>
           </>)}
 
           {/* ── PLANEJAMENTO TAB ── */}
           {panelTab === 'planejamento' && (<>
-
-            {/* Title */}
-            <div>
-              <label className={labelCls} style={labelStyle}>Título</label>
-              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                className={inputCls} style={inputStyle} placeholder="Título do post" />
-            </div>
-
-            {/* Type */}
-            <div>
-              <label className={labelCls} style={labelStyle}>Tipo</label>
-              <div className="flex rounded-xl overflow-hidden"
-                style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                {POST_TYPES.map(t => (
-                  <button key={t.value}
-                    onClick={() => { setForm(f => ({ ...f, type: t.value })); setMediaFiles([]); }}
-                    className="flex-1 py-2 text-xs font-medium transition-all"
-                    style={{ color: form.type === t.value ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: form.type === t.value ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Date + Time */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls} style={labelStyle}>Data prevista</label>
-                <input type="date" value={form.scheduled_date}
-                  onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
-                  className={inputCls} style={inputStyle} />
-              </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>Horário</label>
-                <input type="time" value={form.scheduled_time}
-                  onChange={e => setForm(f => ({ ...f, scheduled_time: e.target.value }))}
-                  className={inputCls} style={inputStyle} />
-              </div>
-            </div>
 
             {/* Objective */}
             <div>
@@ -631,6 +606,31 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                 <option value="">Selecionar objetivo</option>
                 {OBJECTIVES.map(o => <option key={o} value={o}>{o}</option>)}
               </select>
+            </div>
+
+            {/* Copy */}
+            <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.1)' }}>
+              <div className="px-4 py-2.5" style={{ background: 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(59,130,246,0.7)' }}>Copy</span>
+              </div>
+              <div className="p-4 space-y-3">
+                <div>
+                  <label className={labelCls} style={labelStyle}>Hook / Título</label>
+                  <input value={form.copy_hook} onChange={e => setForm(f => ({ ...f, copy_hook: e.target.value }))}
+                    className={inputCls} style={inputStyle} placeholder="Frase de abertura que prende a atenção…" />
+                </div>
+                <div>
+                  <label className={labelCls} style={labelStyle}>Corpo</label>
+                  <textarea value={form.copy_text} onChange={e => setForm(f => ({ ...f, copy_text: e.target.value }))}
+                    rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none' }}
+                    placeholder="Desenvolvimento do texto…" />
+                </div>
+                <div>
+                  <label className={labelCls} style={labelStyle}>CTA</label>
+                  <input value={form.copy_cta} onChange={e => setForm(f => ({ ...f, copy_cta: e.target.value }))}
+                    className={inputCls} style={inputStyle} placeholder="Chamada para ação final…" />
+                </div>
+              </div>
             </div>
 
             {/* Referências */}
