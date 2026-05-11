@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ClientPositioning from './ClientPositioning';
 import {
@@ -63,6 +63,92 @@ const stageCfg = (id: string) => STAGES_CRM.find(s => s.id === id) || STAGES_CRM
 
 const fmtR = (v: number) => v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
 const fmtN = (v: number) => v >= 1000000 ? `${(v/1000000).toFixed(1)}M` : v >= 1000 ? `${(v/1000).toFixed(1)}k` : String(v);
+
+/* ── MediaViewer ─────────────────────────────────────────────────────────── */
+interface MediaItem { type: 'image' | 'video'; url: string; }
+
+function MediaViewer({ mediaFiles, mediaUrl, contentType }: {
+  mediaFiles?: string | null; mediaUrl?: string | null; contentType?: string;
+}) {
+  const items: MediaItem[] = (() => {
+    try {
+      const parsed: { type: string; url: string }[] = JSON.parse(mediaFiles || '[]');
+      const mapped = parsed.filter(f => f.url).map(f => ({
+        type: (f.type === 'video' ? 'video' : 'image') as 'image' | 'video',
+        url: f.url,
+      }));
+      if (mapped.length > 0) return mapped;
+    } catch {}
+    if (!mediaUrl) return [];
+    const isVideo = contentType === 'reels' || /\.(mp4|mov|webm)(\?|$)/i.test(mediaUrl);
+    return [{ type: isVideo ? 'video' : 'image', url: mediaUrl }];
+  })();
+
+  const [active, setActive] = useState(0);
+  const trackRef = useRef<HTMLDivElement>(null);
+
+  if (items.length === 0) return null;
+
+  const goTo = (i: number) => {
+    setActive(i);
+    trackRef.current?.children[i]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
+  };
+
+  const onScroll = () => {
+    const el = trackRef.current;
+    if (!el) return;
+    const idx = Math.round(el.scrollLeft / el.clientWidth);
+    setActive(idx);
+  };
+
+  return (
+    <div className="rounded-2xl overflow-hidden" style={{ background: '#000', position: 'relative' }}>
+      {/* Slides */}
+      <div ref={trackRef} onScroll={onScroll}
+        className="flex"
+        style={{ overflowX: 'scroll', scrollSnapType: 'x mandatory', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
+        {items.map((item, i) => (
+          <div key={i} className="flex-shrink-0 w-full flex items-center justify-center"
+            style={{ scrollSnapAlign: 'start', minHeight: '200px', maxHeight: '520px', background: '#000' }}>
+            {item.type === 'video' ? (
+              <video src={item.url} controls playsInline
+                className="w-full"
+                style={{ maxHeight: '520px', display: 'block', outline: 'none' }} />
+            ) : (
+              <img src={item.url} alt={`slide ${i + 1}`}
+                className="w-full object-contain"
+                style={{ maxHeight: '520px', display: 'block' }}
+                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Slide counter badge (top-right) */}
+      {items.length > 1 && (
+        <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-semibold"
+          style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(4px)' }}>
+          {active + 1} / {items.length}
+        </div>
+      )}
+
+      {/* Dot indicators */}
+      {items.length > 1 && (
+        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+          {items.map((_, i) => (
+            <button key={i} onClick={() => goTo(i)}
+              className="rounded-full transition-all duration-200"
+              style={{
+                width: i === active ? '18px' : '6px',
+                height: '6px',
+                background: i === active ? '#fff' : 'rgba(255,255,255,0.4)',
+              }} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatusBadge({ status }: { status: ContentStatus }) {
   const c = STATUS_CFG[status];
@@ -2448,28 +2534,7 @@ export default function ClientPortal() {
               <button onClick={() => setDetail(null)} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
             </div>
             <div className="p-6 space-y-6">
-              {(() => {
-                const files: { type: string; url: string }[] = (() => { try { return JSON.parse(detail.media_files || '[]'); } catch { return []; } })();
-                const images = files.filter(f => f.type === 'image' && f.url);
-                const allImgs = images.length > 0 ? images.map(f => f.url) : detail.media_url ? [detail.media_url] : [];
-                if (allImgs.length === 0) return null;
-                return (
-                  <div className="space-y-2">
-                    {allImgs.map((url, i) => (
-                      <div key={i} className="rounded-2xl overflow-hidden" style={{ background: '#000' }}>
-                        <img src={url} alt={`${detail.title} ${i + 1}`} className="w-full object-contain"
-                          style={{ maxHeight: '480px', display: 'block' }}
-                          onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }} />
-                      </div>
-                    ))}
-                    {allImgs.length > 1 && (
-                      <p className="text-center text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                        {allImgs.length} imagens · carrossel
-                      </p>
-                    )}
-                  </div>
-                );
-              })()}
+              <MediaViewer mediaFiles={detail.media_files} mediaUrl={detail.media_url} contentType={detail.type} />
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="badge badge-slate">{TYPE_LABEL[detail.type]}</span>
