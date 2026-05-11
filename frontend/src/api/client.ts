@@ -203,6 +203,13 @@ export const uploadApi = {
   },
 };
 
+export const clientProjectsApi = {
+  list: (clientId: number) => api.get('/client-projects', { params: { client_id: clientId } }),
+  create: (data: { agency_client_id: number; title: string; description?: string; status?: string; due_date?: string }) => api.post('/client-projects', data),
+  update: (id: number, data: { title: string; description?: string; status: string; due_date?: string }) => api.put(`/client-projects/${id}`, data),
+  delete: (id: number) => api.delete(`/client-projects/${id}`),
+};
+
 export const adminApi = {
   listTenants: () => api.get('/admin/tenants'),
   createTenant: (data: { name: string; admin_name: string; admin_email: string; admin_password: string }) => api.post('/admin/tenants', data),

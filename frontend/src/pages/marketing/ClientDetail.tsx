@@ -9,14 +9,22 @@ import {
   List, CalendarDays, LayoutGrid,
   Image, Video, MousePointerClick, Link, FileText
 } from 'lucide-react';
-import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi } from '../../api/client';
+import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
 import { ContentStatus, Campaign, CampaignCreative, CampaignPlatform, CampaignStatus, CampaignObjective, CreativeType, CreativeStatus } from '../../types';
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 type Tab = 'estrategia' | 'operacao' | 'dados';
-type OpTab = 'conteudo' | 'trafego' | 'projetos';
+type OpTab = 'conteudo' | 'trafego' | 'tarefas' | 'projetos';
+
+const PROJECT_STATUS: { id: string; label: string; color: string }[] = [
+  { id: 'pendente',     label: 'Pendente',     color: '#94a3b8' },
+  { id: 'em_andamento', label: 'Em andamento', color: '#60a5fa' },
+  { id: 'entregue',     label: 'Entregue',     color: '#34d399' },
+  { id: 'pausado',      label: 'Pausado',      color: '#f59e0b' },
+  { id: 'cancelado',    label: 'Cancelado',    color: '#f87171' },
+];
 type ContentView = 'list' | 'calendar' | 'preview';
 
 function toDisplayUrl(url: string): string {
@@ -199,6 +207,12 @@ export default function ClientDetail() {
   const [contentView, setContentView] = useState<ContentView>('list');
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projectModal, setProjectModal] = useState(false);
+  const [editingProject, setEditingProject] = useState<any>(null);
+  const [projectForm, setProjectForm] = useState({ title: '', description: '', status: 'pendente', due_date: '' });
+  const [savingProject, setSavingProject] = useState(false);
+  const [deletingProject, setDeletingProject] = useState<number | null>(null);
 
   const [campDetail, setCampDetail] = useState<Campaign | null>(null);
   const [campModal, setCampModal] = useState(false);
@@ -287,12 +301,14 @@ export default function ClientDetail() {
   };
 
   const loadOp = async () => {
-    const [campRes, taskRes] = await Promise.all([
+    const [campRes, taskRes, projRes] = await Promise.all([
       campaignsApi.list({ client_id: String(cid) }),
       tasksApi.list({ client_id: String(cid) }),
+      clientProjectsApi.list(cid),
     ]);
     setCampaigns(campRes.data);
     setTasks(taskRes.data || []);
+    setProjects(projRes.data || []);
     if (users.length === 0) {
       fetch('/api/users', { headers: { Authorization: `Bearer ${localStorage.getItem('lunia_token')}` } })
         .then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
@@ -528,7 +544,8 @@ export default function ClientDetail() {
   const OP_TABS: { id: OpTab; label: string; count: number }[] = [
     { id: 'conteudo',  label: 'Conteúdo',  count: batches.length },
     { id: 'trafego',   label: 'Tráfego',   count: campaigns.length },
-    { id: 'projetos',  label: 'Projetos',  count: tasks.length },
+    { id: 'tarefas',   label: 'Tarefas',   count: tasks.length },
+    { id: 'projetos',  label: 'Projetos',  count: projects.length },
   ];
 
   return (
@@ -1017,8 +1034,8 @@ export default function ClientDetail() {
             </div>
           )}
 
-          {/* Projetos */}
-          {opTab === 'projetos' && (
+          {/* Tarefas */}
+          {opTab === 'tarefas' && (
             tasks.length === 0 ? (
               <div className="text-center py-12" style={{ color: 'rgba(100,116,139,0.4)' }}>
                 <CheckSquare size={32} className="mx-auto mb-3 opacity-30" />
@@ -1055,6 +1072,166 @@ export default function ClientDetail() {
               </div>
             )
           )}
+
+          {/* Projetos — entregas avulsas de marketing */}
+          {opTab === 'projetos' && (() => {
+            const openProjectModal = (proj?: any) => {
+              setEditingProject(proj || null);
+              setProjectForm(proj
+                ? { title: proj.title, description: proj.description || '', status: proj.status, due_date: proj.due_date || '' }
+                : { title: '', description: '', status: 'pendente', due_date: '' });
+              setProjectModal(true);
+            };
+            const saveProject = async () => {
+              if (!projectForm.title.trim()) return;
+              setSavingProject(true);
+              if (editingProject) {
+                const r = await clientProjectsApi.update(editingProject.id, projectForm);
+                setProjects(prev => prev.map(p => p.id === editingProject.id ? r.data : p));
+              } else {
+                const r = await clientProjectsApi.create({ agency_client_id: cid, ...projectForm });
+                setProjects(prev => [r.data, ...prev]);
+              }
+              setSavingProject(false);
+              setProjectModal(false);
+            };
+            const confirmDelete = async (id: number) => {
+              await clientProjectsApi.delete(id);
+              setProjects(prev => prev.filter(p => p.id !== id));
+              setDeletingProject(null);
+            };
+            return (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Entregas avulsas de marketing</p>
+                  <button onClick={() => openProjectModal()}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                    style={{ background: 'rgba(59,130,246,0.1)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }}>
+                    <Plus size={12} /> Novo projeto
+                  </button>
+                </div>
+
+                {projects.length === 0 ? (
+                  <div className="text-center py-12" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                    <Star size={32} className="mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">Nenhum projeto cadastrado</p>
+                    <p className="text-xs mt-1 opacity-60">Use para entregas avulsas como identidade visual, site, vídeo institucional…</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {projects.map((proj: any) => {
+                      const st = PROJECT_STATUS.find(s => s.id === proj.status) || PROJECT_STATUS[0];
+                      return (
+                        <div key={proj.id} className="flex items-start gap-4 px-4 py-3 rounded-xl group"
+                          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{proj.title}</p>
+                            {proj.description && (
+                              <p className="text-xs mt-0.5 line-clamp-1" style={{ color: 'rgba(100,116,139,0.5)' }}>{proj.description}</p>
+                            )}
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                style={{ color: st.color, background: `${st.color}15` }}>{st.label}</span>
+                              {proj.due_date && (
+                                <span className="text-[10px] flex items-center gap-1" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                                  <Calendar size={9} />{proj.due_date}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            <button onClick={() => openProjectModal(proj)}
+                              className="p-1.5 rounded-lg transition-all"
+                              style={{ color: 'rgba(100,116,139,0.5)', background: 'rgba(255,255,255,0.04)' }}>
+                              <Pencil size={12} />
+                            </button>
+                            {deletingProject === proj.id ? (
+                              <div className="flex gap-1">
+                                <button onClick={() => confirmDelete(proj.id)}
+                                  className="px-2 py-1 rounded-lg text-[10px] font-medium"
+                                  style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}>
+                                  Confirmar
+                                </button>
+                                <button onClick={() => setDeletingProject(null)}
+                                  className="p-1.5 rounded-lg"
+                                  style={{ color: 'rgba(100,116,139,0.5)', background: 'rgba(255,255,255,0.04)' }}>
+                                  <X size={12} />
+                                </button>
+                              </div>
+                            ) : (
+                              <button onClick={() => setDeletingProject(proj.id)}
+                                className="p-1.5 rounded-lg transition-all"
+                                style={{ color: 'rgba(100,116,139,0.5)', background: 'rgba(255,255,255,0.04)' }}>
+                                <Trash2 size={12} />
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Project modal */}
+                {projectModal && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)' }}
+                    onClick={e => { if (e.target === e.currentTarget) setProjectModal(false); }}>
+                    <div className="w-full max-w-md rounded-2xl p-6 space-y-4"
+                      style={{ background: '#0d0d22', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 24px 80px rgba(0,0,0,0.6)' }}>
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-base font-semibold text-white">{editingProject ? 'Editar projeto' : 'Novo projeto'}</h3>
+                        <button onClick={() => setProjectModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={16} /></button>
+                      </div>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(100,116,139,0.6)' }}>Título *</label>
+                          <input value={projectForm.title} onChange={e => setProjectForm(p => ({ ...p, title: e.target.value }))}
+                            placeholder="Ex: Identidade Visual, Site institucional…"
+                            className="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(100,116,139,0.6)' }}>Descrição</label>
+                          <textarea value={projectForm.description} onChange={e => setProjectForm(p => ({ ...p, description: e.target.value }))}
+                            rows={2} placeholder="Detalhes do projeto…"
+                            className="w-full px-3 py-2 rounded-xl text-sm text-white outline-none resize-none"
+                            style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(100,116,139,0.6)' }}>Status</label>
+                            <select value={projectForm.status} onChange={e => setProjectForm(p => ({ ...p, status: e.target.value }))}
+                              className="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+                              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                              {PROJECT_STATUS.map(s => <option key={s.id} value={s.id}>{s.label}</option>)}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(100,116,139,0.6)' }}>Prazo</label>
+                            <input type="date" value={projectForm.due_date} onChange={e => setProjectForm(p => ({ ...p, due_date: e.target.value }))}
+                              className="w-full px-3 py-2 rounded-xl text-sm text-white outline-none"
+                              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} />
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 pt-1">
+                        <button onClick={() => setProjectModal(false)}
+                          className="flex-1 py-2 rounded-xl text-sm transition-all"
+                          style={{ color: 'rgba(100,116,139,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                          Cancelar
+                        </button>
+                        <button onClick={saveProject} disabled={savingProject || !projectForm.title.trim()}
+                          className="flex-1 py-2 rounded-xl text-sm font-medium text-white transition-all disabled:opacity-40"
+                          style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+                          {savingProject ? 'Salvando…' : editingProject ? 'Salvar' : 'Criar projeto'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
 
