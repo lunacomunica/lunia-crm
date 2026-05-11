@@ -1334,6 +1334,14 @@ export default function ClientPortal() {
       for (let d = 1; d <= daysInMonth; d++) cells.push(d);
       const today = new Date();
       const noDate = displayed.filter(p => !p.scheduled_date);
+
+      const TYPE_LABEL: Record<string, { label: string; color: string }> = {
+        carrossel: { label: 'CAR', color: '#a78bfa' },
+        reels:     { label: 'REE', color: '#f472b6' },
+        story:     { label: 'STR', color: '#fb923c' },
+        post:      { label: 'POST', color: '#60a5fa' },
+      };
+
       return (
         <div>
           <div className="grid grid-cols-7 mb-1">
@@ -1346,26 +1354,38 @@ export default function ClientPortal() {
               const posts = day ? (postsByDay[day] || []) : [];
               const isToday = day !== null && calYear === today.getFullYear() && calMonth === today.getMonth() + 1 && day === today.getDate();
               return (
-                <div key={i} className="rounded-lg overflow-hidden"
-                  style={{ minHeight: 68, background: day ? 'rgba(255,255,255,0.02)' : 'transparent', border: day ? (isToday ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.04)') : 'none' }}>
+                <div key={i} className="rounded-lg"
+                  style={{ minHeight: 90, background: day ? 'rgba(255,255,255,0.02)' : 'transparent', border: day ? (isToday ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.04)') : 'none' }}>
                   {day && (
                     <>
-                      <div className="px-1.5 pt-1 flex items-center justify-between">
+                      <div className="px-1.5 pt-1 pb-0.5">
                         <span className="text-[10px] font-semibold" style={{ color: isToday ? '#60a5fa' : 'rgba(148,163,184,0.45)' }}>{day}</span>
-                        {posts.length > 0 && (
-                          <span className="text-[9px] font-bold px-1 rounded" style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd' }}>{posts.length}</span>
-                        )}
                       </div>
-                      <div className="px-0.5 pb-0.5 mt-0.5 space-y-0.5">
-                        {posts.slice(0, 2).map(p => (
-                          <div key={p.id} onClick={() => openDetail(p)} className="rounded overflow-hidden cursor-pointer" style={{ height: 22 }}>
-                            {p.media_url
-                              ? <img src={p.media_url} className="w-full h-full object-cover" alt="" />
-                              : <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.08)' }}><FileImage size={9} style={{ color: 'rgba(59,130,246,0.3)' }} /></div>}
-                          </div>
-                        ))}
-                        {posts.length > 2 && (
-                          <div className="text-center text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>+{posts.length - 2}</div>
+                      <div className="px-1 pb-1 space-y-0.5">
+                        {posts.slice(0, 3).map(p => {
+                          const st = STATUS_CFG[p.status as ContentStatus] ?? STATUS_CFG['em_criacao'];
+                          const tp = TYPE_LABEL[p.type] ?? TYPE_LABEL['post'];
+                          const time = p.scheduled_date ? format(new Date(p.scheduled_date), 'HH:mm') : null;
+                          return (
+                            <button key={p.id} onClick={() => openDetail(p)}
+                              className="w-full text-left px-1.5 py-1 rounded transition-all hover:brightness-125"
+                              style={{ background: `${st.color}12`, border: `1px solid ${st.color}30` }}>
+                              <div className="flex items-center gap-1 min-w-0">
+                                <span className="text-[7px] font-bold px-0.5 py-px rounded flex-shrink-0 leading-none"
+                                  style={{ color: tp.color, background: `${tp.color}20` }}>
+                                  {tp.label}
+                                </span>
+                                <span className="text-[9px] font-medium text-white truncate flex-1 min-w-0 leading-none">{p.title}</span>
+                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: st.color }} />
+                              </div>
+                              {time && (
+                                <div className="text-[8px] mt-0.5 leading-none" style={{ color: 'rgba(100,116,139,0.55)' }}>{time}</div>
+                              )}
+                            </button>
+                          );
+                        })}
+                        {posts.length > 3 && (
+                          <div className="text-center text-[8px] py-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>+{posts.length - 3}</div>
                         )}
                       </div>
                     </>
@@ -1378,13 +1398,19 @@ export default function ClientPortal() {
             <div className="mt-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
               <p className="text-[11px] mb-2" style={{ color: 'rgba(100,116,139,0.4)' }}>Sem data definida ({noDate.length})</p>
               <div className="flex gap-2 flex-wrap">
-                {noDate.map(p => (
-                  <button key={p.id} onClick={() => openDetail(p)}
-                    className="text-xs px-3 py-1.5 rounded-lg truncate max-w-[140px] transition-all hover:brightness-110"
-                    style={{ background: 'rgba(59,130,246,0.06)', color: 'rgba(148,163,184,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    {p.title || 'Sem título'}
-                  </button>
-                ))}
+                {noDate.map(p => {
+                  const st = STATUS_CFG[p.status as ContentStatus] ?? STATUS_CFG['em_criacao'];
+                  const tp = TYPE_LABEL[p.type] ?? TYPE_LABEL['post'];
+                  return (
+                    <button key={p.id} onClick={() => openDetail(p)}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all hover:brightness-110"
+                      style={{ background: `${st.color}10`, color: 'rgba(148,163,184,0.7)', border: `1px solid ${st.color}25` }}>
+                      <span className="text-[8px] font-bold px-1 rounded" style={{ color: tp.color, background: `${tp.color}20` }}>{tp.label}</span>
+                      <span className="truncate max-w-[110px]">{p.title || 'Sem título'}</span>
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: st.color }} />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
