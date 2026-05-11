@@ -98,15 +98,54 @@ router.get('/:clientId/positioning', (req, res) => {
 
 router.put('/:clientId/positioning', (req, res) => {
   const cid = Number(req.params.clientId);
-  const { icp, promise, differentials, cases, mission } = req.body;
+  const {
+    icp, promise, differentials, cases, mission,
+    sobre, historia, promessa_completa, promessa_curta,
+    transformacao_narrativa, transformacao_procedencia,
+    diferencial_1, diferencial_2, diferencial_3,
+    icp_quem_e, icp_quem_nao_e, icp_psicologico,
+    crencas_tentou, crencas_nao_acredita,
+    desejos_secretos, desejos_aspiracional,
+    dores_profundas, dores_travando,
+    objecoes_desculpas, objecoes_medos,
+  } = req.body;
   db.prepare(`
-    INSERT INTO client_positioning (agency_client_id, icp, promise, differentials, cases, mission)
-    VALUES (?, ?, ?, ?, ?, ?)
+    INSERT INTO client_positioning (
+      agency_client_id, icp, promise, differentials, cases, mission,
+      sobre, historia, promessa_completa, promessa_curta,
+      transformacao_narrativa, transformacao_procedencia,
+      diferencial_1, diferencial_2, diferencial_3,
+      icp_quem_e, icp_quem_nao_e, icp_psicologico,
+      crencas_tentou, crencas_nao_acredita,
+      desejos_secretos, desejos_aspiracional,
+      dores_profundas, dores_travando,
+      objecoes_desculpas, objecoes_medos
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(agency_client_id) DO UPDATE SET
-      icp = excluded.icp, promise = excluded.promise,
-      differentials = excluded.differentials, cases = excluded.cases,
-      mission = excluded.mission, updated_at = datetime('now')
-  `).run(cid, icp || '', promise || '', JSON.stringify(differentials || []), JSON.stringify(cases || []), mission || '');
+      icp=excluded.icp, promise=excluded.promise,
+      differentials=excluded.differentials, cases=excluded.cases, mission=excluded.mission,
+      sobre=excluded.sobre, historia=excluded.historia,
+      promessa_completa=excluded.promessa_completa, promessa_curta=excluded.promessa_curta,
+      transformacao_narrativa=excluded.transformacao_narrativa,
+      transformacao_procedencia=excluded.transformacao_procedencia,
+      diferencial_1=excluded.diferencial_1, diferencial_2=excluded.diferencial_2, diferencial_3=excluded.diferencial_3,
+      icp_quem_e=excluded.icp_quem_e, icp_quem_nao_e=excluded.icp_quem_nao_e, icp_psicologico=excluded.icp_psicologico,
+      crencas_tentou=excluded.crencas_tentou, crencas_nao_acredita=excluded.crencas_nao_acredita,
+      desejos_secretos=excluded.desejos_secretos, desejos_aspiracional=excluded.desejos_aspiracional,
+      dores_profundas=excluded.dores_profundas, dores_travando=excluded.dores_travando,
+      objecoes_desculpas=excluded.objecoes_desculpas, objecoes_medos=excluded.objecoes_medos,
+      updated_at=datetime('now')
+  `).run(
+    cid, icp||'', promise||'', JSON.stringify(differentials||[]), JSON.stringify(cases||[]), mission||'',
+    sobre||'', historia||'', promessa_completa||'', promessa_curta||'',
+    transformacao_narrativa||'', transformacao_procedencia||'',
+    diferencial_1||'', diferencial_2||'', diferencial_3||'',
+    icp_quem_e||'', icp_quem_nao_e||'', icp_psicologico||'',
+    crencas_tentou||'', crencas_nao_acredita||'',
+    desejos_secretos||'', desejos_aspiracional||'',
+    dores_profundas||'', dores_travando||'',
+    objecoes_desculpas||'', objecoes_medos||'',
+  );
   res.json(db.prepare('SELECT * FROM client_positioning WHERE agency_client_id = ?').get(cid));
 });
 

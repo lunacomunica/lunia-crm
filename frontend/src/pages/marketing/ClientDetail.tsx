@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import ClientPositioning from './ClientPositioning';
 import {
   ArrowLeft, Eye, Plus, Trash2, X, Instagram, Pencil,
   Target, TrendingUp, Users, Zap, Star, DollarSign,
@@ -591,83 +592,7 @@ export default function ClientDetail() {
       {tab === 'estrategia' && (
         <div className="space-y-6">
           {/* Posicionamento */}
-          <Section title="Posicionamento da Marca">
-            <div className="space-y-4">
-              <div>
-                <label className={labelCls} style={labelStyle}>ICP — Perfil do cliente ideal</label>
-                <textarea value={positioning.icp} onChange={e => setPositioning((p: any) => ({ ...p, icp: e.target.value }))}
-                  rows={3} placeholder="Descreva quem é o cliente ideal desta marca — idade, perfil, dores, desejos…"
-                  className={inputCls} style={{ ...inputStyle, resize: 'none' }} />
-              </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>Promessa de valor</label>
-                <textarea value={positioning.promise} onChange={e => setPositioning((p: any) => ({ ...p, promise: e.target.value }))}
-                  rows={2} placeholder="O que a marca entrega que ninguém mais entrega?"
-                  className={inputCls} style={{ ...inputStyle, resize: 'none' }} />
-              </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>Missão da marca</label>
-                <textarea value={positioning.mission} onChange={e => setPositioning((p: any) => ({ ...p, mission: e.target.value }))}
-                  rows={2} placeholder="Para quê essa marca existe? Qual impacto quer causar?"
-                  className={inputCls} style={{ ...inputStyle, resize: 'none' }} />
-              </div>
-
-              {/* Differentials */}
-              <div>
-                <label className={labelCls} style={labelStyle}>Diferenciais</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {positioning.differentials.map((d: string, i: number) => (
-                    <span key={i} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium"
-                      style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
-                      {d}
-                      <button onClick={() => removeDiff(i)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={10} /></button>
-                    </span>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input value={diffInput} onChange={e => setDiffInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addDiff()}
-                    placeholder="Adicionar diferencial e pressionar Enter"
-                    className={inputCls} style={inputStyle} />
-                  <button onClick={addDiff} className="px-3 py-2 rounded-xl flex-shrink-0"
-                    style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
-                    <Plus size={14} />
-                  </button>
-                </div>
-              </div>
-
-              {/* Cases */}
-              <div>
-                <label className={labelCls} style={labelStyle}>Cases / Provas sociais</label>
-                <div className="space-y-2 mb-2">
-                  {positioning.cases.map((c: string, i: number) => (
-                    <div key={i} className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm"
-                      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <span className="flex-1 text-white">{c}</span>
-                      <button onClick={() => removeCase(i)} style={{ color: 'rgba(100,116,139,0.4)' }}><X size={12} /></button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <input value={caseInput} onChange={e => setCaseInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && addCase()}
-                    placeholder="Adicionar case ou prova social…"
-                    className={inputCls} style={inputStyle} />
-                  <button onClick={addCase} className="px-3 py-2 rounded-xl flex-shrink-0"
-                    style={{ background: 'rgba(59,130,246,0.1)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.2)' }}>
-                    <Plus size={14} />
-                  </button>
-                </div>
-              </div>
-
-              <button onClick={savePositioning} disabled={savingPos}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40"
-                style={{ background: savedPos ? 'rgba(52,211,153,0.2)' : 'rgba(59,130,246,0.2)', border: `1px solid ${savedPos ? 'rgba(52,211,153,0.3)' : 'rgba(59,130,246,0.3)'}`, color: savedPos ? '#34d399' : 'white' }}>
-                <Save size={14} />
-                {savingPos ? 'Salvando…' : savedPos ? 'Salvo!' : 'Salvar posicionamento'}
-              </button>
-            </div>
-          </Section>
+          <ClientPositioning clientId={cid} />
 
           {/* Metas */}
           <Section title="Metas do Cliente">
