@@ -1471,6 +1471,22 @@ export default function ClientPortal() {
           </div>
         </div>
 
+        {/* Resumo rápido */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {[
+            { label: 'Publicados / Agendados', value: pieces.filter(p => ['publicado','agendado'].includes(p.status)).length, color: '#34d399' },
+            { label: 'Aprovados',              value: pieces.filter(p => p.status === 'aprovado').length,                    color: '#60a5fa' },
+            { label: 'Aguardando aprovação',   value: pieces.filter(p => p.status === 'aguardando_aprovacao').length,        color: '#f59e0b' },
+            { label: 'Pedidos de ajuste',      value: pieces.filter(p => p.status === 'ajuste_solicitado').length,           color: '#f97316' },
+          ].map(m => (
+            <div key={m.label} className="rounded-xl px-3 py-3"
+              style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
+              <p className="text-xl font-bold mb-0.5" style={{ color: m.color }}>{m.value}</p>
+              <p className="text-[10px] leading-tight" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+            </div>
+          ))}
+        </div>
+
         {/* Month navigator */}
         {batches.length > 0 && (
           <div className="flex items-center gap-2">
@@ -2075,35 +2091,11 @@ export default function ClientPortal() {
   }
 
   function PagePerformance() {
-    const publishedCount = pieces.filter(p => p.status === 'publicado' || p.status === 'agendado').length;
-    const approvedCount  = pieces.filter(p => p.status === 'aprovado').length;
-    const pendingApproval = pieces.filter(p => p.status === 'aguardando_aprovacao').length;
-    const adjustCount    = pieces.filter(p => p.status === 'ajuste_solicitado').length;
-
     return (
       <div className="space-y-8">
         <div>
           <h2 className="text-2xl font-semibold text-white mb-1">Performance</h2>
-          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Resultados de conteúdo e tráfego pago</p>
-        </div>
-
-        {/* Conteúdo orgânico */}
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Conteúdo orgânico</p>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { label: 'Publicados / Agendados', value: publishedCount, color: '#34d399' },
-              { label: 'Aprovados',              value: approvedCount,  color: '#60a5fa' },
-              { label: 'Aguardando aprovação',   value: pendingApproval, color: '#f59e0b' },
-              { label: 'Pedidos de ajuste',      value: adjustCount,    color: '#f97316' },
-            ].map(m => (
-              <div key={m.label} className="rounded-xl px-4 py-4"
-                style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                <p className="text-2xl font-bold mb-1" style={{ color: m.color }}>{m.value}</p>
-                <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
-              </div>
-            ))}
-          </div>
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Resultados de tráfego pago e campanhas</p>
         </div>
 
         {/* Tráfego pago */}
