@@ -109,12 +109,12 @@ const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: s
   aprovado: {
     icon: CheckCircle2, color: '#34d399', bg: 'rgba(52,211,153,0.1)',
     label: 'aprovação',
-    dest: (m) => `/marketing/content?client=${m?.client_id}`,
+    dest: (m) => `/marketing/content?client=${m?.client_id}&post=${m?.content_id}`,
   },
   ajuste_solicitado: {
     icon: AlertTriangle, color: '#f97316', bg: 'rgba(249,115,22,0.1)',
     label: 'ajuste',
-    dest: (m) => `/gerot?client_id=${m?.client_id}`,
+    dest: (m) => `/marketing/content?client=${m?.client_id}&post=${m?.content_id}`,
   },
 };
 
@@ -228,7 +228,7 @@ function NotificationBell() {
                       <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{timeAgo(n.created_at)}</p>
                       <span className="text-[10px] flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                         style={{ color: cfg?.color || '#60a5fa' }}>
-                        {n.type === 'ajuste_solicitado' ? 'Ver no Gerot' : 'Ver conteúdo'}
+                        {'Abrir post →'}
                         <ArrowRight size={9} />
                       </span>
                     </div>

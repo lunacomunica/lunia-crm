@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Plus, X, Trash2, FileImage, ChevronDown, ChevronLeft, ChevronRight, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye, List, CalendarDays, LayoutGrid, Clapperboard, Copy } from 'lucide-react';
 import { contentApi, agencyClientsApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
@@ -99,9 +100,11 @@ const emptyBatchForm = { agency_client_id: '', month: String(new Date().getMonth
 const selectStyle = { background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', borderRadius: '0.75rem', padding: '0.5rem 0.875rem', color: '#e2e8f0', fontSize: '0.8rem', outline: 'none', cursor: 'pointer' };
 
 export default function MarketingContent() {
+  const [searchParams, setSearchParams] = useSearchParams();
   const [clients, setClients] = useState<AgencyClient[]>([]);
-  const [filterClient, setFilterClient] = useState('all');
+  const [filterClient, setFilterClient] = useState(searchParams.get('client') || 'all');
   const [batches, setBatches] = useState<FeedBatch[]>([]);
+  const pendingPostId = useRef<number | null>(Number(searchParams.get('post')) || null);
   const [navMonth, setNavMonth] = useState({ month: new Date().getMonth() + 1, year: new Date().getFullYear() });
   const [posts, setPosts] = useState<ContentPiece[]>([]);
   const [loadingBatches, setLoadingBatches] = useState(false);
@@ -143,6 +146,21 @@ export default function MarketingContent() {
       setLoadingPosts(false);
     });
   }, [selectedBatchId]);
+
+  // Auto-open post from notification (?post=ID)
+  useEffect(() => {
+    if (!pendingPostId.current) return;
+    const id = pendingPostId.current;
+    pendingPostId.current = null;
+    contentApi.get(id).then(r => {
+      setPanelPost(r.data);
+      // Also switch to the right client/month if needed
+      if (r.data.agency_client_id && filterClient !== String(r.data.agency_client_id)) {
+        setFilterClient(String(r.data.agency_client_id));
+      }
+      setSearchParams({}, { replace: true });
+    }).catch(() => {});
+  }, []);
 
   const reloadPosts = async () => {
     if (!selectedBatchId) return;
