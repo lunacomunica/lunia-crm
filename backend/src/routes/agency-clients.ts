@@ -42,7 +42,16 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
-  const client = db.prepare('SELECT * FROM agency_clients WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id);
+  const client = db.prepare(`
+    SELECT ac.*,
+      u.name  as owner_name,
+      u.avatar as owner_avatar,
+      u.job_title as owner_job_title
+    FROM agency_clients ac
+    LEFT JOIN users u ON u.tenant_id = ac.tenant_id AND u.role = 'owner'
+    WHERE ac.id = ? AND ac.tenant_id = ?
+    ORDER BY u.id ASC LIMIT 1
+  `).get(req.params.id, req.user.tenant_id);
   if (!client) return res.status(404).json({ error: 'Cliente não encontrado' });
   res.json(client);
 });

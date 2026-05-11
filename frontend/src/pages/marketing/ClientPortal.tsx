@@ -300,6 +300,7 @@ export default function ClientPortal() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const isAdmin = user?.role === 'owner' || user?.role === 'manager';
+  const isOwner = user?.role === 'owner';
 
   const [page, setPage] = useState<PageId>('visao');
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -759,7 +760,7 @@ export default function ClientPortal() {
                   style={{ color: 'rgba(226,232,240,0.8)', fontStyle: 'italic' }}>
                   "{client.ceo_message}"
                 </p>
-              ) : isAdmin ? (
+              ) : isOwner ? (
                 <p className="text-sm mb-5" style={{ color: 'rgba(100,116,139,0.35)', fontStyle: 'italic' }}>
                   Clique em editar para escrever sua mensagem mensal…
                 </p>
@@ -772,19 +773,21 @@ export default function ClientPortal() {
                 <div className="flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full overflow-hidden flex-shrink-0"
                     style={{ border: '1px solid rgba(167,139,250,0.25)', boxShadow: '0 0 10px rgba(167,139,250,0.15)' }}>
-                    {user?.avatar
-                      ? <img src={user.avatar} alt="CEO" className="w-full h-full object-cover" />
+                    {client?.owner_avatar
+                      ? <img src={client.owner_avatar} alt="CEO" className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white"
                           style={{ background: 'linear-gradient(135deg,#a78bfa,#6366f1)' }}>
-                          {user?.name?.charAt(0).toUpperCase()}
+                          {(client?.owner_name || 'O')?.charAt(0).toUpperCase()}
                         </div>}
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-white">{user?.name || 'Vanessa Raeski'}</p>
-                    <p className="text-[10px]" style={{ color: 'rgba(167,139,250,0.55)' }}>CEO, Luna Comunica</p>
+                    <p className="text-xs font-semibold text-white">{client?.owner_name || '—'}</p>
+                    <p className="text-[10px]" style={{ color: 'rgba(167,139,250,0.55)' }}>
+                      {client?.owner_job_title || 'CEO, Luna Comunica'}
+                    </p>
                   </div>
                 </div>
-                {isAdmin && (
+                {isOwner && (
                   <button onClick={() => setEditingMsg(true)}
                     className="text-[11px] px-3 py-1.5 rounded-lg transition-colors"
                     style={{ color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}
