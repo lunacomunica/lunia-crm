@@ -251,6 +251,10 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   const [uploading, setUploading] = useState<'images' | 'video' | 'cover' | null>(null);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const captionRef = useRef<HTMLTextAreaElement>(null);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isFirstRender = useRef(true);
+  const handleSaveRef = useRef<() => void>(() => {});
   const [deleting, setDeleting] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -267,6 +271,23 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
     contentApi.getTasks(post.id).then(r => setTasks(r.data || []));
     usersApi.list().then(r => setUsers(r.data || []));
   }, [post.id]);
+
+  // Auto-resize caption on mount
+  useEffect(() => {
+    if (captionRef.current) {
+      captionRef.current.style.height = 'auto';
+      captionRef.current.style.height = captionRef.current.scrollHeight + 'px';
+    }
+  }, []);
+
+  // Auto-save with 1.5s debounce — uses ref so the timeout always calls latest handleSave
+  useEffect(() => { handleSaveRef.current = handleSave; });
+  useEffect(() => {
+    if (isFirstRender.current) { isFirstRender.current = false; return; }
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => { handleSaveRef.current(); }, 1500);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, [form, mediaFiles, references]);
 
   // Derived media buckets
   const images = mediaFiles.filter(f => f.type === 'image');
@@ -320,6 +341,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   };
 
   const handleSave = async () => {
+    if (saving) return;
     setSaving(true);
     try {
       const r = await contentApi.update(post.id, {
@@ -432,15 +454,14 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
               </button>
             )}
             <button onClick={onClose} className="btn-ghost">Cancelar</button>
-            {saved && (
+            {saving && <span className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Salvando…</span>}
+            {!saving && saved && (
               <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: '#34d399' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-                Post salvo
+                Salvo
               </span>
             )}
-            <button onClick={handleSave} disabled={saving} className="btn-primary">
-              {saving ? 'Salvando…' : 'Salvar'}
-            </button>
+            <button onClick={handleSave} disabled={saving} className="btn-primary">Salvar</button>
           </div>
         </div>
 
@@ -574,8 +595,13 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
             {/* Caption */}
             <div>
               <label className={labelCls} style={labelStyle}>Legenda</label>
-              <textarea value={form.caption} onChange={e => setForm(f => ({ ...f, caption: e.target.value }))}
-                rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none' }}
+              <textarea ref={captionRef} value={form.caption}
+                onChange={e => {
+                  setForm(f => ({ ...f, caption: e.target.value }));
+                  e.target.style.height = 'auto';
+                  e.target.style.height = e.target.scrollHeight + 'px';
+                }}
+                rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none', overflow: 'hidden', minHeight: '96px' }}
                 placeholder="Texto do post para publicação…" />
             </div>
 
