@@ -1339,7 +1339,12 @@ export default function ClientPortal() {
   function PageConteudos() {
     const [tab, setTab] = useState<'feed' | 'aprovar'>('aprovar');
     const pending = pieces.filter(p => p.status === 'aguardando_aprovacao');
-    const displayed = tab === 'aprovar' ? pending : feedDisplayed;
+    const feedSorted = [...feedDisplayed].sort((a, b) => {
+      const da = a.scheduled_date || a.created_at || '';
+      const db2 = b.scheduled_date || b.created_at || '';
+      return da < db2 ? 1 : da > db2 ? -1 : 0;
+    });
+    const displayed = tab === 'aprovar' ? pending : feedSorted;
 
     return (
       <div className="space-y-6">
@@ -1367,6 +1372,31 @@ export default function ClientPortal() {
           <div className="text-center py-24">
             <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
             <p className="text-white font-medium mb-1">{tab === 'aprovar' ? 'Nenhuma aprovação pendente' : 'Nenhum conteúdo ainda'}</p>
+          </div>
+        ) : tab === 'feed' ? (
+          <div className="grid grid-cols-3 gap-0.5">
+            {displayed.map((p, idx) => {
+              const cfg = STATUS_CFG[p.status as ContentStatus] ?? STATUS_CFG['em_criacao'];
+              return (
+                <div key={p.id} onClick={() => openDetail(p)}
+                  className="relative cursor-pointer overflow-hidden group"
+                  style={{ aspectRatio: '1080/1350', background: '#0d0d22' }}>
+                  {p.media_url ? (
+                    <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <FileImage size={20} style={{ color: 'rgba(59,130,246,0.2)' }} />
+                    </div>
+                  )}
+                  <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                    style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.color}88` }}>
+                    {idx + 1}
+                  </span>
+                  {p.type === 'carrossel' && <Copy size={12} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
+                  {p.type === 'reels' && <Clapperboard size={12} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

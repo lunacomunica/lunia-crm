@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2, AlertTriangle, Eye } from 'lucide-react';
+import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2, AlertTriangle, Eye, Pencil } from 'lucide-react';
 import { settingsApi, usersApi, profileApi, agencyClientsApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
@@ -203,6 +203,7 @@ function UsersTab() {
   const [agencyClients, setAgencyClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<any | null>(null);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -227,14 +228,35 @@ function UsersTab() {
     setClientModal(null);
   };
 
-  const handleCreate = async () => {
-    if (!form.name || !form.email || !form.password) { setError('Preencha todos os campos'); return; }
+  const openCreate = () => {
+    setEditingUser(null);
+    setForm({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '' });
+    setError('');
+    setModal(true);
+  };
+
+  const openEdit = (u: any) => {
+    setEditingUser(u);
+    setForm({ name: u.name, email: u.email, password: '', role: u.role, agency_client_id: u.agency_client_id ? String(u.agency_client_id) : '', job_title: u.job_title || '' });
+    setError('');
+    setModal(true);
+  };
+
+  const handleSave = async () => {
+    if (!form.name || !form.email) { setError('Nome e e-mail são obrigatórios'); return; }
+    if (!editingUser && !form.password) { setError('Senha é obrigatória para novo usuário'); return; }
     setSaving(true); setError('');
     try {
-      await usersApi.create(form);
-      setModal(false); setForm({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '' }); load();
+      const payload: any = { name: form.name, email: form.email, role: form.role, job_title: form.job_title, agency_client_id: form.agency_client_id || null };
+      if (form.password) payload.password = form.password;
+      if (editingUser) {
+        await usersApi.update(editingUser.id, payload);
+      } else {
+        await usersApi.create({ ...payload, password: form.password });
+      }
+      setModal(false); load();
     } catch (e: any) {
-      setError(e.response?.data?.error || 'Erro ao criar usuário');
+      setError(e.response?.data?.error || 'Erro ao salvar usuário');
     }
     setSaving(false);
   };
@@ -252,7 +274,7 @@ function UsersTab() {
           <h2 className="text-xl font-light text-white">Usuários com acesso</h2>
           <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>Gerencie quem pode acessar o lun.ia</p>
         </div>
-        <button onClick={() => setModal(true)} className="btn-primary">
+        <button onClick={openCreate} className="btn-primary">
           <Plus size={14} /> Novo Usuário
         </button>
       </div>
@@ -307,6 +329,13 @@ function UsersTab() {
                           <Eye size={13} />
                         </button>
                       )}
+                      <button onClick={() => openEdit(u)} title="Editar usuário"
+                        className="p-1.5 rounded-lg transition-colors"
+                        style={{ color: 'rgba(100,116,139,0.6)' }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                        <Pencil size={13} />
+                      </button>
                       {u.id !== me?.id && (
                         <button onClick={() => handleDelete(u.id)}
                           className="p-1.5 rounded-lg transition-colors"
@@ -379,14 +408,14 @@ function UsersTab() {
           style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
           <div className="modal-card w-full max-w-md animate-fade-up my-auto">
             <div className="flex items-center justify-between px-6 py-5" style={{ borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
-              <h2 className="text-lg font-light text-white">Novo Usuário</h2>
+              <h2 className="text-lg font-light text-white">{editingUser ? 'Editar Usuário' : 'Novo Usuário'}</h2>
               <button onClick={() => { setModal(false); setError(''); }} style={{ color: 'rgba(100,116,139,0.6)' }}
                 className="p-1.5 rounded-lg hover:text-white transition-colors"><X size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
               <Field label="Nome" id="u-name" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="Ex: João Silva" />
               <Field label="E-mail" id="u-email" value={form.email} onChange={v => setForm({ ...form, email: v })} placeholder="joao@empresa.com" type="email" />
-              <Field label="Senha" id="u-pass" value={form.password} onChange={v => setForm({ ...form, password: v })} placeholder="Mínimo 6 caracteres" type="password" />
+              <Field label={editingUser ? 'Nova senha (deixe em branco para manter)' : 'Senha'} id="u-pass" value={form.password} onChange={v => setForm({ ...form, password: v })} placeholder={editingUser ? 'Opcional' : 'Mínimo 6 caracteres'} type="password" />
               <div>
                 <label className="label-dark">Papel</label>
                 <select value={form.role} onChange={e => setForm({ ...form, role: e.target.value, agency_client_id: '' })} className="input-dark" style={{ cursor: 'pointer' }}>
@@ -416,8 +445,8 @@ function UsersTab() {
             </div>
             <div className="flex gap-3 px-6 pb-6">
               <button onClick={() => { setModal(false); setError(''); }} className="btn-ghost flex-1 justify-center">Cancelar</button>
-              <button onClick={handleCreate} disabled={saving} className="btn-primary flex-1 justify-center">
-                {saving ? 'Criando…' : 'Criar Usuário'}
+              <button onClick={handleSave} disabled={saving} className="btn-primary flex-1 justify-center">
+                {saving ? 'Salvando…' : editingUser ? 'Salvar alterações' : 'Criar Usuário'}
               </button>
             </div>
           </div>

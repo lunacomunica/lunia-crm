@@ -291,12 +291,12 @@ export default function Funnel() {
   const total = deals.reduce((a, d) => a + d.value, 0);
 
   return (
-    <div className="p-8 h-full" style={{ minHeight: '100vh' }}>
+    <div className="p-4 md:p-8 h-full" style={{ minHeight: '100vh' }}>
       {/* Header */}
-      <div className="flex items-center justify-between mb-8 animate-fade-up">
+      <div className="flex items-center justify-between mb-6 md:mb-8 animate-fade-up">
         <div>
           <p className="section-label mb-1">Pipeline</p>
-          <h1 className="text-3xl font-extralight text-white tracking-tight" style={{ textShadow: '0 0 30px rgba(59,130,246,0.2)' }}>
+          <h1 className="text-2xl md:text-3xl font-extralight text-white tracking-tight" style={{ textShadow: '0 0 30px rgba(59,130,246,0.2)' }}>
             Funil de Vendas
           </h1>
           <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.65)' }}>
@@ -312,18 +312,21 @@ export default function Funnel() {
             style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
         </div>
       ) : (
-        <div className="grid grid-cols-4 gap-4 h-[calc(100vh-220px)]">
+        <div className="flex gap-3 overflow-x-auto pb-4 h-[calc(100vh-200px)]" style={{ scrollSnapType: 'x mandatory' }}>
           {STAGES.map((stage, si) => {
             const stageDeals = deals.filter(d => d.stage === stage.id);
             const stageValue = stageDeals.reduce((a, d) => a + d.value, 0);
             return (
               <div
                 key={stage.id}
-                className="flex flex-col rounded-2xl overflow-hidden animate-fade-up"
+                className="flex flex-col rounded-2xl overflow-hidden animate-fade-up flex-shrink-0"
                 style={{
                   animationDelay: `${si * 60}ms`,
                   background: 'rgba(255,255,255,0.012)',
                   border: '1px solid rgba(59,130,246,0.07)',
+                  minWidth: '260px',
+                  width: 'calc(25% - 9px)',
+                  scrollSnapAlign: 'start',
                 }}
               >
                 {/* Column header */}

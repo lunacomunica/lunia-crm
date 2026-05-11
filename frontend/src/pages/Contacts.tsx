@@ -219,8 +219,8 @@ export default function Contacts() {
       </div>
 
       {/* Table */}
-      <div className="card overflow-hidden">
-        <table className="w-full">
+      <div className="card overflow-hidden overflow-x-auto">
+        <table className="w-full" style={{ minWidth: '480px' }}>
           <thead>
             <tr>
               <th className="th w-8">
@@ -229,7 +229,7 @@ export default function Contacts() {
               </th>
               <th className="th">Contato</th>
               <th className="th hidden md:table-cell">Telefone</th>
-              <th className="th">Fonte</th>
+              <th className="th hidden sm:table-cell">Fonte</th>
               <th className="th">Status</th>
               <th className="th hidden lg:table-cell">Criado</th>
               <th className="th w-16" />
@@ -273,7 +273,7 @@ export default function Contacts() {
                     ? <span className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(148,163,184,0.7)' }}><Phone size={11} />{c.phone}</span>
                     : <span style={{ color: 'rgba(100,116,139,0.4)' }}>—</span>}
                 </td>
-                <td className="td">
+                <td className="td hidden sm:table-cell">
                   <span className={`badge ${SRC_BADGE[c.source] || 'badge-slate'}`}>{SRC_LABEL[c.source] || c.source}</span>
                   {c.source === 'indicacao' && (c as any).referred_by_name && (
                     <p className="text-[10px] mt-1 flex items-center gap-1" style={{ color: 'rgba(245,158,11,0.6)' }}>

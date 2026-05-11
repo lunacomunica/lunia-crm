@@ -62,20 +62,20 @@ function StatCard({
   icon: any; iconClass: string; label: string; value: string | number; sub?: string; delay?: number;
 }) {
   return (
-    <div className="card p-5 animate-fade-up" style={{ animationDelay: `${delay}ms` }}>
-      <div className="flex items-start justify-between mb-4">
+    <div className="card p-3 md:p-5 animate-fade-up" style={{ animationDelay: `${delay}ms` }}>
+      <div className="flex items-start justify-between mb-3 md:mb-4">
         <div
-          className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          className="w-8 h-8 md:w-10 md:h-10 rounded-xl flex items-center justify-center flex-shrink-0"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}
         >
-          <Icon size={17} className={iconClass} />
+          <Icon size={15} className={iconClass} />
         </div>
         {sub && (
-          <span className="badge badge-blue text-[10px]">{sub}</span>
+          <span className="badge badge-blue text-[10px] hidden sm:inline-flex">{sub}</span>
         )}
       </div>
       <p className="metric mb-1">{value}</p>
-      <p className="text-sm" style={{ color: 'rgba(148,163,184,0.65)' }}>{label}</p>
+      <p className="text-xs md:text-sm truncate" style={{ color: 'rgba(148,163,184,0.65)' }}>{label}</p>
     </div>
   );
 }
