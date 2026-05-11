@@ -1035,43 +1035,91 @@ export default function ClientDetail() {
           )}
 
           {/* Tarefas */}
-          {opTab === 'tarefas' && (
-            tasks.length === 0 ? (
+          {opTab === 'tarefas' && (() => {
+            const [taskTypeFilter, setTaskTypeFilter] = useState<'todos' | 'conteudo' | 'trafego' | 'geral'>('todos');
+            const taskType = (t: any) => t.content_piece_id ? 'conteudo' : t.campaign_id ? 'trafego' : 'geral';
+            const filtered = taskTypeFilter === 'todos' ? tasks : tasks.filter(t => taskType(t) === taskTypeFilter);
+            const counts = {
+              conteudo: tasks.filter(t => taskType(t) === 'conteudo').length,
+              trafego:  tasks.filter(t => taskType(t) === 'trafego').length,
+              geral:    tasks.filter(t => taskType(t) === 'geral').length,
+            };
+            const taskContext = (t: any): string | null => {
+              if (t.batch_month && t.batch_year) return `${MONTHS_PT[t.batch_month - 1]} ${t.batch_year}`;
+              if (t.batch_name) return t.batch_name;
+              if (t.campaign_name) return t.campaign_name;
+              return null;
+            };
+            const TYPE_FILTERS = [
+              { id: 'todos',    label: 'Todos',     color: '#94a3b8', count: tasks.length },
+              { id: 'conteudo', label: 'Conteúdo',  color: '#34d399', count: counts.conteudo },
+              { id: 'trafego',  label: 'Tráfego',   color: '#60a5fa', count: counts.trafego },
+              { id: 'geral',    label: 'Geral',      color: '#a78bfa', count: counts.geral },
+            ] as const;
+            return tasks.length === 0 ? (
               <div className="text-center py-12" style={{ color: 'rgba(100,116,139,0.4)' }}>
                 <CheckSquare size={32} className="mx-auto mb-3 opacity-30" />
                 <p className="text-sm">Nenhuma tarefa para este cliente</p>
               </div>
             ) : (
-              <div className="space-y-2">
-                {tasks.map((t: any) => {
-                  const statusIcon = t.status === 'concluida' ? CheckCircle2 : t.status === 'em_andamento' ? RotateCcw : Clock;
-                  const statusColor = t.status === 'concluida' ? '#34d399' : t.status === 'em_andamento' ? '#60a5fa' : 'rgba(100,116,139,0.5)';
-                  const priorityColor: Record<string, string> = { urgente: '#f87171', alta: '#f97316', media: '#f59e0b', baixa: '#94a3b8' };
-                  return (
-                    <div key={t.id} className="flex items-center gap-4 px-4 py-3 rounded-xl"
-                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                      {(() => { const I = statusIcon; return <I size={15} style={{ color: statusColor, flexShrink: 0 }} />; })()}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-white truncate">{t.title}</p>
-                        <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>{t.assignee_name || 'Sem responsável'} · {t.stage}</p>
+              <div className="space-y-3">
+                {/* Filter chips */}
+                <div className="flex gap-2 flex-wrap">
+                  {TYPE_FILTERS.map(f => (
+                    <button key={f.id} onClick={() => setTaskTypeFilter(f.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                      style={taskTypeFilter === f.id
+                        ? { background: `${f.color}18`, color: f.color, border: `1px solid ${f.color}35` }
+                        : { background: 'transparent', color: 'rgba(100,116,139,0.45)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      {taskTypeFilter === f.id && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: f.color }} />}
+                      {f.label}
+                      <span className="opacity-50">{f.count}</span>
+                    </button>
+                  ))}
+                </div>
+                {/* Task list */}
+                <div className="space-y-2">
+                  {filtered.map((t: any) => {
+                    const statusIcon = t.status === 'concluida' ? CheckCircle2 : t.status === 'em_andamento' ? RotateCcw : Clock;
+                    const statusColor = t.status === 'concluida' ? '#34d399' : t.status === 'em_andamento' ? '#60a5fa' : 'rgba(100,116,139,0.5)';
+                    const priorityColor: Record<string, string> = { urgente: '#f87171', alta: '#f97316', media: '#f59e0b', baixa: '#94a3b8' };
+                    const ctx = taskContext(t);
+                    const type = taskType(t);
+                    const typeColor = type === 'conteudo' ? '#34d399' : type === 'trafego' ? '#60a5fa' : '#a78bfa';
+                    return (
+                      <div key={t.id} className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                        {(() => { const I = statusIcon; return <I size={15} style={{ color: statusColor, flexShrink: 0 }} />; })()}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{t.title}</p>
+                          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                            <span className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{t.assigned_name || 'Sem responsável'}</span>
+                            {ctx && (
+                              <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded"
+                                style={{ color: typeColor, background: `${typeColor}12` }}>
+                                {ctx}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {t.priority && (
+                          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ color: priorityColor[t.priority] || '#94a3b8', background: `${priorityColor[t.priority] || '#94a3b8'}15` }}>
+                            {t.priority}
+                          </span>
+                        )}
+                        {t.due_date && (
+                          <span className="text-[10px] flex items-center gap-1 flex-shrink-0" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                            <Calendar size={9} />{t.due_date}
+                          </span>
+                        )}
                       </div>
-                      {t.priority && (
-                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
-                          style={{ color: priorityColor[t.priority] || '#94a3b8', background: `${priorityColor[t.priority] || '#94a3b8'}15` }}>
-                          {t.priority}
-                        </span>
-                      )}
-                      {t.due_date && (
-                        <span className="text-[10px] flex items-center gap-1 flex-shrink-0" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                          <Calendar size={9} />{t.due_date}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            )
-          )}
+            );
+          })()}
 
           {/* Projetos — entregas avulsas de marketing */}
           {opTab === 'projetos' && (() => {

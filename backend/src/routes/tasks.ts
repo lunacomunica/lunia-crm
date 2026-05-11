@@ -70,6 +70,8 @@ router.get('/', (req, res) => {
       cp.status    as content_status,
       cp.batch_id  as batch_id,
       fb.name      as batch_name,
+      fb.month     as batch_month,
+      fb.year      as batch_year,
       c.name   as campaign_name,
       (SELECT started_at FROM task_sessions WHERE task_id = t.id AND ended_at IS NULL LIMIT 1) as session_started_at
     FROM tasks t
