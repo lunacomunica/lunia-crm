@@ -100,7 +100,7 @@ function CarouselViewer({ images, onRemove }: { images: MediaFile[]; onRemove: (
   const prev = () => setIdx(i => Math.max(0, i - 1));
   const next = () => setIdx(i => Math.min(images.length - 1, i + 1));
   return (
-    <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: '1', background: '#000' }}>
+    <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: '1080/1350', background: '#000' }}>
       <img src={images[idx].url} alt="" className="w-full h-full object-cover" />
       {/* Remove button */}
       <button onClick={() => onRemove(idx)}

@@ -432,7 +432,7 @@ export default function MarketingContent() {
                           const cfg = STATUS_CONFIG[p.status];
                           return (
                             <div key={p.id} className="relative group cursor-pointer"
-                              style={{ aspectRatio: '1' }}
+                              style={{ aspectRatio: '1080/1350' }}
                               onClick={() => openEditPost(p)}>
                               {getPostThumbnail(p) ? (
                                 <img src={getPostThumbnail(p)!} alt={p.title} className="w-full h-full object-cover" />
