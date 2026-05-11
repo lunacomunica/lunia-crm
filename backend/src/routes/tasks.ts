@@ -102,6 +102,23 @@ router.get('/', (req, res) => {
   res.json(db.prepare(q).all(...params));
 });
 
+/* ── Get single ───────────────────────────────────────────────────────── */
+router.get('/:id', (req, res) => {
+  const task = db.prepare(`
+    SELECT t.*,
+      u.name as assigned_name, u.avatar as assigned_avatar,
+      ac.name as client_name, cp.title as content_title, c.name as campaign_name
+    FROM tasks t
+    LEFT JOIN users u ON u.id = t.assigned_to
+    LEFT JOIN agency_clients ac ON ac.id = t.agency_client_id
+    LEFT JOIN content_pieces cp ON cp.id = t.content_piece_id
+    LEFT JOIN campaigns c ON c.id = t.campaign_id
+    WHERE t.id = ? AND t.tenant_id = ?
+  `).get(Number(req.params.id), req.user.tenant_id);
+  if (!task) return res.status(404).json({ error: 'Tarefa não encontrada' });
+  res.json(task);
+});
+
 /* ── Create ───────────────────────────────────────────────────────────── */
 router.post('/', (req, res) => {
   const { title, description, assigned_to, content_piece_id, campaign_id, agency_client_id, priority, stage, due_date, estimated_minutes } = req.body;
@@ -128,12 +145,12 @@ router.post('/', (req, res) => {
 /* ── Update ───────────────────────────────────────────────────────────── */
 router.put('/:id', (req, res) => {
   const id = Number(req.params.id);
-  const { title, description, assigned_to, priority, due_date, estimated_minutes, agency_client_id } = req.body;
+  const { title, description, assigned_to, priority, due_date, estimated_minutes, agency_client_id, category } = req.body;
 
   db.prepare(`
-    UPDATE tasks SET title=?, description=?, assigned_to=?, priority=?, due_date=?, estimated_minutes=?, agency_client_id=?, updated_at=datetime('now')
+    UPDATE tasks SET title=?, description=?, assigned_to=?, priority=?, due_date=?, estimated_minutes=?, agency_client_id=?, category=?, updated_at=datetime('now')
     WHERE id = ? AND tenant_id = ?
-  `).run(title, description || null, assigned_to || null, priority || 'media', due_date || null, estimated_minutes || null, agency_client_id || null, id, req.user.tenant_id);
+  `).run(title, description || null, assigned_to || null, priority || 'media', due_date || null, estimated_minutes || null, agency_client_id || null, category || null, id, req.user.tenant_id);
 
   const task = db.prepare(`
     SELECT t.*, u.name as assigned_name, ac.name as client_name, cp.title as content_title, c.name as campaign_name
@@ -253,6 +270,33 @@ router.post('/:id/comments', (req, res) => {
     FROM task_comments tc LEFT JOIN users u ON u.id = tc.user_id WHERE tc.id = ?
   `).get(r.lastInsertRowid);
   res.status(201).json(comment);
+});
+
+/* ── Files ────────────────────────────────────────────────────────────── */
+router.get('/:id/files', (req, res) => {
+  const files = db.prepare(`
+    SELECT tf.*, u.name as uploaded_by_name
+    FROM task_files tf
+    LEFT JOIN users u ON u.id = tf.uploaded_by
+    WHERE tf.task_id = ?
+    ORDER BY tf.created_at ASC
+  `).all(Number(req.params.id));
+  res.json(files);
+});
+
+router.post('/:id/files', (req, res) => {
+  const { name, url, mime_type, size } = req.body;
+  if (!url) return res.status(400).json({ error: 'URL obrigatória' });
+  const r = db.prepare(`
+    INSERT INTO task_files (task_id, name, url, mime_type, size, uploaded_by)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run(Number(req.params.id), name || url.split('/').pop() || 'arquivo', url, mime_type || 'application/octet-stream', size || 0, req.user.id);
+  res.status(201).json(db.prepare('SELECT * FROM task_files WHERE id = ?').get(r.lastInsertRowid));
+});
+
+router.delete('/:id/files/:fileId', (req, res) => {
+  db.prepare('DELETE FROM task_files WHERE id = ? AND task_id = ?').run(Number(req.params.fileId), Number(req.params.id));
+  res.json({ ok: true });
 });
 
 export default router;

@@ -2,6 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Trash2, ChevronDown, FileImage, Calendar, Clock, CheckCircle2, RotateCcw, Send, Eye, Plus, Zap, Check, Upload, ChevronLeft, ChevronRight, Play, Pause, Image as ImageIcon, Video, AlertTriangle, Link, ExternalLink } from 'lucide-react';
 import { contentApi, usersApi, uploadApi, tasksApi } from '../../api/client';
+import TaskDetailDrawer from './TaskDetailDrawer';
 import { ContentPiece, ContentStatus } from '../../types';
 
 const STAGES = [
@@ -266,6 +267,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [newTask, setNewTask] = useState({ title: '', assigned_to: '', due_date: '', priority: 'alta' });
   const [savingTask, setSavingTask] = useState(false);
+  const [openTaskId, setOpenTaskId] = useState<number | null>(null);
 
   useEffect(() => {
     contentApi.getTasks(post.id).then(r => setTasks(r.data || []));
@@ -714,8 +716,11 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                     const PRIORITY_COLOR: Record<string, string> = { urgente: '#f87171', alta: '#fb923c', media: '#facc15', baixa: '#94a3b8' };
                     const pColor = PRIORITY_COLOR[t.priority] || '#94a3b8';
                     return (
-                      <div key={t.id} className="rounded-xl px-3 py-2.5"
-                        style={{ background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isDone ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.05)'}`, opacity: isDone ? 0.7 : 1 }}>
+                      <div key={t.id} className="rounded-xl px-3 py-2.5 cursor-pointer transition-all"
+                        onClick={() => setOpenTaskId(t.id)}
+                        style={{ background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isDone ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.05)'}`, opacity: isDone ? 0.7 : 1 }}
+                        onMouseEnter={e => (e.currentTarget.style.background = isDone ? 'rgba(52,211,153,0.06)' : 'rgba(255,255,255,0.04)')}
+                        onMouseLeave={e => (e.currentTarget.style.background = isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)')}>
                         <div className="flex items-center gap-2">
                           <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: sc.color }} />
                           <p className="text-xs font-medium text-white flex-1 truncate" style={{ textDecoration: isDone ? 'line-through' : 'none' }}>{t.title}</p>
@@ -723,7 +728,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                             <AlertTriangle size={9} style={{ color: pColor, flexShrink: 0 }} />
                           )}
                           {!isDone && (
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
                               {isRunning ? (
                                 <button onClick={() => handleTaskAction(t.id, 'pause')} title="Pausar"
                                   className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
@@ -745,7 +750,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                             </div>
                           )}
                         </div>
-                        <div className="mt-1.5 flex items-center gap-2 ml-3.5">
+                        <div className="mt-1.5 flex items-center gap-2 ml-3.5" onClick={e => e.stopPropagation()}>
                           <select value={t.assigned_to || ''}
                             onChange={async e => {
                               const uid = e.target.value ? Number(e.target.value) : null;
@@ -886,6 +891,16 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
             </div>
           </div>
         </div>
+      )}
+
+      {openTaskId && (
+        <TaskDetailDrawer
+          taskId={openTaskId}
+          onClose={() => setOpenTaskId(null)}
+          onUpdated={updated => {
+            setTasks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
+          }}
+        />
       )}
     </>,
     document.body

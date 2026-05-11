@@ -18,14 +18,15 @@ const storage = multer.diskStorage({
   },
 });
 
-const upload = multer({
-  storage,
-  limits: { fileSize: 100 * 1024 * 1024 },
-  fileFilter: (_req, file, cb) => {
-    const ok = /^(image\/(jpeg|png|gif|webp)|video\/(mp4|quicktime|avi|webm|x-msvideo))$/.test(file.mimetype);
-    cb(null, ok);
-  },
-});
+const mediaFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+  const ok = /^(image\/(jpeg|png|gif|webp)|video\/(mp4|quicktime|avi|webm|x-msvideo))$/.test(file.mimetype);
+  cb(null, ok);
+};
+
+const anyFilter = (_req: any, _file: Express.Multer.File, cb: multer.FileFilterCallback) => cb(null, true);
+
+const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 }, fileFilter: mediaFilter });
+const uploadAny = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 }, fileFilter: anyFilter });
 
 router.post('/', upload.array('files', 20), (req, res) => {
   const files = (req.files as Express.Multer.File[]) || [];
@@ -35,6 +36,19 @@ router.post('/', upload.array('files', 20), (req, res) => {
       url: `${BASE}/uploads/${f.filename}`,
       name: f.originalname,
       type: f.mimetype.startsWith('video') ? 'video' : 'image',
+    })),
+  });
+});
+
+router.post('/any', uploadAny.array('files', 10), (req, res) => {
+  const files = (req.files as Express.Multer.File[]) || [];
+  const BASE = `${req.protocol}://${req.get('host')}`;
+  res.json({
+    files: files.map(f => ({
+      url: `${BASE}/uploads/${f.filename}`,
+      name: f.originalname,
+      mime_type: f.mimetype,
+      size: f.size,
     })),
   });
 });

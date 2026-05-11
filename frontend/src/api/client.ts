@@ -136,6 +136,7 @@ export const settingsApi = {
 
 export const tasksApi = {
   list: (params?: Record<string, string>) => api.get('/tasks', { params }),
+  get: (id: number) => api.get(`/tasks/${id}`),
   create: (data: any) => api.post('/tasks', data),
   update: (id: number, data: any) => api.put(`/tasks/${id}`, data),
   delete: (id: number) => api.delete(`/tasks/${id}`),
@@ -145,7 +146,19 @@ export const tasksApi = {
     api.post(`/tasks/${id}/complete`, handoff || {}),
   listComments: (id: number) => api.get(`/tasks/${id}/comments`),
   addComment: (id: number, content: string) => api.post(`/tasks/${id}/comments`, { content }),
+  listFiles: (id: number) => api.get(`/tasks/${id}/files`),
+  addFile: (id: number, data: { name: string; url: string; mime_type?: string; size?: number }) =>
+    api.post(`/tasks/${id}/files`, data),
+  removeFile: (id: number, fileId: number) => api.delete(`/tasks/${id}/files/${fileId}`),
   teamOverview: () => api.get('/tasks/team-overview'),
+};
+
+export const uploadAnyApi = {
+  files: (files: File[]) => {
+    const fd = new FormData();
+    files.forEach(f => fd.append('files', f));
+    return api.post('/upload/any', fd, { headers: { 'Content-Type': 'multipart/form-data' } });
+  },
 };
 
 export const clientCrmApi = {
