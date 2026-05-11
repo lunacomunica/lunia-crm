@@ -6,7 +6,8 @@ import {
   FileImage, Clock, Grid3x3, Megaphone, Smartphone, Clapperboard, Copy,
   TrendingUp, MousePointer, DollarSign, BarChart3, Target, Pencil,
   Plus, Trash2, ChevronRight, ChevronLeft, Zap, Users, Star, BookOpen, Briefcase,
-  ArrowLeft, LayoutDashboard, Menu, Phone, UserPlus, Kanban, Settings, Search
+  ArrowLeft, LayoutDashboard, Menu, Phone, UserPlus, Kanban, Settings, Search,
+  List, CalendarDays
 } from 'lucide-react';
 import { contentApi, agencyClientsApi, campaignsApi, clientPortalApi, clientCrmApi, conversationsApi, profileApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient, Campaign } from '../../types';
@@ -1238,15 +1239,10 @@ export default function ClientPortal() {
 
   function PageConteudos() {
     const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
+    const DAYS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
-    const [tab, setTab] = useState<'feed' | 'aprovar'>(() =>
-      conteudosInitFilter !== 'all' ? 'feed' : 'aprovar'
-    );
-    const [statusFilter, setStatusFilter] = useState<string>(() => {
-      const init = conteudosInitFilter;
-      setConteudosInitFilter('all');
-      return init;
-    });
+    const [contentTab, setContentTab] = useState<'aprovar' | 'aprovados'>('aprovar');
+    const [viewMode, setViewMode] = useState<'lista' | 'calendario' | 'previa'>('lista');
     const [batchIdx, setBatchIdx] = useState<number>(() => {
       if (batches.length === 0) return 0;
       const now = new Date();
@@ -1254,177 +1250,273 @@ export default function ClientPortal() {
       return idx >= 0 ? idx : batches.length - 1;
     });
 
-    const pending = pieces.filter(p => p.status === 'aguardando_aprovacao');
+    // Consume init filter once
+    useEffect(() => { setConteudosInitFilter('all'); }, []);
+
     const selectedBatch = batches[batchIdx] ?? null;
-
-    const STATUS_GROUPS = [
-      { id: 'all',       label: 'Todos',        color: '#94a3b8', statuses: [] as string[] },
-      { id: 'criacao',   label: 'Em criação',   color: '#94a3b8', statuses: ['em_criacao', 'em_revisao'] },
-      { id: 'aprovar',   label: 'Para aprovar', color: '#f59e0b', statuses: ['aguardando_aprovacao'] },
-      { id: 'aprovado',  label: 'Aprovados',    color: '#60a5fa', statuses: ['aprovado'] },
-      { id: 'ajuste',    label: 'Com ajuste',   color: '#f87171', statuses: ['ajuste_solicitado'] },
-      { id: 'agendado',  label: 'Programados',  color: '#a78bfa', statuses: ['agendado'] },
-      { id: 'publicado', label: 'Publicados',   color: '#10b981', statuses: ['publicado'] },
-    ];
-
     const batchPieces = selectedBatch
       ? pieces.filter(p => (p as any).batch_id === selectedBatch.id)
       : pieces;
 
-    const feedFiltered = [...batchPieces]
+    const approvalPieces = batchPieces.filter(p =>
+      ['aguardando_aprovacao', 'ajuste_solicitado'].includes(p.status)
+    );
+    const approvedPieces = [...batchPieces]
+      .filter(p => ['aprovado', 'agendado', 'publicado'].includes(p.status))
       .sort((a, b) => {
         const da = a.scheduled_date || a.created_at || '';
         const db2 = b.scheduled_date || b.created_at || '';
         return da < db2 ? 1 : da > db2 ? -1 : 0;
-      })
-      .filter(p => {
-        const group = STATUS_GROUPS.find(g => g.id === statusFilter);
-        return statusFilter === 'all' || (group && group.statuses.includes(p.status));
       });
+
+    const displayed = contentTab === 'aprovar' ? approvalPieces : approvedPieces;
 
     const displayedApproved = selectedBatch?.approved_count ?? batchPieces.filter(p => ['aprovado','agendado','publicado'].includes(p.status)).length;
     const displayedTotal = selectedBatch?.post_count ?? batchPieces.length;
     const allApproved = displayedTotal > 0 && displayedApproved >= displayedTotal;
 
-    const displayed = tab === 'aprovar' ? pending : feedFiltered;
+    // Calendar helpers
+    const calYear  = selectedBatch?.year  ?? new Date().getFullYear();
+    const calMonth = selectedBatch?.month ?? (new Date().getMonth() + 1);
+    const firstDay    = new Date(calYear, calMonth - 1, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+    const postsByDay: Record<number, ContentPiece[]> = {};
+    displayed.forEach(p => {
+      if (!p.scheduled_date) return;
+      const d = new Date(p.scheduled_date);
+      if (d.getFullYear() === calYear && d.getMonth() + 1 === calMonth) {
+        const day = d.getDate();
+        if (!postsByDay[day]) postsByDay[day] = [];
+        postsByDay[day].push(p);
+      }
+    });
+
+    /* ── Views ── */
+    function ListView() {
+      return (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {displayed.map(p => {
+            const borderColor = p.status === 'aguardando_aprovacao'
+              ? 'rgba(245,158,11,0.25)'
+              : p.status === 'ajuste_solicitado'
+              ? 'rgba(248,113,113,0.25)'
+              : 'rgba(255,255,255,0.04)';
+            return (
+              <div key={p.id} onClick={() => openDetail(p)}
+                className="flex gap-3 p-3 rounded-2xl cursor-pointer transition-all duration-200 hover:brightness-110"
+                style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: `1px solid ${borderColor}` }}>
+                <div className="relative flex-shrink-0 rounded-xl overflow-hidden" style={{ width: 64, height: 80, background: 'rgba(59,130,246,0.05)' }}>
+                  {p.media_url
+                    ? <img src={p.media_url} alt={p.title} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center"><FileImage size={16} style={{ color: 'rgba(59,130,246,0.2)' }} /></div>}
+                  {p.type === 'carrossel' && <Copy size={9} className="absolute top-1 right-1 drop-shadow-md" style={{ color: '#fff' }} />}
+                  {p.type === 'reels'    && <Clapperboard size={9} className="absolute top-1 right-1 drop-shadow-md" style={{ color: '#fff' }} />}
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
+                  <p className="text-sm font-medium text-white truncate">{p.title || 'Sem título'}</p>
+                  {p.scheduled_date && (
+                    <p className="flex items-center gap-1 text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      <Calendar size={10} />{format(new Date(p.scheduled_date), "d 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                    </p>
+                  )}
+                  <StatusBadge status={p.status} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+
+    function CalendarioView() {
+      const cells: (number | null)[] = [];
+      for (let i = 0; i < firstDay; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) cells.push(d);
+      const today = new Date();
+      const noDate = displayed.filter(p => !p.scheduled_date);
+      return (
+        <div>
+          <div className="grid grid-cols-7 mb-1">
+            {DAYS_PT.map(d => (
+              <div key={d} className="text-center text-[10px] font-medium py-1.5" style={{ color: 'rgba(100,116,139,0.4)' }}>{d}</div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7 gap-0.5">
+            {cells.map((day, i) => {
+              const posts = day ? (postsByDay[day] || []) : [];
+              const isToday = day !== null && calYear === today.getFullYear() && calMonth === today.getMonth() + 1 && day === today.getDate();
+              return (
+                <div key={i} className="rounded-lg overflow-hidden"
+                  style={{ minHeight: 68, background: day ? 'rgba(255,255,255,0.02)' : 'transparent', border: day ? (isToday ? '1px solid rgba(59,130,246,0.4)' : '1px solid rgba(255,255,255,0.04)') : 'none' }}>
+                  {day && (
+                    <>
+                      <div className="px-1.5 pt-1 flex items-center justify-between">
+                        <span className="text-[10px] font-semibold" style={{ color: isToday ? '#60a5fa' : 'rgba(148,163,184,0.45)' }}>{day}</span>
+                        {posts.length > 0 && (
+                          <span className="text-[9px] font-bold px-1 rounded" style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd' }}>{posts.length}</span>
+                        )}
+                      </div>
+                      <div className="px-0.5 pb-0.5 mt-0.5 space-y-0.5">
+                        {posts.slice(0, 2).map(p => (
+                          <div key={p.id} onClick={() => openDetail(p)} className="rounded overflow-hidden cursor-pointer" style={{ height: 22 }}>
+                            {p.media_url
+                              ? <img src={p.media_url} className="w-full h-full object-cover" alt="" />
+                              : <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.08)' }}><FileImage size={9} style={{ color: 'rgba(59,130,246,0.3)' }} /></div>}
+                          </div>
+                        ))}
+                        {posts.length > 2 && (
+                          <div className="text-center text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>+{posts.length - 2}</div>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {noDate.length > 0 && (
+            <div className="mt-4 p-3 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <p className="text-[11px] mb-2" style={{ color: 'rgba(100,116,139,0.4)' }}>Sem data definida ({noDate.length})</p>
+              <div className="flex gap-2 flex-wrap">
+                {noDate.map(p => (
+                  <button key={p.id} onClick={() => openDetail(p)}
+                    className="text-xs px-3 py-1.5 rounded-lg truncate max-w-[140px] transition-all hover:brightness-110"
+                    style={{ background: 'rgba(59,130,246,0.06)', color: 'rgba(148,163,184,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {p.title || 'Sem título'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+
+    function PreviaView() {
+      return (
+        <div className="grid grid-cols-3 gap-0.5">
+          {displayed.map((p, idx) => {
+            const cfg = STATUS_CFG[p.status as ContentStatus] ?? STATUS_CFG['em_criacao'];
+            return (
+              <div key={p.id} onClick={() => openDetail(p)}
+                className="relative cursor-pointer overflow-hidden group"
+                style={{ aspectRatio: '1080/1350', background: '#0d0d22' }}>
+                {p.media_url
+                  ? <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                  : <div className="w-full h-full flex items-center justify-center"><FileImage size={20} style={{ color: 'rgba(59,130,246,0.2)' }} /></div>}
+                <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
+                  style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.color}88` }}>
+                  {idx + 1}
+                </span>
+                {p.type === 'carrossel' && <Copy size={12} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
+                {p.type === 'reels'    && <Clapperboard size={12} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
 
     return (
-      <div className="space-y-5">
-        <div className="flex items-end justify-between flex-wrap gap-3">
+      <div className="space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between flex-wrap gap-3">
           <div>
             <h2 className="text-2xl font-semibold text-white mb-1">Conteúdos</h2>
             <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>
               {pendingCount > 0 ? `${pendingCount} post${pendingCount > 1 ? 's' : ''} aguardando aprovação` : 'Feed e aprovações'}
             </p>
           </div>
-          <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-            {(['aprovar', 'feed'] as const).map(t => (
-              <button key={t} onClick={() => setTab(t)}
-                className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={tab === t
+          {/* View toggle */}
+          <div className="flex gap-0.5 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
+            {([
+              { id: 'lista',      icon: List,        label: 'Lista'      },
+              { id: 'calendario', icon: CalendarDays, label: 'Calendário' },
+              { id: 'previa',     icon: Grid3x3,      label: 'Prévia'     },
+            ] as const).map(v => (
+              <button key={v.id} onClick={() => setViewMode(v.id)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                style={viewMode === v.id
                   ? { background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }
-                  : { color: 'rgba(100,116,139,0.6)' }}>
-                {t === 'aprovar' ? `Para aprovar${pendingCount > 0 ? ` (${pendingCount})` : ''}` : 'Feed completo'}
+                  : { color: 'rgba(100,116,139,0.55)' }}>
+                <v.icon size={13} />{v.label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Filters — only in feed tab */}
-        {tab === 'feed' && (
-          <div className="space-y-3">
-            {/* Batch navigator */}
-            {batches.length > 0 && (
-              <div className="flex items-center gap-2">
-                <button onClick={() => setBatchIdx(i => Math.max(0, i - 1))} disabled={batchIdx === 0}
-                  className="p-1.5 rounded-lg transition-all disabled:opacity-25"
-                  style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <ChevronLeft size={14} />
-                </button>
-                <div className="flex items-center gap-2 px-4 py-2 rounded-xl flex-1 justify-center"
-                  style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                  <span className="text-sm font-semibold text-white">
-                    {selectedBatch ? `${MONTHS_PT[selectedBatch.month - 1]} ${selectedBatch.year}` : '—'}
-                  </span>
-                  {displayedTotal > 0 && (
-                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                      style={{ background: allApproved ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)', color: allApproved ? '#10b981' : '#60a5fa' }}>
-                      {displayedApproved}/{displayedTotal}
-                    </span>
-                  )}
-                </div>
-                <button onClick={() => setBatchIdx(i => Math.min(batches.length - 1, i + 1))} disabled={batchIdx === batches.length - 1}
-                  className="p-1.5 rounded-lg transition-all disabled:opacity-25"
-                  style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <ChevronRight size={14} />
-                </button>
-              </div>
-            )}
-            {/* Status chips */}
-            <div className="flex gap-2 flex-wrap">
-              {STATUS_GROUPS.filter(g => g.id === 'all' || batchPieces.some(p => g.statuses.includes(p.status))).map(g => (
-                <button key={g.id} onClick={() => setStatusFilter(g.id)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-                  style={statusFilter === g.id
-                    ? { background: `${g.color}18`, color: g.color, border: `1px solid ${g.color}35` }
-                    : { background: 'transparent', color: 'rgba(100,116,139,0.45)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  {statusFilter === g.id && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: g.color }} />}
-                  {g.label}
-                  <span className="opacity-50 ml-0.5">
-                    {g.id === 'all' ? batchPieces.length : batchPieces.filter(p => g.statuses.includes(p.status)).length}
-                  </span>
-                </button>
-              ))}
+        {/* Month navigator */}
+        {batches.length > 0 && (
+          <div className="flex items-center gap-2">
+            <button onClick={() => setBatchIdx(i => Math.max(0, i - 1))} disabled={batchIdx === 0}
+              className="p-1.5 rounded-lg transition-all disabled:opacity-25"
+              style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <ChevronLeft size={14} />
+            </button>
+            <div className="flex items-center gap-2 px-4 py-2 rounded-xl flex-1 justify-center"
+              style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
+              <span className="text-sm font-semibold text-white">
+                {selectedBatch ? `${MONTHS_PT[selectedBatch.month - 1]} ${selectedBatch.year}` : '—'}
+              </span>
+              {displayedTotal > 0 && (
+                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ background: allApproved ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)', color: allApproved ? '#10b981' : '#60a5fa' }}>
+                  {displayedApproved}/{displayedTotal}
+                </span>
+              )}
             </div>
+            <button onClick={() => setBatchIdx(i => Math.min(batches.length - 1, i + 1))} disabled={batchIdx === batches.length - 1}
+              className="p-1.5 rounded-lg transition-all disabled:opacity-25"
+              style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              <ChevronRight size={14} />
+            </button>
           </div>
         )}
 
+        {/* Content tabs */}
+        <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <button onClick={() => setContentTab('aprovar')}
+            className="flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2"
+            style={contentTab === 'aprovar'
+              ? { background: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.2)' }
+              : { color: 'rgba(100,116,139,0.5)' }}>
+            Para aprovar
+            {approvalPieces.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
+                {approvalPieces.length}
+              </span>
+            )}
+          </button>
+          <button onClick={() => setContentTab('aprovados')}
+            className="flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2"
+            style={contentTab === 'aprovados'
+              ? { background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.2)' }
+              : { color: 'rgba(100,116,139,0.5)' }}>
+            Aprovados
+            {approvedPieces.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
+                {approvedPieces.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {/* Content area */}
         {displayed.length === 0 ? (
           <div className="text-center py-24">
             <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
-            <p className="text-white font-medium mb-1">{tab === 'aprovar' ? 'Nenhuma aprovação pendente' : 'Nenhum conteúdo com esse filtro'}</p>
-            {tab === 'feed' && statusFilter !== 'all' && (
-              <button onClick={() => setStatusFilter('all')}
-                className="mt-3 text-xs px-4 py-2 rounded-xl transition-all"
-                style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                Limpar filtro
-              </button>
-            )}
+            <p className="text-white font-medium mb-1">
+              {contentTab === 'aprovar' ? 'Nenhuma aprovação pendente' : 'Nenhum post aprovado neste mês'}
+            </p>
           </div>
-        ) : tab === 'feed' ? (
-          <div className="grid grid-cols-3 gap-0.5">
-            {displayed.map((p, idx) => {
-              const cfg = STATUS_CFG[p.status as ContentStatus] ?? STATUS_CFG['em_criacao'];
-              return (
-                <div key={p.id} onClick={() => openDetail(p)}
-                  className="relative cursor-pointer overflow-hidden group"
-                  style={{ aspectRatio: '1080/1350', background: '#0d0d22' }}>
-                  {p.media_url ? (
-                    <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <FileImage size={20} style={{ color: 'rgba(59,130,246,0.2)' }} />
-                    </div>
-                  )}
-                  <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
-                    style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.color}88` }}>
-                    {idx + 1}
-                  </span>
-                  {p.type === 'carrossel' && <Copy size={12} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
-                  {p.type === 'reels' && <Clapperboard size={12} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
-                </div>
-              );
-            })}
-          </div>
+        ) : viewMode === 'lista' ? (
+          <ListView />
+        ) : viewMode === 'calendario' ? (
+          <CalendarioView />
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {displayed.map(p => (
-              <div key={p.id} onClick={() => openDetail(p)}
-                className="rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200"
-                style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: p.status === 'aguardando_aprovacao' ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.04)' }}>
-                <div className="relative overflow-hidden" style={{ aspectRatio: '1080/1350', background: 'rgba(59,130,246,0.03)' }}>
-                  {p.media_url ? (
-                    <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                  ) : (
-                    <div className="w-full h-full flex flex-col items-center justify-center gap-2">
-                      <FileImage size={32} style={{ color: 'rgba(59,130,246,0.15)' }} />
-                    </div>
-                  )}
-                  {p.type === 'carrossel' && <Copy size={14} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
-                  {p.type === 'reels' && <Clapperboard size={14} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
-                </div>
-                <div className="p-4">
-                  <p className="text-sm font-medium text-white mb-2 truncate">{p.title}</p>
-                  {p.scheduled_date && (
-                    <p className="flex items-center gap-1 text-xs mb-3" style={{ color: 'rgba(100,116,139,0.45)' }}>
-                      <Calendar size={10} />{format(new Date(p.scheduled_date), "d 'de' MMM", { locale: ptBR })}
-                    </p>
-                  )}
-                  <StatusBadge status={p.status} />
-                </div>
-              </div>
-            ))}
-          </div>
+          <PreviaView />
         )}
       </div>
     );
