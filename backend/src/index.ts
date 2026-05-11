@@ -119,6 +119,14 @@ app.use('/api/workflow-templates', authMiddleware, workflowTemplatesRouter);
 app.use('/api/client-projects', authMiddleware, clientProjectsRouter);
 app.use('/api/content-ideas', authMiddleware, contentIdeasRouter);
 
+// Temporary DB export endpoint — remove after migration
+app.get('/db-export', (req, res) => {
+  const token = req.query.token as string;
+  if (token !== 'lunia_migrate_2026') return res.status(403).json({ error: 'forbidden' });
+  const dbPath = process.env.DB_PATH || join(__dirname, '../../lunia.db');
+  res.download(dbPath, 'lunia.db');
+});
+
 app.get('/privacy', (_req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
