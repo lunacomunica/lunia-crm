@@ -2417,9 +2417,20 @@ export default function ClientPortal() {
                 </div>
               )}
               {detail.status === 'aprovado' && (
-                <div className="flex items-center gap-2 px-4 py-3 rounded-xl" style={{ background: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.12)' }}>
-                  <CheckCircle2 size={14} style={{ color: '#34d399' }} />
-                  <span className="text-sm" style={{ color: '#34d399' }}>Você aprovou esta peça</span>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 px-4 py-3 rounded-xl" style={{ background: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.12)' }}>
+                    <CheckCircle2 size={14} style={{ color: '#34d399' }} />
+                    <span className="text-sm flex-1" style={{ color: '#34d399' }}>Você aprovou esta peça</span>
+                  </div>
+                  {!adjustModal && (
+                    <button onClick={() => setAdjustModal(true)}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-medium transition-all"
+                      style={{ background: 'transparent', border: '1px solid rgba(100,116,139,0.15)', color: 'rgba(100,116,139,0.5)' }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(249,115,22,0.3)'; e.currentTarget.style.color = '#f97316'; e.currentTarget.style.background = 'rgba(249,115,22,0.05)'; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(100,116,139,0.15)'; e.currentTarget.style.color = 'rgba(100,116,139,0.5)'; e.currentTarget.style.background = 'transparent'; }}>
+                      <RotateCcw size={12} /> Mudei de ideia — solicitar ajuste
+                    </button>
+                  )}
                 </div>
               )}
               {detail.status === 'ajuste_solicitado' && (
