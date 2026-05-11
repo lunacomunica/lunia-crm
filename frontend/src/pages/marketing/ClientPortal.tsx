@@ -2528,9 +2528,24 @@ export default function ClientPortal() {
                 </div>
               )}
               {detail.status === 'ajuste_solicitado' && (
-                <div className="flex items-center gap-2 px-4 py-3 rounded-xl" style={{ background: 'rgba(249,115,22,0.05)', border: '1px solid rgba(249,115,22,0.12)' }}>
-                  <RotateCcw size={14} style={{ color: '#f97316' }} />
-                  <span className="text-sm" style={{ color: '#f97316' }}>Ajuste solicitado ao time</span>
+                <div className="rounded-xl overflow-hidden" style={{ background: 'rgba(249,115,22,0.04)', border: '1px solid rgba(249,115,22,0.18)' }}>
+                  <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: detail.comments?.length ? '1px solid rgba(249,115,22,0.1)' : undefined }}>
+                    <RotateCcw size={13} style={{ color: '#f97316' }} />
+                    <span className="text-sm font-medium" style={{ color: '#f97316' }}>Ajuste solicitado ao time</span>
+                  </div>
+                  {detail.comments && detail.comments.length > 0 && (
+                    <div className="px-4 py-3 space-y-2.5">
+                      {detail.comments.map(c => (
+                        <div key={c.id}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-semibold" style={{ color: 'rgba(249,115,22,0.7)' }}>{c.user_name}</span>
+                            <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{format(new Date(c.created_at), "d MMM HH:mm", { locale: ptBR })}</span>
+                          </div>
+                          <p className="text-sm leading-relaxed" style={{ color: 'rgba(226,232,240,0.75)' }}>{c.message}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
               {adjustModal && (
