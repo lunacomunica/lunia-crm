@@ -465,7 +465,14 @@ export default function Traffic() {
                 </div>
 
                 {!detail.creatives?.length ? (
-                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum criativo ainda</p>
+                  <button onClick={openAddCreative}
+                    className="w-full flex flex-col items-center gap-2 py-6 rounded-xl border-dashed transition-all"
+                    style={{ border: '1.5px dashed rgba(59,130,246,0.2)', background: 'rgba(59,130,246,0.02)', color: 'rgba(100,116,139,0.5)' }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(59,130,246,0.4)'; (e.currentTarget as HTMLElement).style.color = '#60a5fa'; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(59,130,246,0.2)'; (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; }}>
+                    <Plus size={20} />
+                    <span className="text-xs font-medium">Adicionar primeiro criativo</span>
+                  </button>
                 ) : (
                   <div className="space-y-3">
                     {detail.creatives.map(cr => {
