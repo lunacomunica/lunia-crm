@@ -208,6 +208,7 @@ export default function ClientDetail() {
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
+  const [taskTypeFilter, setTaskTypeFilter] = useState<'todos' | 'conteudo' | 'trafego' | 'geral'>('todos');
   const [projectModal, setProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
   const [projectForm, setProjectForm] = useState({ title: '', description: '', status: 'pendente', due_date: '' });
@@ -1036,7 +1037,6 @@ export default function ClientDetail() {
 
           {/* Tarefas */}
           {opTab === 'tarefas' && (() => {
-            const [taskTypeFilter, setTaskTypeFilter] = useState<'todos' | 'conteudo' | 'trafego' | 'geral'>('todos');
             const taskType = (t: any) => t.content_piece_id ? 'conteudo' : t.campaign_id ? 'trafego' : 'geral';
             const filtered = taskTypeFilter === 'todos' ? tasks : tasks.filter(t => taskType(t) === taskTypeFilter);
             const counts = {
