@@ -123,13 +123,13 @@ router.get('/:id', (req, res) => {
 
 /* ── Create ───────────────────────────────────────────────────────────── */
 router.post('/', (req, res) => {
-  const { title, description, assigned_to, content_piece_id, campaign_id, agency_client_id, priority, stage, due_date, estimated_minutes } = req.body;
+  const { title, description, assigned_to, content_piece_id, campaign_id, agency_client_id, priority, stage, due_date, estimated_minutes, category } = req.body;
   if (!title) return res.status(400).json({ error: 'Título obrigatório' });
 
   const r = db.prepare(`
-    INSERT INTO tasks (tenant_id, title, description, assigned_to, created_by, content_piece_id, campaign_id, agency_client_id, priority, stage, due_date, estimated_minutes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.user.tenant_id, title, description || null, assigned_to || null, req.user.id, content_piece_id || null, campaign_id || null, agency_client_id || null, priority || 'media', stage || 'geral', due_date || null, estimated_minutes || null);
+    INSERT INTO tasks (tenant_id, title, description, assigned_to, created_by, content_piece_id, campaign_id, agency_client_id, priority, stage, due_date, estimated_minutes, category)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.user.tenant_id, title, description || null, assigned_to || null, req.user.id, content_piece_id || null, campaign_id || null, agency_client_id || null, priority || 'media', stage || 'geral', due_date || null, estimated_minutes || null, category || null);
 
   const task = db.prepare(`
     SELECT t.*, u.name as assigned_name, ac.name as client_name, cp.title as content_title, c.name as campaign_name

@@ -265,7 +265,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   );
   const [creatingFlow, setCreatingFlow] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
-  const [newTask, setNewTask] = useState({ title: '', assigned_to: '', due_date: '', priority: 'alta' });
+  const [newTask, setNewTask] = useState({ title: '', assigned_to: '', due_date: '', priority: 'alta', is_rework: false });
   const [savingTask, setSavingTask] = useState(false);
   const [openTaskId, setOpenTaskId] = useState<number | null>(null);
   const [panelTab, setPanelTab] = useState<'post' | 'planejamento' | 'producao'>('post');
@@ -387,9 +387,10 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
       priority: newTask.priority,
       due_date: newTask.due_date || null,
       stage: 'geral',
+      category: newTask.is_rework ? 'retrabalho' : null,
     });
     setTasks(prev => [...prev, r.data]);
-    setNewTask({ title: '', assigned_to: '', due_date: '', priority: 'alta' });
+    setNewTask({ title: '', assigned_to: '', due_date: '', priority: 'alta', is_rework: false });
     setShowTaskForm(false);
     setSavingTask(false);
   };
@@ -693,7 +694,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                       <Zap size={11} /> Criar fluxo
                     </button>
                   )}
-                  <button onClick={() => { setShowTaskForm(true); setNewTask({ title: '', assigned_to: '', due_date: '', priority: 'alta' }); }}
+                  <button onClick={() => { setShowTaskForm(true); setNewTask({ title: '', assigned_to: '', due_date: '', priority: 'alta', is_rework: false }); }}
                     className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all"
                     style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}
                     onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.15)')}
@@ -710,9 +711,10 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                     Clique em "Criar fluxo" para gerar as tarefas de Copy → Design → Edição → Revisão
                   </p>
                 </div>
-              ) : (
-                <div className="space-y-2">
-                  {tasks.map((t: any) => {
+              ) : (() => {
+                  const normalTasks = tasks.filter((t: any) => t.category !== 'retrabalho');
+                  const reworkTasks = tasks.filter((t: any) => t.category === 'retrabalho');
+                  const renderTask = (t: any) => {
                     const sc = TASK_STATUS_CFG[t.status] || TASK_STATUS_CFG.a_fazer;
                     const isRunning = t.status === 'em_andamento';
                     const isDone = t.status === 'concluida';
@@ -755,6 +757,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                         </div>
                         <div className="mt-1.5 flex items-center gap-2 ml-3.5" onClick={e => e.stopPropagation()}>
                           <select value={t.assigned_to || ''}
+                            onClick={e => e.stopPropagation()}
                             onChange={async e => {
                               const uid = e.target.value ? Number(e.target.value) : null;
                               await tasksApi.update(t.id, { assigned_to: uid });
@@ -778,9 +781,25 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                         </div>
                       </div>
                     );
-                  })}
-                </div>
-              )}
+                  };
+                  return (
+                    <div className="space-y-2">
+                      {normalTasks.map(renderTask)}
+                      {reworkTasks.length > 0 && (
+                        <>
+                          <div className="flex items-center gap-2 pt-1">
+                            <div className="flex-1 h-px" style={{ background: 'rgba(248,113,113,0.2)' }} />
+                            <span className="text-[10px] font-semibold uppercase tracking-widest flex-shrink-0"
+                              style={{ color: 'rgba(248,113,113,0.6)' }}>Retrabalho</span>
+                            <div className="flex-1 h-px" style={{ background: 'rgba(248,113,113,0.2)' }} />
+                          </div>
+                          {reworkTasks.map(renderTask)}
+                        </>
+                      )}
+                    </div>
+                  );
+                })()
+              }
 
               {showTaskForm && (
                 <div className="rounded-xl p-3 mt-2 space-y-2"
@@ -812,6 +831,18 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                     <option value="">Sem responsável</option>
                     {users.map((u: any) => <option key={u.id} value={u.id}>{u.name}</option>)}
                   </select>
+                  <button
+                    onClick={() => setNewTask(n => ({ ...n, is_rework: !n.is_rework }))}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-all"
+                    style={{
+                      background: newTask.is_rework ? 'rgba(248,113,113,0.1)' : 'rgba(255,255,255,0.03)',
+                      border: `1px solid ${newTask.is_rework ? 'rgba(248,113,113,0.3)' : 'rgba(255,255,255,0.07)'}`,
+                      color: newTask.is_rework ? '#f87171' : 'rgba(100,116,139,0.5)',
+                    }}>
+                    <RotateCcw size={11} />
+                    Marcar como retrabalho
+                    {newTask.is_rework && <span className="ml-auto text-[10px] font-semibold" style={{ color: '#f87171' }}>✓</span>}
+                  </button>
                   <div className="flex gap-2">
                     <button onClick={() => setShowTaskForm(false)}
                       className="flex-1 py-1.5 rounded-lg text-xs"
