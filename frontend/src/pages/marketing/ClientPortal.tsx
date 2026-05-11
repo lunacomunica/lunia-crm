@@ -346,6 +346,7 @@ export default function ClientPortal() {
   const [sendingComment, setSendingComment] = useState(false);
   const [acting, setActing] = useState(false);
   const [feedFilter, setFeedFilter] = useState<'all' | 'approved'>('all');
+  const [conteudosInitFilter, setConteudosInitFilter] = useState<string>('all');
   const [phoneFrame, setPhoneFrame] = useState(true);
 
   const cid = Number(clientId);
@@ -538,7 +539,7 @@ export default function ClientPortal() {
         </div>
         <div className="grid grid-cols-3 gap-0.5">
           {feedDisplayed.length === 0 ? (
-            <div className="col-span-3 py-12 text-center"><p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma peça para exibir</p></div>
+            <div className="col-span-3 py-12 text-center"><p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum post para exibir</p></div>
           ) : feedDisplayed.map(p => {
             const overlay = FEED_OVERLAY[p.status];
             const isPublished = p.status === 'publicado';
@@ -641,8 +642,8 @@ export default function ClientPortal() {
             </div>
             <p className="text-sm font-semibold mb-0.5" style={{ color: pendingApproval > 0 ? '#f59e0b' : 'rgba(100,116,139,0.5)' }}>
               {pendingApproval > 0
-                ? `${pendingApproval} peça${pendingApproval > 1 ? 's' : ''} aguardando aprovação`
-                : 'Nenhuma peça pendente'}
+                ? `${pendingApproval} post${pendingApproval > 1 ? 's' : ''} aguardando aprovação`
+                : 'Nenhuma aprovação pendente'}
             </p>
             <p className="text-xs" style={{ color: 'rgba(100,116,139,0.45)' }}>
               {pendingApproval > 0 ? 'Clique para revisar e aprovar →' : 'Tudo em dia por aqui'}
@@ -674,55 +675,9 @@ export default function ClientPortal() {
             </p>
             <p className="text-xs" style={{ color: 'rgba(100,116,139,0.45)' }}>
               {nextBatch
-                ? `${nextBatch.total ?? 0} peça${(nextBatch.total ?? 0) !== 1 ? 's' : ''} planejada${(nextBatch.total ?? 0) !== 1 ? 's' : ''}`
+                ? `${nextBatch.total ?? 0} post${(nextBatch.total ?? 0) !== 1 ? 's' : ''} planejado${(nextBatch.total ?? 0) !== 1 ? 's' : ''}`
                 : 'Nenhum feed agendado ainda'}
             </p>
-          </div>
-        </div>
-
-        {/* Resumo do momento */}
-        <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <p className="text-[10px] font-semibold tracking-widest uppercase mb-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Resumo do momento</p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <p className="text-[10px] mb-1" style={{ color: 'rgba(100,116,139,0.4)' }}>Última aprovação</p>
-              {lastApproved ? (
-                <>
-                  <p className="text-sm font-medium text-white leading-tight">{lastApproved.title}</p>
-                  <p className="text-[10px] mt-0.5" style={{ color: '#34d399' }}>
-                    {format(new Date(lastApproved.updated_at), "d 'de' MMM", { locale: ptBR })}
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm" style={{ color: 'rgba(100,116,139,0.3)' }}>—</p>
-              )}
-            </div>
-            <div>
-              <p className="text-[10px] mb-1" style={{ color: 'rgba(100,116,139,0.4)' }}>Próxima entrega</p>
-              {nextBatch ? (
-                <>
-                  <p className="text-sm font-medium text-white leading-tight">
-                    Conteúdos de {MONTHS_PT_SHORT[(nextBatch.month ?? 1) - 1]}
-                  </p>
-                  <p className="text-[10px] mt-0.5" style={{ color: '#60a5fa' }}>{nextBatch.total ?? 0} peças</p>
-                </>
-              ) : (
-                <p className="text-sm" style={{ color: 'rgba(100,116,139,0.3)' }}>—</p>
-              )}
-            </div>
-            <div>
-              <p className="text-[10px] mb-1" style={{ color: 'rgba(100,116,139,0.4)' }}>Última atualização</p>
-              {lastUpdate ? (
-                <>
-                  <p className="text-sm font-medium text-white leading-tight">{lastUpdate.title}</p>
-                  <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                    {statusLabel[lastUpdate.status] ?? lastUpdate.status} · {format(new Date(lastUpdate.updated_at), "d 'de' MMM", { locale: ptBR })}
-                  </p>
-                </>
-              ) : (
-                <p className="text-sm" style={{ color: 'rgba(100,116,139,0.3)' }}>—</p>
-              )}
-            </div>
           </div>
         </div>
 
@@ -764,13 +719,18 @@ export default function ClientPortal() {
 
         {/* Ajustes pendentes */}
         {needsAdjust > 0 && (
-          <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
-            style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)' }}>
+          <button
+            onClick={() => { setConteudosInitFilter('ajuste'); setPage('conteudos'); }}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all"
+            style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.15)' }}
+            onMouseEnter={e => (e.currentTarget.style.background = 'rgba(249,115,22,0.1)')}
+            onMouseLeave={e => (e.currentTarget.style.background = 'rgba(249,115,22,0.06)')}>
             <RotateCcw size={13} style={{ color: '#f97316', flexShrink: 0 }} />
-            <span className="text-sm" style={{ color: 'rgba(226,232,240,0.6)' }}>
-              <span className="font-medium" style={{ color: '#f97316' }}>{needsAdjust} ajuste{needsAdjust > 1 ? 's' : ''}</span> solicitado{needsAdjust > 1 ? 's' : ''} — a equipe está trabalhando nisso
+            <span className="text-sm flex-1" style={{ color: 'rgba(226,232,240,0.6)' }}>
+              <span className="font-medium" style={{ color: '#f97316' }}>{needsAdjust} ajuste{needsAdjust > 1 ? 's' : ''}</span> solicitado{needsAdjust > 1 ? 's' : ''} — toque para ver
             </span>
-          </div>
+            <ChevronRight size={14} style={{ color: 'rgba(249,115,22,0.4)', flexShrink: 0 }} />
+          </button>
         )}
 
         {/* CEO Message */}
@@ -1280,7 +1240,11 @@ export default function ClientPortal() {
     const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
     const [tab, setTab] = useState<'feed' | 'aprovar'>('aprovar');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [statusFilter, setStatusFilter] = useState<string>(() => {
+      const init = conteudosInitFilter;
+      setConteudosInitFilter('all');
+      return init;
+    });
     const [batchIdx, setBatchIdx] = useState<number>(() => {
       if (batches.length === 0) return 0;
       const now = new Date();
@@ -1328,7 +1292,7 @@ export default function ClientPortal() {
           <div>
             <h2 className="text-2xl font-semibold text-white mb-1">Conteúdos</h2>
             <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>
-              {pendingCount > 0 ? `${pendingCount} peça${pendingCount > 1 ? 's' : ''} aguardando aprovação` : 'Feed e aprovações'}
+              {pendingCount > 0 ? `${pendingCount} post${pendingCount > 1 ? 's' : ''} aguardando aprovação` : 'Feed e aprovações'}
             </p>
           </div>
           <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
@@ -2570,7 +2534,7 @@ export default function ClientPortal() {
                   <button onClick={handleApprove} disabled={acting}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium"
                     style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', color: '#34d399' }}>
-                    <CheckCircle2 size={16} /> {acting ? 'Aprovando…' : 'Aprovar esta peça'}
+                    <CheckCircle2 size={16} /> {acting ? 'Aprovando…' : 'Aprovar este post'}
                   </button>
                   <button onClick={() => setAdjustModal(true)} disabled={acting}
                     className="w-full flex items-center justify-center gap-2 py-3 rounded-xl font-medium"
@@ -2583,7 +2547,7 @@ export default function ClientPortal() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 px-4 py-3 rounded-xl" style={{ background: 'rgba(52,211,153,0.05)', border: '1px solid rgba(52,211,153,0.12)' }}>
                     <CheckCircle2 size={14} style={{ color: '#34d399' }} />
-                    <span className="text-sm flex-1" style={{ color: '#34d399' }}>Você aprovou esta peça</span>
+                    <span className="text-sm flex-1" style={{ color: '#34d399' }}>Você aprovou este post</span>
                   </div>
                   {!adjustModal && (
                     <button onClick={() => setAdjustModal(true)}

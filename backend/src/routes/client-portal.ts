@@ -45,7 +45,7 @@ router.get('/:clientId/summary', (req, res) => {
     FROM feed_batches fb
     LEFT JOIN content_pieces cp ON cp.batch_id = fb.id
     WHERE fb.agency_client_id = ?
-      AND (fb.year > strftime('%Y','now') OR (fb.year = CAST(strftime('%Y','now') AS INTEGER) AND fb.month >= CAST(strftime('%m','now') AS INTEGER)))
+      AND (fb.year > CAST(strftime('%Y','now') AS INTEGER) OR (fb.year = CAST(strftime('%Y','now') AS INTEGER) AND fb.month > CAST(strftime('%m','now') AS INTEGER)))
     GROUP BY fb.id ORDER BY fb.year, fb.month LIMIT 1
   `).get(cid) as any;
 
