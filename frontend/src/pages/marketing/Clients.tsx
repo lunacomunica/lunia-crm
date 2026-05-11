@@ -91,9 +91,9 @@ export default function MarketingClients() {
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   {c.logo ? (
-                    <img src={c.logo} alt={c.name} className="w-10 h-10 rounded-xl object-cover flex-shrink-0" />
+                    <img src={c.logo} alt={c.name} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
                   ) : (
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-bold flex-shrink-0"
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
                       style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
                       {c.name.charAt(0).toUpperCase()}
                     </div>
@@ -171,7 +171,7 @@ export default function MarketingClients() {
                 <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
                   onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ''; }} />
                 <button onClick={() => logoInputRef.current?.click()}
-                  className="relative w-20 h-20 rounded-2xl overflow-hidden transition-all group"
+                  className="relative w-20 h-20 rounded-full overflow-hidden transition-all group"
                   style={{ background: 'rgba(59,130,246,0.08)', border: '2px dashed rgba(59,130,246,0.25)' }}>
                   {uploadingLogo ? (
                     <div className="w-full h-full flex items-center justify-center">
