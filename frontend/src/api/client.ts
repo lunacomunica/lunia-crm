@@ -64,6 +64,7 @@ export const notificationsApi = {
   list: () => api.get('/notifications'),
   readAll: () => api.patch('/notifications/read-all'),
   read: (id: number) => api.patch(`/notifications/${id}/read`),
+  clearAll: () => api.delete('/notifications'),
 };
 
 export const agencyClientsApi = {

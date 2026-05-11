@@ -16,19 +16,19 @@ import { useAuth } from '../../context/AuthContext';
 /* ─── Configs ────────────────────────────────────────────────────────────── */
 const STATUS_CFG: Record<ContentStatus, { label: string; color: string; bg: string; border: string }> = {
   em_criacao:           { label: 'Em Criação',           color: '#94a3b8', bg: 'rgba(148,163,184,0.08)', border: 'rgba(148,163,184,0.15)' },
-  em_revisao:           { label: 'Em Revisão',           color: '#60a5fa', bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.15)'  },
+  em_revisao:           { label: 'Em Revisão',           color: '#22d3ee', bg: 'rgba(34,211,238,0.08)',  border: 'rgba(34,211,238,0.15)'  },
   aguardando_aprovacao: { label: 'Aguardando Aprovação', color: '#f59e0b', bg: 'rgba(245,158,11,0.1)',   border: 'rgba(245,158,11,0.25)'  },
-  aprovado:             { label: 'Aprovado',             color: '#34d399', bg: 'rgba(52,211,153,0.08)', border: 'rgba(52,211,153,0.2)'   },
-  ajuste_solicitado:    { label: 'Ajuste Solicitado',    color: '#f97316', bg: 'rgba(249,115,22,0.08)', border: 'rgba(249,115,22,0.2)'   },
+  aprovado:             { label: 'Aprovado',             color: '#60a5fa', bg: 'rgba(59,130,246,0.08)',  border: 'rgba(59,130,246,0.2)'   },
+  ajuste_solicitado:    { label: 'Ajuste Solicitado',    color: '#f87171', bg: 'rgba(248,113,113,0.08)', border: 'rgba(248,113,113,0.2)'  },
   agendado:             { label: 'Agendado',             color: '#a78bfa', bg: 'rgba(167,139,250,0.08)',border: 'rgba(167,139,250,0.2)'  },
   publicado:            { label: 'Publicado',            color: '#10b981', bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)'   },
 };
 
 const FEED_OVERLAY: Partial<Record<ContentStatus, { icon: any; color: string; bg: string; label: string }>> = {
   aguardando_aprovacao: { icon: Clock,     color: '#f59e0b', bg: 'rgba(245,158,11,0.75)',  label: 'Ag. aprovação' },
-  ajuste_solicitado:    { icon: RotateCcw, color: '#f97316', bg: 'rgba(249,115,22,0.75)',  label: 'Ajuste pedido' },
+  ajuste_solicitado:    { icon: RotateCcw, color: '#f87171', bg: 'rgba(248,113,113,0.75)', label: 'Ajuste pedido' },
   em_criacao:           { icon: FileImage, color: '#94a3b8', bg: 'rgba(5,5,15,0.7)',       label: 'Em criação'    },
-  em_revisao:           { icon: Eye,       color: '#60a5fa', bg: 'rgba(59,130,246,0.65)',  label: 'Em revisão'    },
+  em_revisao:           { icon: Eye,       color: '#22d3ee', bg: 'rgba(34,211,238,0.65)',  label: 'Em revisão'    },
   agendado:             { icon: Calendar,  color: '#a78bfa', bg: 'rgba(167,139,250,0.65)', label: 'Agendado'      },
 };
 

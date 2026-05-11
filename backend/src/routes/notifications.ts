@@ -19,4 +19,9 @@ router.patch('/:id/read', (req, res) => {
   res.json({ ok: true });
 });
 
+router.delete('/', (req, res) => {
+  db.prepare('DELETE FROM notifications WHERE tenant_id = ?').run(req.user.tenant_id);
+  res.json({ ok: true });
+});
+
 export default router;

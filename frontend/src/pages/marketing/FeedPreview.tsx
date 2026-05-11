@@ -9,9 +9,9 @@ import { useAuth } from '../../context/AuthContext';
 
 const STATUS_OVERLAY: Partial<Record<ContentStatus, { icon: any; color: string; bg: string; label: string }>> = {
   aguardando_aprovacao: { icon: Clock,        color: '#f59e0b', bg: 'rgba(245,158,11,0.75)',  label: 'Ag. aprovação' },
-  ajuste_solicitado:    { icon: RotateCcw,    color: '#f97316', bg: 'rgba(249,115,22,0.75)',  label: 'Ajuste pedido' },
+  ajuste_solicitado:    { icon: RotateCcw,    color: '#f87171', bg: 'rgba(248,113,113,0.75)', label: 'Ajuste pedido' },
   em_criacao:           { icon: FileImage,    color: '#94a3b8', bg: 'rgba(5,5,15,0.7)',       label: 'Em criação' },
-  em_revisao:           { icon: Eye,          color: '#60a5fa', bg: 'rgba(59,130,246,0.65)',  label: 'Em revisão' },
+  em_revisao:           { icon: Eye,          color: '#22d3ee', bg: 'rgba(34,211,238,0.65)',  label: 'Em revisão' },
   agendado:             { icon: Calendar,     color: '#a78bfa', bg: 'rgba(167,139,250,0.65)', label: 'Agendado' },
 };
 

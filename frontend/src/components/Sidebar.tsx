@@ -237,6 +237,20 @@ function NotificationBell() {
               );
             })}
           </div>
+
+          {/* Footer */}
+          {notifications.length > 0 && (
+            <div className="px-4 py-2.5 flex justify-center" style={{ borderTop: '1px solid rgba(59,130,246,0.08)' }}>
+              <button
+                onClick={() => notificationsApi.clearAll().then(() => { setNotifications([]); setUnread(0); })}
+                className="text-[11px] transition-colors"
+                style={{ color: 'rgba(100,116,139,0.4)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.4)')}>
+                Limpar tudo
+              </button>
+            </div>
+          )}
         </div>
       )}
     </div>
