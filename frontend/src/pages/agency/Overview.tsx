@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { agencyClientsApi, contentApi } from '../../api/client';
-import { AlertTriangle, Clock, CheckCircle2, Users, ExternalLink, Trash2 } from 'lucide-react';
+import { AlertTriangle, Clock, CheckCircle2, Users, ExternalLink, Trash2, X, FileImage } from 'lucide-react';
 
 interface ClientProduction {
   id: number; name: string; segment: string; logo: string | null;
@@ -34,13 +34,56 @@ const STATUS_COLORS: Record<string, string> = {
   aprovado: '#34d399', agendado: '#818cf8', publicado_mes: '#10b981',
 };
 
+interface PiecesModal { clientId: number; clientName: string; status: string; statusLabel: string; }
+
 export default function AgencyOverview() {
   const [clients, setClients] = useState<ClientProduction[]>([]);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
+  // Pieces modal
+  const [modal, setModal] = useState<PiecesModal | null>(null);
+  const [pieces, setPieces] = useState<any[]>([]);
+  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [piecesLoading, setPiecesLoading] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   const load = () => agencyClientsApi.production().then(r => { setClients(r.data); setLoading(false); });
   useEffect(() => { load(); }, []);
+
+  const openModal = async (clientId: number, clientName: string, status: string, statusLabel: string) => {
+    setModal({ clientId, clientName, status, statusLabel });
+    setSelected(new Set());
+    setPiecesLoading(true);
+    const r = await contentApi.list({ client_id: String(clientId), status });
+    setPieces(r.data);
+    setPiecesLoading(false);
+  };
+
+  const toggleAll = () => {
+    if (selected.size === pieces.length) setSelected(new Set());
+    else setSelected(new Set(pieces.map((p: any) => p.id)));
+  };
+
+  const deleteSelected = async () => {
+    if (!modal || selected.size === 0) return;
+    if (!confirm(`Excluir ${selected.size} peça(s) selecionada(s)?`)) return;
+    setDeleting(true);
+    await Promise.all([...selected].map(id => contentApi.delete(id)));
+    setPieces(prev => prev.filter(p => !selected.has(p.id)));
+    setSelected(new Set());
+    setDeleting(false);
+    load();
+  };
+
+  const deleteSingle = async (id: number) => {
+    setDeleting(true);
+    await contentApi.delete(id);
+    setPieces(prev => prev.filter(p => p.id !== id));
+    setSelected(prev => { const s = new Set(prev); s.delete(id); return s; });
+    setDeleting(false);
+    load();
+  };
 
   const totals = clients.reduce(
     (acc, c) => ({
@@ -149,24 +192,13 @@ export default function AgencyOverview() {
                   {(['ajuste_solicitado','aguardando_aprovacao','em_revisao','em_criacao','aprovado','agendado','publicado_mes'] as const).map(key => {
                     const val = c[key as keyof ClientProduction] as number;
                     if (!val) return null;
-                    const isOrphan = key === 'em_criacao' && val > 10;
                     return (
-                      <span key={key} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
+                      <button key={key}
+                        onClick={() => openModal(c.id, c.name, key === 'publicado_mes' ? 'publicado' : key, STATUS_LABELS[key])}
+                        className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium cursor-pointer transition-opacity hover:opacity-80"
                         style={{ background: `${STATUS_COLORS[key]}18`, color: STATUS_COLORS[key], border: `1px solid ${STATUS_COLORS[key]}30` }}>
                         {val} {STATUS_LABELS[key]}
-                        {isOrphan && (
-                          <button title="Limpar peças em criação"
-                            onClick={async () => {
-                              if (!confirm(`Deletar ${val} peças "em criação" de ${c.name}?`)) return;
-                              await contentApi.bulkDeleteByStatus('em_criacao', c.id);
-                              load();
-                            }}
-                            style={{ color: STATUS_COLORS[key], opacity: 0.7 }}
-                            className="hover:opacity-100 transition-opacity">
-                            <Trash2 size={9} />
-                          </button>
-                        )}
-                      </span>
+                      </button>
                     );
                   })}
                 </div>
@@ -184,6 +216,81 @@ export default function AgencyOverview() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pieces modal */}
+      {modal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}
+          onClick={e => e.target === e.currentTarget && setModal(null)}>
+          <div className="w-full max-w-2xl rounded-2xl flex flex-col" style={{ background: '#0f1117', border: '1px solid rgba(255,255,255,0.08)', maxHeight: '80vh' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between p-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+              <div>
+                <p className="text-xs font-medium mb-0.5" style={{ color: STATUS_COLORS[modal.status] || '#60a5fa' }}>{modal.statusLabel}</p>
+                <h3 className="text-base font-semibold text-white">{modal.clientName}</h3>
+              </div>
+              <div className="flex items-center gap-3">
+                {selected.size > 0 && (
+                  <button onClick={deleteSelected} disabled={deleting}
+                    className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg font-medium transition-opacity hover:opacity-80"
+                    style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }}>
+                    <Trash2 size={12} />
+                    Excluir {selected.size} selecionada{selected.size !== 1 ? 's' : ''}
+                  </button>
+                )}
+                <button onClick={() => setModal(null)} className="p-1.5 rounded-lg transition-colors hover:bg-white/5" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                  <X size={16} />
+                </button>
+              </div>
+            </div>
+
+            {/* Select all bar */}
+            {!piecesLoading && pieces.length > 0 && (
+              <div className="flex items-center gap-3 px-5 py-2.5" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)', background: 'rgba(255,255,255,0.02)' }}>
+                <input type="checkbox" checked={selected.size === pieces.length} onChange={toggleAll}
+                  className="rounded" style={{ accentColor: '#3b82f6' }} />
+                <span className="text-xs" style={{ color: 'rgba(100,116,139,0.7)' }}>
+                  {selected.size === 0 ? `${pieces.length} peças` : `${selected.size} de ${pieces.length} selecionadas`}
+                </span>
+              </div>
+            )}
+
+            {/* List */}
+            <div className="overflow-y-auto flex-1">
+              {piecesLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+                </div>
+              ) : pieces.length === 0 ? (
+                <div className="py-16 text-center text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhuma peça encontrada</div>
+              ) : pieces.map(p => (
+                <div key={p.id} className="flex items-center gap-3 px-5 py-3 group transition-colors hover:bg-white/[0.02]"
+                  style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                  <input type="checkbox" checked={selected.has(p.id)}
+                    onChange={() => setSelected(prev => { const s = new Set(prev); s.has(p.id) ? s.delete(p.id) : s.add(p.id); return s; })}
+                    style={{ accentColor: '#3b82f6' }} />
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
+                    style={{ background: 'rgba(255,255,255,0.05)' }}>
+                    {p.media_thumb || p.media_url
+                      ? <img src={p.media_thumb || p.media_url} alt="" className="w-full h-full object-cover" />
+                      : <FileImage size={14} style={{ color: 'rgba(100,116,139,0.4)' }} />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{p.title}</p>
+                    <p className="text-[11px]" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                      {p.type} {p.scheduled_date ? `· ${new Date(p.scheduled_date).toLocaleDateString('pt-BR')}` : ''} {p.batch_id ? '' : '· sem lote'}
+                    </p>
+                  </div>
+                  <button onClick={() => deleteSingle(p.id)} disabled={deleting}
+                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all hover:bg-red-500/10"
+                    style={{ color: 'rgba(248,113,113,0.6)' }}>
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
