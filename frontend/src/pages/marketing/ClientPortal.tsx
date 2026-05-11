@@ -305,6 +305,7 @@ export default function ClientPortal() {
 
   const [client, setClient] = useState<AgencyClient | null>(null);
   const [pieces, setPieces] = useState<ContentPiece[]>([]);
+  const [batches, setBatches] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [goals, setGoals] = useState<any[]>([]);
@@ -351,9 +352,10 @@ export default function ClientPortal() {
 
   const load = async () => {
     setLoading(true);
-    const [clientRes, contentRes, campRes, summaryRes, goalsRes, posRes] = await Promise.all([
+    const [clientRes, contentRes, batchRes, campRes, summaryRes, goalsRes, posRes] = await Promise.all([
       agencyClientsApi.get(cid),
       contentApi.list({ client_id: clientId! }),
+      contentApi.listBatches({ client_id: clientId! }),
       campaignsApi.list({ client_id: clientId! }),
       clientPortalApi.summary(cid),
       clientPortalApi.goals(cid),
@@ -361,6 +363,10 @@ export default function ClientPortal() {
     ]);
     setClient(clientRes.data);
     setPieces(contentRes.data);
+    const sortedBatches = (batchRes.data as any[]).sort((a, b) =>
+      a.year !== b.year ? a.year - b.year : a.month - b.month
+    );
+    setBatches(sortedBatches);
     setCampaigns(campRes.data);
     setSummary(summaryRes.data);
     setGoals(goalsRes.data);
@@ -1271,33 +1277,19 @@ export default function ClientPortal() {
   }
 
   function PageConteudos() {
-    const [tab, setTab] = useState<'feed' | 'aprovar'>('aprovar');
-    const [monthFilter, setMonthFilter] = useState<string>('all');
-    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-    const pending = pieces.filter(p => p.status === 'aguardando_aprovacao');
-    const feedSorted = [...pieces].sort((a, b) => {
-      const da = a.scheduled_date || a.created_at || '';
-      const db2 = b.scheduled_date || b.created_at || '';
-      return da < db2 ? 1 : da > db2 ? -1 : 0;
+    const [tab, setTab] = useState<'feed' | 'aprovar'>('aprovar');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+    const [batchIdx, setBatchIdx] = useState<number>(() => {
+      if (batches.length === 0) return 0;
+      const now = new Date();
+      const idx = batches.findIndex(b => b.month === now.getMonth() + 1 && b.year === now.getFullYear());
+      return idx >= 0 ? idx : batches.length - 1;
     });
 
-    // Derive available months from all pieces
-    const availableMonths = (() => {
-      const seen = new Set<string>();
-      const months: { key: string; label: string }[] = [];
-      feedSorted.forEach(p => {
-        const d = p.scheduled_date || p.created_at;
-        if (!d) return;
-        const dt = new Date(d);
-        const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
-        if (!seen.has(key)) {
-          seen.add(key);
-          months.push({ key, label: format(dt, "MMM yyyy", { locale: ptBR }) });
-        }
-      });
-      return months;
-    })();
+    const pending = pieces.filter(p => p.status === 'aguardando_aprovacao');
+    const selectedBatch = batches[batchIdx] ?? null;
 
     const STATUS_GROUPS = [
       { id: 'all',       label: 'Todos',        color: '#94a3b8', statuses: [] as string[] },
@@ -1309,18 +1301,24 @@ export default function ClientPortal() {
       { id: 'publicado', label: 'Publicados',   color: '#10b981', statuses: ['publicado'] },
     ];
 
-    const feedFiltered = feedSorted.filter(p => {
-      const d = p.scheduled_date || p.created_at;
-      const matchMonth = monthFilter === 'all' || (() => {
-        if (!d) return false;
-        const dt = new Date(d);
-        const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
-        return key === monthFilter;
-      })();
-      const group = STATUS_GROUPS.find(g => g.id === statusFilter);
-      const matchStatus = statusFilter === 'all' || (group && group.statuses.includes(p.status));
-      return matchMonth && matchStatus;
-    });
+    const batchPieces = selectedBatch
+      ? pieces.filter(p => (p as any).batch_id === selectedBatch.id)
+      : pieces;
+
+    const feedFiltered = [...batchPieces]
+      .sort((a, b) => {
+        const da = a.scheduled_date || a.created_at || '';
+        const db2 = b.scheduled_date || b.created_at || '';
+        return da < db2 ? 1 : da > db2 ? -1 : 0;
+      })
+      .filter(p => {
+        const group = STATUS_GROUPS.find(g => g.id === statusFilter);
+        return statusFilter === 'all' || (group && group.statuses.includes(p.status));
+      });
+
+    const displayedApproved = selectedBatch?.approved_count ?? batchPieces.filter(p => ['aprovado','agendado','publicado'].includes(p.status)).length;
+    const displayedTotal = selectedBatch?.post_count ?? batchPieces.length;
+    const allApproved = displayedTotal > 0 && displayedApproved >= displayedTotal;
 
     const displayed = tab === 'aprovar' ? pending : feedFiltered;
 
@@ -1349,30 +1347,36 @@ export default function ClientPortal() {
         {/* Filters — only in feed tab */}
         {tab === 'feed' && (
           <div className="space-y-3">
-            {/* Month/year pills */}
-            {availableMonths.length > 1 && (
-              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-                <button onClick={() => setMonthFilter('all')}
-                  className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
-                  style={monthFilter === 'all'
-                    ? { background: 'rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.9)', border: '1px solid rgba(255,255,255,0.15)' }
-                    : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  Todos os meses
+            {/* Batch navigator */}
+            {batches.length > 0 && (
+              <div className="flex items-center gap-2">
+                <button onClick={() => setBatchIdx(i => Math.max(0, i - 1))} disabled={batchIdx === 0}
+                  className="p-1.5 rounded-lg transition-all disabled:opacity-25"
+                  style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <ChevronLeft size={14} />
                 </button>
-                {availableMonths.map(m => (
-                  <button key={m.key} onClick={() => setMonthFilter(m.key)}
-                    className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium capitalize transition-all"
-                    style={monthFilter === m.key
-                      ? { background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.25)' }
-                      : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    {m.label}
-                  </button>
-                ))}
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl flex-1 justify-center"
+                  style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                  <span className="text-sm font-semibold text-white">
+                    {selectedBatch ? `${MONTHS_PT[selectedBatch.month - 1]} ${selectedBatch.year}` : '—'}
+                  </span>
+                  {displayedTotal > 0 && (
+                    <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
+                      style={{ background: allApproved ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)', color: allApproved ? '#10b981' : '#60a5fa' }}>
+                      {displayedApproved}/{displayedTotal}
+                    </span>
+                  )}
+                </div>
+                <button onClick={() => setBatchIdx(i => Math.min(batches.length - 1, i + 1))} disabled={batchIdx === batches.length - 1}
+                  className="p-1.5 rounded-lg transition-all disabled:opacity-25"
+                  style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <ChevronRight size={14} />
+                </button>
               </div>
             )}
             {/* Status chips */}
             <div className="flex gap-2 flex-wrap">
-              {STATUS_GROUPS.filter(g => g.id === 'all' || feedSorted.some(p => g.statuses.includes(p.status))).map(g => (
+              {STATUS_GROUPS.filter(g => g.id === 'all' || batchPieces.some(p => g.statuses.includes(p.status))).map(g => (
                 <button key={g.id} onClick={() => setStatusFilter(g.id)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
                   style={statusFilter === g.id
@@ -1380,8 +1384,8 @@ export default function ClientPortal() {
                     : { background: 'transparent', color: 'rgba(100,116,139,0.45)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   {statusFilter === g.id && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: g.color }} />}
                   {g.label}
-                  <span className="opacity-50">
-                    {g.id === 'all' ? feedSorted.length : feedSorted.filter(p => g.statuses.includes(p.status)).length}
+                  <span className="opacity-50 ml-0.5">
+                    {g.id === 'all' ? batchPieces.length : batchPieces.filter(p => g.statuses.includes(p.status)).length}
                   </span>
                 </button>
               ))}
@@ -1393,11 +1397,11 @@ export default function ClientPortal() {
           <div className="text-center py-24">
             <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
             <p className="text-white font-medium mb-1">{tab === 'aprovar' ? 'Nenhuma aprovação pendente' : 'Nenhum conteúdo com esse filtro'}</p>
-            {tab === 'feed' && (monthFilter !== 'all' || statusFilter !== 'all') && (
-              <button onClick={() => { setMonthFilter('all'); setStatusFilter('all'); }}
+            {tab === 'feed' && statusFilter !== 'all' && (
+              <button onClick={() => setStatusFilter('all')}
                 className="mt-3 text-xs px-4 py-2 rounded-xl transition-all"
                 style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                Limpar filtros
+                Limpar filtro
               </button>
             )}
           </div>
