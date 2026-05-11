@@ -30,7 +30,7 @@ const uploadAny = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 }, file
 
 router.post('/', upload.array('files', 20), (req, res) => {
   const files = (req.files as Express.Multer.File[]) || [];
-  const BASE = `${req.protocol}://${req.get('host')}`;
+  const BASE = '';
   res.json({
     files: files.map(f => ({
       url: `${BASE}/uploads/${f.filename}`,
@@ -42,7 +42,7 @@ router.post('/', upload.array('files', 20), (req, res) => {
 
 router.post('/any', uploadAny.array('files', 10), (req, res) => {
   const files = (req.files as Express.Multer.File[]) || [];
-  const BASE = `${req.protocol}://${req.get('host')}`;
+  const BASE = '';
   res.json({
     files: files.map(f => ({
       url: `${BASE}/uploads/${f.filename}`,
