@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
+import TaskDetailDrawer from './TaskDetailDrawer';
 import { ContentStatus, Campaign, CampaignCreative, CampaignPlatform, CampaignStatus, CampaignObjective, CreativeType, CreativeStatus } from '../../types';
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -209,6 +210,7 @@ export default function ClientDetail() {
   const [tasks, setTasks] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [taskTypeFilter, setTaskTypeFilter] = useState<'todos' | 'conteudo' | 'trafego' | 'geral'>('todos');
+  const [openTaskId, setOpenTaskId] = useState<number | null>(null);
   const [projectModal, setProjectModal] = useState(false);
   const [editingProject, setEditingProject] = useState<any>(null);
   const [projectForm, setProjectForm] = useState({ title: '', description: '', status: 'pendente', due_date: '' });
@@ -1087,7 +1089,8 @@ export default function ClientDetail() {
                     const type = taskType(t);
                     const typeColor = type === 'conteudo' ? '#34d399' : type === 'trafego' ? '#60a5fa' : '#a78bfa';
                     return (
-                      <div key={t.id} className="flex items-center gap-3 px-4 py-3 rounded-xl"
+                      <div key={t.id} onClick={() => setOpenTaskId(t.id)}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all hover:brightness-110"
                         style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
                         {(() => { const I = statusIcon; return <I size={15} style={{ color: statusColor, flexShrink: 0 }} />; })()}
                         <div className="flex-1 min-w-0">
@@ -1915,6 +1918,14 @@ export default function ClientDetail() {
             </div>
           </div>
         </div>
+      )}
+
+      {openTaskId && (
+        <TaskDetailDrawer
+          taskId={openTaskId}
+          onClose={() => setOpenTaskId(null)}
+          onUpdated={() => tasksApi.list({ client_id: String(cid) }).then(r => setTasks(r.data || []))}
+        />
       )}
     </div>
   );
