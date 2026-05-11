@@ -574,11 +574,11 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                       onFiles={files => uploadFiles(files, 'video')}
                     />
                   )}
-                  {reelsVideo && !reelsCover && (
+                  {!reelsCover && (
                     <DropZone
                       accept="image/jpeg,image/png,image/webp"
                       multiple={false}
-                      label="Adicionar capa (opcional)"
+                      label="Capa do Reels (opcional)"
                       icon={ImageIcon}
                       uploading={uploading === 'cover'}
                       onFiles={files => uploadFiles(files, 'cover')}
