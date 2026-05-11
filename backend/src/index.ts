@@ -26,6 +26,7 @@ import clientPortalRouter from './routes/client-portal.js';
 import clientCrmRouter from './routes/client-crm.js';
 import uploadRouter from './routes/upload.js';
 import workflowTemplatesRouter from './routes/workflow-templates.js';
+import taskCategoriesRouter from './routes/task-categories.js';
 import { authMiddleware } from './middleware/auth.js';
 import db from './db.js';
 
@@ -109,6 +110,7 @@ app.use('/api/users', authMiddleware, usersRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/upload', authMiddleware, uploadRouter);
 app.use('/api/tasks', authMiddleware, tasksRouter);
+app.use('/api/task-categories', authMiddleware, taskCategoriesRouter);
 app.use('/api/client-portal', authMiddleware, clientPortalRouter);
 app.use('/api/client-crm', authMiddleware, clientCrmRouter);
 app.use('/api/workflow-templates', authMiddleware, workflowTemplatesRouter);

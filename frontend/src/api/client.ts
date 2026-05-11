@@ -153,6 +153,15 @@ export const tasksApi = {
   teamOverview: () => api.get('/tasks/team-overview'),
 };
 
+export const taskCategoriesApi = {
+  list: () => api.get('/task-categories'),
+  create: (data: { label: string; color?: string; is_rework?: boolean; sort_order?: number }) =>
+    api.post('/task-categories', data),
+  update: (id: number, data: { label?: string; color?: string; is_rework?: boolean; sort_order?: number }) =>
+    api.put(`/task-categories/${id}`, data),
+  remove: (id: number) => api.delete(`/task-categories/${id}`),
+};
+
 export const uploadAnyApi = {
   files: (files: File[]) => {
     const fd = new FormData();

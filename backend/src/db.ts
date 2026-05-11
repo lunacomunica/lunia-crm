@@ -421,6 +421,15 @@ const migrations = [
     updated_at TEXT DEFAULT (datetime('now'))
   )`,
   "ALTER TABLE tasks ADD COLUMN category TEXT DEFAULT NULL",
+  `CREATE TABLE IF NOT EXISTS task_categories (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    tenant_id INTEGER NOT NULL,
+    label TEXT NOT NULL,
+    color TEXT DEFAULT '#94a3b8',
+    is_rework INTEGER DEFAULT 0,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  )`,
   `CREATE TABLE IF NOT EXISTS task_files (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,

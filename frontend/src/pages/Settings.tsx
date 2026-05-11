@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2, AlertTriangle, Eye, Pencil } from 'lucide-react';
-import { settingsApi, usersApi, profileApi, agencyClientsApi } from '../api/client';
+import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2, AlertTriangle, Eye, Pencil, Tag } from 'lucide-react';
+import { settingsApi, usersApi, profileApi, agencyClientsApi, taskCategoriesApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 function Field({ label, id, value, onChange, placeholder, type = 'text', hint, mono = false }: {
@@ -456,13 +456,165 @@ function UsersTab() {
   );
 }
 
+const COLORS = ['#94a3b8','#f87171','#fb923c','#facc15','#4ade80','#34d399','#22d3ee','#60a5fa','#a78bfa','#f472b6'];
+
+function TaskCategoriesTab() {
+  const [categories, setCategories] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newLabel, setNewLabel] = useState('');
+  const [newColor, setNewColor] = useState('#94a3b8');
+  const [newIsRework, setNewIsRework] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editDraft, setEditDraft] = useState<any>({});
+
+  useEffect(() => {
+    taskCategoriesApi.list().then(r => { setCategories(r.data || []); setLoading(false); });
+  }, []);
+
+  const addCategory = async () => {
+    if (!newLabel.trim()) return;
+    setAdding(true);
+    const r = await taskCategoriesApi.create({ label: newLabel.trim(), color: newColor, is_rework: newIsRework });
+    setCategories(prev => [...prev, r.data]);
+    setNewLabel(''); setNewColor('#94a3b8'); setNewIsRework(false);
+    setAdding(false);
+  };
+
+  const startEdit = (c: any) => { setEditingId(c.id); setEditDraft({ label: c.label, color: c.color, is_rework: !!c.is_rework }); };
+
+  const saveEdit = async (id: number) => {
+    await taskCategoriesApi.update(id, editDraft);
+    setCategories(prev => prev.map(c => c.id === id ? { ...c, ...editDraft } : c));
+    setEditingId(null);
+  };
+
+  const remove = async (id: number) => {
+    await taskCategoriesApi.remove(id);
+    setCategories(prev => prev.filter(c => c.id !== id));
+  };
+
+  if (loading) return <div className="py-12 text-center text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Carregando…</div>;
+
+  const rework = categories.filter(c => c.is_rework);
+  const normal = categories.filter(c => !c.is_rework);
+
+  return (
+    <div className="space-y-6">
+      {/* Add new */}
+      <div className="card p-5">
+        <h3 className="text-sm font-medium text-white mb-4">Nova categoria</h3>
+        <div className="flex gap-2 flex-wrap items-end">
+          <div className="flex-1 min-w-48">
+            <label className="label-dark">Nome</label>
+            <input value={newLabel} onChange={e => setNewLabel(e.target.value)}
+              placeholder="Ex: Urgência externa"
+              className="input-dark"
+              onKeyDown={e => { if (e.key === 'Enter') addCategory(); }} />
+          </div>
+          <div>
+            <label className="label-dark">Cor</label>
+            <div className="flex gap-1.5 mt-1.5">
+              {COLORS.map(c => (
+                <button key={c} onClick={() => setNewColor(c)}
+                  className="w-6 h-6 rounded-full transition-transform hover:scale-110"
+                  style={{ background: c, outline: newColor === c ? `2px solid ${c}` : 'none', outlineOffset: '2px' }} />
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="label-dark">Tipo</label>
+            <button onClick={() => setNewIsRework(r => !r)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all mt-1.5"
+              style={newIsRework
+                ? { background: 'rgba(248,113,113,0.12)', color: '#f87171', border: '1px solid rgba(248,113,113,0.25)' }
+                : { background: 'rgba(255,255,255,0.03)', color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.07)' }}>
+              {newIsRework ? '⟳ Retrabalho' : '○ Normal'}
+            </button>
+          </div>
+          <button onClick={addCategory} disabled={adding || !newLabel.trim()}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-medium disabled:opacity-40"
+            style={{ background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.25)' }}>
+            <Plus size={12} /> {adding ? 'Salvando…' : 'Adicionar'}
+          </button>
+        </div>
+      </div>
+
+      {/* List */}
+      {[{ title: 'Retrabalho', items: rework }, { title: 'Normal', items: normal }].map(group => group.items.length > 0 && (
+        <div key={group.title} className="card p-5">
+          <h3 className="text-sm font-medium mb-4" style={{ color: 'rgba(100,116,139,0.7)' }}>{group.title}</h3>
+          <div className="space-y-2">
+            {group.items.map((c: any) => (
+              <div key={c.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                {editingId === c.id ? (
+                  <>
+                    <div className="flex gap-1">
+                      {COLORS.map(col => (
+                        <button key={col} onClick={() => setEditDraft((d: any) => ({ ...d, color: col }))}
+                          className="w-5 h-5 rounded-full transition-transform hover:scale-110"
+                          style={{ background: col, outline: editDraft.color === col ? `2px solid ${col}` : 'none', outlineOffset: '2px' }} />
+                      ))}
+                    </div>
+                    <input value={editDraft.label} onChange={e => setEditDraft((d: any) => ({ ...d, label: e.target.value }))}
+                      className="flex-1 px-2 py-1 rounded-lg text-sm text-white outline-none"
+                      style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(59,130,246,0.3)' }}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(c.id); if (e.key === 'Escape') setEditingId(null); }} />
+                    <button onClick={() => setEditDraft((d: any) => ({ ...d, is_rework: !d.is_rework }))}
+                      className="text-[10px] px-2 py-1 rounded-lg"
+                      style={editDraft.is_rework
+                        ? { background: 'rgba(248,113,113,0.12)', color: '#f87171' }
+                        : { background: 'rgba(255,255,255,0.04)', color: 'rgba(100,116,139,0.6)' }}>
+                      {editDraft.is_rework ? 'Retrabalho' : 'Normal'}
+                    </button>
+                    <button onClick={() => saveEdit(c.id)}
+                      className="p-1.5 rounded-lg" style={{ color: '#34d399' }}>
+                      <CheckCircle2 size={14} />
+                    </button>
+                    <button onClick={() => setEditingId(null)}
+                      className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      <X size={14} />
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ background: c.color }} />
+                    <span className="flex-1 text-sm text-white">{c.label}</span>
+                    <button onClick={() => startEdit(c)}
+                      className="p-1.5 rounded-lg transition-colors" style={{ color: 'rgba(100,116,139,0.4)' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#93c5fd')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.4)')}>
+                      <Pencil size={13} />
+                    </button>
+                    <button onClick={() => remove(c.id)}
+                      className="p-1.5 rounded-lg transition-colors" style={{ color: 'rgba(100,116,139,0.4)' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.4)')}>
+                      <Trash2 size={13} />
+                    </button>
+                  </>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {categories.length === 0 && (
+        <p className="text-center text-sm py-8" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma categoria ainda</p>
+      )}
+    </div>
+  );
+}
+
 export default function Settings() {
   const { user } = useAuth();
   const isOwner   = user?.role === 'owner';
   const isManager = user?.role === 'manager';
   const isTeam    = user?.role === 'team';
   const isSuperAdmin = isOwner;
-  const [tab, setTab] = useState<'profile' | 'api' | 'users' | 'danger'>('profile');
+  const [tab, setTab] = useState<'profile' | 'api' | 'users' | 'producao' | 'danger'>('profile');
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [webhookInfo, setWebhookInfo] = useState<{ webhookUrl: string; verifyToken: string } | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -516,9 +668,10 @@ export default function Settings() {
       <div className="flex gap-1 mb-8 w-full overflow-x-auto rounded-xl p-1" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
         {[
           { id: 'profile', label: 'Meu Perfil',      icon: User,          show: true },
-          { id: 'api',     label: 'Integrações API', icon: Zap,           show: isOwner },
-          { id: 'users',   label: 'Usuários',        icon: Users,         show: isOwner || isManager },
-          { id: 'danger',  label: 'Zona de Perigo',  icon: AlertTriangle, show: isOwner },
+          { id: 'api',      label: 'Integrações API', icon: Zap,           show: isOwner },
+          { id: 'users',    label: 'Usuários',        icon: Users,         show: isOwner || isManager },
+          { id: 'producao', label: 'Produção',        icon: Tag,           show: isOwner || isManager },
+          { id: 'danger',   label: 'Zona de Perigo',  icon: AlertTriangle, show: isOwner },
         ].filter(t => t.show).map(t => (
           <button key={t.id} onClick={() => setTab(t.id as any)}
             className="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-medium transition-all"
@@ -530,7 +683,7 @@ export default function Settings() {
         ))}
       </div>
 
-      {tab === 'profile' ? <ProfileTab /> : tab === 'users' ? <UsersTab /> : tab === 'danger' ? (
+      {tab === 'profile' ? <ProfileTab /> : tab === 'users' ? <UsersTab /> : tab === 'producao' ? <TaskCategoriesTab /> : tab === 'danger' ? (
         <div className="card p-6" style={{ borderColor: 'rgba(248,113,113,0.2)' }}>
           <div className="flex items-center gap-3 mb-6">
             <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: 'rgba(248,113,113,0.1)', border: '1px solid rgba(248,113,113,0.2)' }}>
