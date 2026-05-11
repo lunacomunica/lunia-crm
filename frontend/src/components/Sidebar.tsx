@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid, Eye, ChevronDown, BarChart2
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid, Eye, ChevronDown, BarChart2, CheckCircle2, AlertTriangle, ArrowRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
@@ -105,6 +105,29 @@ function ClientSwitcher({ showAgency, managerMode }: { showAgency: boolean; mana
   );
 }
 
+const NOTIF_CFG: Record<string, { icon: any; color: string; bg: string; label: string; dest: (meta: any) => string }> = {
+  aprovado: {
+    icon: CheckCircle2, color: '#34d399', bg: 'rgba(52,211,153,0.1)',
+    label: 'aprovação',
+    dest: (m) => `/marketing/content?client=${m?.client_id}`,
+  },
+  ajuste_solicitado: {
+    icon: AlertTriangle, color: '#f97316', bg: 'rgba(249,115,22,0.1)',
+    label: 'ajuste',
+    dest: (m) => `/gerot?client_id=${m?.client_id}`,
+  },
+};
+
+function timeAgo(dateStr: string) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'agora';
+  if (m < 60) return `há ${m}min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `há ${h}h`;
+  return `há ${Math.floor(h / 24)}d`;
+}
+
 function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [notifications, setNotifications] = useState<any[]>([]);
@@ -120,9 +143,12 @@ function NotificationBell() {
     document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
   }, []);
 
-  const handleOpen = () => { setOpen(o => !o); if (!open && unread > 0) { notificationsApi.readAll().then(() => { setUnread(0); setNotifications(prev => prev.map(n => ({ ...n, read: 1 }))); }); } };
-
-  const TYPE_COLOR: Record<string, string> = { aprovado: '#34d399', ajuste_solicitado: '#f97316' };
+  const handleOpen = () => {
+    setOpen(o => !o);
+    if (!open && unread > 0) {
+      notificationsApi.readAll().then(() => { setUnread(0); setNotifications(prev => prev.map(n => ({ ...n, read: 1 }))); });
+    }
+  };
 
   return (
     <div ref={ref} className="relative">
@@ -136,38 +162,76 @@ function NotificationBell() {
             style={{ background: '#f59e0b' }}>{unread > 9 ? '9+' : unread}</span>
         )}
       </button>
+
       {open && (
-        <div className="absolute bottom-full right-0 mb-2 w-72 rounded-2xl overflow-hidden"
-          style={{ background: '#0d0d1f', border: '1px solid rgba(59,130,246,0.15)', boxShadow: '0 -8px 32px rgba(0,0,0,0.6)' }}>
+        <div className="absolute bottom-full left-0 mb-2 w-80 rounded-2xl overflow-hidden"
+          style={{ background: '#0d0d1f', border: '1px solid rgba(59,130,246,0.15)', boxShadow: '0 -8px 40px rgba(0,0,0,0.7)', zIndex: 9999 }}>
+
+          {/* Header */}
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
-            <span className="text-sm font-medium text-white">Notificações</span>
+            <div className="flex items-center gap-2">
+              <Bell size={13} style={{ color: 'rgba(100,116,139,0.5)' }} />
+              <span className="text-sm font-medium text-white">Notificações</span>
+              {unread > 0 && (
+                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>{unread}</span>
+              )}
+            </div>
             {notifications.some(n => !n.read) && (
               <button onClick={() => notificationsApi.readAll().then(() => { setUnread(0); setNotifications(p => p.map(n => ({ ...n, read: 1 }))); })}
-                className="text-xs transition-colors" style={{ color: 'rgba(100,116,139,0.5)' }}
+                className="text-[11px] transition-colors" style={{ color: 'rgba(100,116,139,0.5)' }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#e2e8f0')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
-                Marcar tudo como lido
+                Marcar todas lidas
               </button>
             )}
           </div>
-          <div className="max-h-72 overflow-y-auto">
+
+          {/* List */}
+          <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-center" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma notificação</p>
+              <div className="px-4 py-8 text-center">
+                <Bell size={24} className="mx-auto mb-2" style={{ color: 'rgba(100,116,139,0.2)' }} />
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Tudo em dia por aqui</p>
+              </div>
             ) : notifications.map(n => {
-              const meta = typeof n.meta === 'string' ? JSON.parse(n.meta) : n.meta;
+              const meta = typeof n.meta === 'string' ? JSON.parse(n.meta || '{}') : (n.meta || {});
+              const cfg = NOTIF_CFG[n.type];
+              const Icon = cfg?.icon;
+              const dest = cfg?.dest(meta);
               return (
-                <button key={n.id} onClick={() => { setOpen(false); if (meta?.client_id) navigate(n.type === 'ajuste_solicitado' ? `/gerot?client_id=${meta.client_id}` : `/marketing/content?client=${meta.client_id}`); }}
-                  className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors"
+                <button key={n.id}
+                  onClick={() => { setOpen(false); if (dest) navigate(dest); }}
+                  className="w-full flex items-start gap-3 px-4 py-3.5 text-left group transition-colors"
                   style={{ background: n.read ? 'transparent' : 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}
-                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.07)')}
+                  onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                   onMouseLeave={e => (e.currentTarget.style.background = n.read ? 'transparent' : 'rgba(59,130,246,0.04)')}>
-                  <div className="w-1.5 h-1.5 rounded-full flex-shrink-0 mt-1.5" style={{ background: TYPE_COLOR[n.type] || '#60a5fa' }} />
+
+                  {/* Icon */}
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: cfg?.bg || 'rgba(96,165,250,0.1)' }}>
+                    {Icon
+                      ? <Icon size={14} style={{ color: cfg.color }} />
+                      : <Bell size={14} style={{ color: '#60a5fa' }} />}
+                  </div>
+
+                  {/* Content */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-medium text-white truncate">{n.title}</p>
-                    {n.body && <p className="text-[10px] mt-0.5 truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>{n.body}</p>}
-                    <p className="text-[10px] mt-1" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                      {format(new Date(n.created_at), "d MMM HH:mm", { locale: ptBR })}
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      {!n.read && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg?.color || '#60a5fa' }} />}
+                      <p className="text-xs font-semibold text-white truncate">{meta?.client_name || 'Cliente'}</p>
+                    </div>
+                    <p className="text-[11px] leading-snug truncate" style={{ color: 'rgba(148,163,184,0.75)' }}>
+                      {n.type === 'aprovado' ? '✓ Aprovação de peça' : '⚠ Solicitou ajuste'}
+                      {n.body ? ` · ${n.body}` : ''}
                     </p>
+                    <div className="flex items-center justify-between mt-1">
+                      <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{timeAgo(n.created_at)}</p>
+                      <span className="text-[10px] flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ color: cfg?.color || '#60a5fa' }}>
+                        {n.type === 'ajuste_solicitado' ? 'Ver no Gerot' : 'Ver conteúdo'}
+                        <ArrowRight size={9} />
+                      </span>
+                    </div>
                   </div>
                 </button>
               );
