@@ -223,6 +223,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
     title: post.title,
     type: (post.type as string) || 'estatico',
     scheduled_date: post.scheduled_date?.slice(0, 10) || '',
+    scheduled_time: (post as any).scheduled_time || '',
     status: post.status,
     caption: post.caption || '',
     objective: post.objective || '',
@@ -477,6 +478,12 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                 <label className={labelCls} style={labelStyle}>Data prevista</label>
                 <input type="date" value={form.scheduled_date}
                   onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                  className={inputCls} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelCls} style={labelStyle}>Horário</label>
+                <input type="time" value={form.scheduled_time}
+                  onChange={e => setForm(f => ({ ...f, scheduled_time: e.target.value }))}
                   className={inputCls} style={inputStyle} />
               </div>
             </div>

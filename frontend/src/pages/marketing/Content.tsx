@@ -338,6 +338,7 @@ export default function MarketingContent() {
                             {p.scheduled_date && (
                               <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
                                 {format(new Date(p.scheduled_date + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
+                                {(p as any).scheduled_time && <span className="ml-1">· {(p as any).scheduled_time}</span>}
                               </p>
                             )}
                           </div>

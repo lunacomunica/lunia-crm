@@ -354,6 +354,7 @@ const migrations = [
   "ALTER TABLE content_pieces ADD COLUMN copy_hook TEXT DEFAULT ''",
   "ALTER TABLE content_pieces ADD COLUMN copy_cta TEXT DEFAULT ''",
   "ALTER TABLE content_pieces ADD COLUMN post_references TEXT DEFAULT '[]'",
+  "ALTER TABLE content_pieces ADD COLUMN scheduled_time TEXT",
   "ALTER TABLE feed_batches ADD COLUMN default_template_id INTEGER REFERENCES workflow_templates(id) ON DELETE SET NULL",
   "ALTER TABLE agency_clients ADD COLUMN is_agency INTEGER DEFAULT 0",
   "ALTER TABLE agency_clients ADD COLUMN ceo_message TEXT",
