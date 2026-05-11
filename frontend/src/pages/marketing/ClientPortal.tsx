@@ -2508,7 +2508,7 @@ export default function ClientPortal() {
                   <span className="badge badge-slate">{TYPE_LABEL[detail.type]}</span>
                   {detail.scheduled_date && (
                     <span className="flex items-center gap-1 text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                      <Calendar size={10} />{format(new Date(detail.scheduled_date), "d 'de' MMMM", { locale: ptBR })}
+                      <Calendar size={10} />{format(new Date(detail.scheduled_date), "d 'de' MMMM 'às' HH:mm", { locale: ptBR })}
                     </span>
                   )}
                 </div>
