@@ -140,8 +140,7 @@ export default function FeedPreview() {
           const overlay = STATUS_OVERLAY[p.status];
           const isPublished = p.status === 'publicado';
           return (
-            <button key={p.id} onClick={() => openDetail(p)} className="relative overflow-hidden group" style={{ aspectRatio: '1080/1350' }}
-              style={{ background: 'rgba(255,255,255,0.03)' }}>
+            <button key={p.id} onClick={() => openDetail(p)} className="relative overflow-hidden group" style={{ aspectRatio: '1080/1350', background: 'rgba(255,255,255,0.03)' }}>
               {p.media_url ? (
                 <img src={p.media_url} alt={p.title}
                   className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
