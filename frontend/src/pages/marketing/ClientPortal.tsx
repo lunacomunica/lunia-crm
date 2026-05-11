@@ -9,7 +9,7 @@ import {
   ArrowLeft, LayoutDashboard, Menu, Phone, UserPlus, Kanban, Settings, Search,
   List, CalendarDays
 } from 'lucide-react';
-import { contentApi, agencyClientsApi, campaignsApi, clientPortalApi, clientCrmApi, conversationsApi, profileApi } from '../../api/client';
+import { contentApi, agencyClientsApi, campaignsApi, clientPortalApi, clientCrmApi, conversationsApi, profileApi, contentIdeasApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient, Campaign } from '../../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -50,7 +50,7 @@ const CAMPAIGN_STATUS_CFG: Record<string, { label: string; color: string; bg: st
 
 const TYPE_LABEL: Record<string, string> = { post: 'Post', reels: 'Reels', story: 'Story', carrossel: 'Carrossel' };
 
-type PageId = 'visao' | 'posicionamento' | 'produtos' | 'metas' | 'conteudos' | 'performance' | 'trafico' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline' | 'crm_conversas';
+type PageId = 'visao' | 'posicionamento' | 'produtos' | 'metas' | 'conteudos' | 'ideias' | 'performance' | 'trafico' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline' | 'crm_conversas';
 
 const STAGES_CRM = [
   { id: 'novo',       label: 'Novo',        color: '#94a3b8' },
@@ -185,6 +185,7 @@ function PortalSidebar({
       label: 'Marketing',
       items: [
         { id: 'conteudos'   as PageId, label: 'Conteúdos',   icon: Grid3x3,   badge: pendingCount },
+        { id: 'ideias'      as PageId, label: 'Ideias',        icon: Zap,       badge: 0 },
         { id: 'trafico'     as PageId, label: 'Tráfego',      icon: Megaphone, badge: activeCampaignsCount },
         { id: 'performance' as PageId, label: 'Performance',  icon: BarChart3, badge: 0 },
       ],
@@ -2564,12 +2565,133 @@ export default function ClientPortal() {
     );
   }
 
+  function PageIdeias() {
+    const [ideas, setIdeas] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [showForm, setShowForm] = useState(false);
+    const [form, setForm] = useState({ title: '', description: '', reference_url: '' });
+    const [saving, setSaving] = useState(false);
+
+    useEffect(() => {
+      contentIdeasApi.list(cid).then(r => { setIdeas(r.data || []); setLoading(false); });
+    }, []);
+
+    const submit = async () => {
+      if (!form.title.trim()) return;
+      setSaving(true);
+      const r = await contentIdeasApi.create({ agency_client_id: cid, ...form });
+      setIdeas(prev => [r.data, ...prev]);
+      setForm({ title: '', description: '', reference_url: '' });
+      setShowForm(false);
+      setSaving(false);
+    };
+
+    const STATUS_CFG_IDEAS: Record<string, { label: string; color: string }> = {
+      nova:        { label: 'Nova',        color: '#60a5fa' },
+      em_analise:  { label: 'Em análise',  color: '#f59e0b' },
+      aprovada:    { label: 'Aprovada',    color: '#34d399' },
+      descartada:  { label: 'Descartada',  color: '#94a3b8' },
+    };
+
+    return (
+      <div className="space-y-5">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-white mb-1">Ideias de Conteúdo</h2>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Envie suas ideias para a agência avaliar</p>
+          </div>
+          <button onClick={() => setShowForm(v => !v)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+            style={{ background: 'rgba(59,130,246,0.12)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }}>
+            <Plus size={14} />{showForm ? 'Cancelar' : 'Nova ideia'}
+          </button>
+        </div>
+
+        {/* Form */}
+        {showForm && (
+          <div className="rounded-2xl p-5 space-y-4"
+            style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(59,130,246,0.15)' }}>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(100,116,139,0.6)' }}>Título da ideia *</label>
+              <input value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
+                placeholder="Ex: Reels mostrando os bastidores da loja…"
+                className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(100,116,139,0.6)' }}>Descrição / contexto</label>
+              <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+                rows={3} placeholder="Descreva a ideia com detalhes, tom desejado, produto destacado…"
+                className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none resize-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium mb-1.5" style={{ color: 'rgba(100,116,139,0.6)' }}>Referência (link)</label>
+              <input value={form.reference_url} onChange={e => setForm(p => ({ ...p, reference_url: e.target.value }))}
+                placeholder="https://…  Instagram, Pinterest, TikTok…"
+                className="w-full px-3 py-2.5 rounded-xl text-sm text-white outline-none"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }} />
+            </div>
+            <button onClick={submit} disabled={saving || !form.title.trim()}
+              className="w-full py-2.5 rounded-xl text-sm font-medium text-white disabled:opacity-40 transition-all"
+              style={{ background: 'rgba(59,130,246,0.2)', border: '1px solid rgba(59,130,246,0.3)' }}>
+              {saving ? 'Enviando…' : 'Enviar ideia'}
+            </button>
+          </div>
+        )}
+
+        {/* Ideas list */}
+        {loading ? (
+          <div className="flex justify-center py-16">
+            <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+          </div>
+        ) : ideas.length === 0 ? (
+          <div className="text-center py-20">
+            <Zap size={40} className="mx-auto mb-4 opacity-10" style={{ color: '#60a5fa' }} />
+            <p className="text-white font-medium mb-1">Nenhuma ideia enviada ainda</p>
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Clique em "Nova ideia" e inspire a agência!</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {ideas.map((idea: any) => {
+              const st = STATUS_CFG_IDEAS[idea.status] || STATUS_CFG_IDEAS['nova'];
+              return (
+                <div key={idea.id} className="rounded-2xl p-4"
+                  style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <p className="text-sm font-semibold text-white">{idea.title}</p>
+                    <span className="flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                      style={{ color: st.color, background: `${st.color}15` }}>{st.label}</span>
+                  </div>
+                  {idea.description && (
+                    <p className="text-xs mb-2 leading-relaxed" style={{ color: 'rgba(148,163,184,0.6)' }}>{idea.description}</p>
+                  )}
+                  {idea.reference_url && (
+                    <a href={idea.reference_url} target="_blank" rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs transition-opacity hover:opacity-80"
+                      style={{ color: '#60a5fa' }} onClick={e => e.stopPropagation()}>
+                      <BookOpen size={10} /> Ver referência
+                    </a>
+                  )}
+                  <p className="text-[10px] mt-2" style={{ color: 'rgba(100,116,139,0.3)' }}>
+                    {format(new Date(idea.created_at), "d 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const pageComponents: Record<PageId, JSX.Element> = {
     visao:           <PageVisaoGeral />,
     posicionamento:  <PagePosicionamento />,
     produtos:        <PageProdutos />,
     metas:           <PageMetas />,
     conteudos:       <PageConteudos />,
+    ideias:          <PageIdeias />,
     performance:     <PagePerformance />,
     trafico:         <PageTrafico />,
     crm_dashboard:   <PageCrmDashboard />,

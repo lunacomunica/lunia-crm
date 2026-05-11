@@ -9,7 +9,7 @@ import {
   List, CalendarDays, LayoutGrid,
   Image, Video, MousePointerClick, Link, FileText
 } from 'lucide-react';
-import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi } from '../../api/client';
+import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi, contentIdeasApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
 import TaskDetailDrawer from './TaskDetailDrawer';
 import { ContentStatus, Campaign, CampaignCreative, CampaignPlatform, CampaignStatus, CampaignObjective, CreativeType, CreativeStatus } from '../../types';
@@ -17,7 +17,7 @@ import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format
 import { ptBR } from 'date-fns/locale';
 
 type Tab = 'estrategia' | 'operacao' | 'dados';
-type OpTab = 'conteudo' | 'trafego' | 'tarefas' | 'projetos';
+type OpTab = 'conteudo' | 'trafego' | 'tarefas' | 'projetos' | 'ideias';
 
 const PROJECT_STATUS: { id: string; label: string; color: string }[] = [
   { id: 'pendente',     label: 'Pendente',     color: '#94a3b8' },
@@ -208,6 +208,7 @@ export default function ClientDetail() {
   const [contentView, setContentView] = useState<ContentView>('list');
   const [campaigns, setCampaigns] = useState<any[]>([]);
   const [tasks, setTasks] = useState<any[]>([]);
+  const [ideas, setIdeas] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
   const [taskTypeFilter, setTaskTypeFilter] = useState<'todos' | 'conteudo' | 'trafego' | 'geral'>('todos');
   const [openTaskId, setOpenTaskId] = useState<number | null>(null);
@@ -304,14 +305,16 @@ export default function ClientDetail() {
   };
 
   const loadOp = async () => {
-    const [campRes, taskRes, projRes] = await Promise.all([
+    const [campRes, taskRes, projRes, ideasRes] = await Promise.all([
       campaignsApi.list({ client_id: String(cid) }),
       tasksApi.list({ client_id: String(cid) }),
       clientProjectsApi.list(cid),
+      contentIdeasApi.list(cid),
     ]);
     setCampaigns(campRes.data);
     setTasks(taskRes.data || []);
     setProjects(projRes.data || []);
+    setIdeas(ideasRes.data || []);
     if (users.length === 0) {
       fetch('/api/users', { headers: { Authorization: `Bearer ${localStorage.getItem('lunia_token')}` } })
         .then(r => r.json()).then(d => setUsers(Array.isArray(d) ? d : [])).catch(() => {});
@@ -549,6 +552,7 @@ export default function ClientDetail() {
     { id: 'trafego',   label: 'Tráfego',   count: campaigns.length },
     { id: 'tarefas',   label: 'Tarefas',   count: tasks.length },
     { id: 'projetos',  label: 'Projetos',  count: projects.length },
+    { id: 'ideias',    label: 'Ideias',    count: ideas.length },
   ];
 
   return (
@@ -1280,6 +1284,71 @@ export default function ClientDetail() {
                     </div>
                   </div>
                 )}
+              </div>
+            );
+          })()}
+          {/* Ideias */}
+          {opTab === 'ideias' && (() => {
+            const STATUS_IDEAS: Record<string, { label: string; color: string }> = {
+              nova:       { label: 'Nova',       color: '#60a5fa' },
+              em_analise: { label: 'Em análise', color: '#f59e0b' },
+              aprovada:   { label: 'Aprovada',   color: '#34d399' },
+              descartada: { label: 'Descartada', color: '#94a3b8' },
+            };
+            const updateStatus = async (id: number, status: string) => {
+              await contentIdeasApi.updateStatus(id, status);
+              setIdeas(prev => prev.map(i => i.id === id ? { ...i, status } : i));
+            };
+            const deleteIdea = async (id: number) => {
+              await contentIdeasApi.delete(id);
+              setIdeas(prev => prev.filter(i => i.id !== id));
+            };
+            return ideas.length === 0 ? (
+              <div className="text-center py-12" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                <Zap size={32} className="mx-auto mb-3 opacity-20" />
+                <p className="text-sm">Nenhuma ideia enviada pelo cliente ainda</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {ideas.map((idea: any) => {
+                  const st = STATUS_IDEAS[idea.status] || STATUS_IDEAS['nova'];
+                  return (
+                    <div key={idea.id} className="rounded-xl p-4 group"
+                      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                      <div className="flex items-start justify-between gap-3 mb-1">
+                        <p className="text-sm font-semibold text-white">{idea.title}</p>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <select value={idea.status}
+                            onChange={e => updateStatus(idea.id, e.target.value)}
+                            className="text-[10px] font-semibold px-2 py-0.5 rounded-full outline-none cursor-pointer"
+                            style={{ color: st.color, background: `${st.color}15`, border: `1px solid ${st.color}30` }}>
+                            {Object.entries(STATUS_IDEAS).map(([k, v]) => (
+                              <option key={k} value={k}>{v.label}</option>
+                            ))}
+                          </select>
+                          <button onClick={() => deleteIdea(idea.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded transition-all"
+                            style={{ color: 'rgba(248,113,113,0.5)' }}>
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                      {idea.description && (
+                        <p className="text-xs mb-2 leading-relaxed" style={{ color: 'rgba(148,163,184,0.55)' }}>{idea.description}</p>
+                      )}
+                      {idea.reference_url && (
+                        <a href={idea.reference_url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs hover:opacity-80 transition-opacity"
+                          style={{ color: '#60a5fa' }}>
+                          <ExternalLink size={10} /> Ver referência
+                        </a>
+                      )}
+                      <p className="text-[10px] mt-2" style={{ color: 'rgba(100,116,139,0.3)' }}>
+                        {new Date(idea.created_at).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      </p>
+                    </div>
+                  );
+                })}
               </div>
             );
           })()}

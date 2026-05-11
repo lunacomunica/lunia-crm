@@ -203,6 +203,13 @@ export const uploadApi = {
   },
 };
 
+export const contentIdeasApi = {
+  list: (clientId: number) => api.get('/content-ideas', { params: { client_id: clientId } }),
+  create: (data: { agency_client_id: number; title: string; description?: string; reference_url?: string }) => api.post('/content-ideas', data),
+  updateStatus: (id: number, status: string) => api.patch(`/content-ideas/${id}/status`, { status }),
+  delete: (id: number) => api.delete(`/content-ideas/${id}`),
+};
+
 export const clientProjectsApi = {
   list: (clientId: number) => api.get('/client-projects', { params: { client_id: clientId } }),
   create: (data: { agency_client_id: number; title: string; description?: string; status?: string; due_date?: string }) => api.post('/client-projects', data),
