@@ -50,20 +50,36 @@ function StatusBadge({ status }: { status: ContentStatus }) {
 
 function StatusDropdown({ current, onChange }: { current: ContentStatus; onChange: (s: ContentStatus) => void }) {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
-    const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', h); return () => document.removeEventListener('mousedown', h);
+    const h = (e: MouseEvent) => {
+      if (btnRef.current?.contains(e.target as Node)) return;
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', h);
+    return () => document.removeEventListener('mousedown', h);
   }, []);
+
+  const handleOpen = () => {
+    if (!open && btnRef.current) {
+      const r = btnRef.current.getBoundingClientRect();
+      setPos({ top: r.bottom + 4, right: window.innerWidth - r.right });
+    }
+    setOpen(o => !o);
+  };
+
   return (
-    <div ref={ref} className="relative">
-      <button onClick={() => setOpen(o => !o)} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
+    <div className="relative">
+      <button ref={btnRef} onClick={handleOpen} className="flex items-center gap-1.5 hover:opacity-80 transition-opacity">
         <StatusBadge status={current} />
         <ChevronDown size={11} style={{ color: 'rgba(100,116,139,0.5)' }} />
       </button>
       {open && (
-        <div className="absolute z-50 top-full mt-1 right-0 rounded-xl overflow-hidden min-w-44"
-          style={{ background: '#0d0d1f', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
+        <div ref={menuRef} className="rounded-xl overflow-hidden min-w-44"
+          style={{ position: 'fixed', top: pos.top, right: pos.right, zIndex: 9999, background: '#0d0d1f', border: '1px solid rgba(59,130,246,0.2)', boxShadow: '0 8px 32px rgba(0,0,0,0.5)' }}>
           {STATUS_ORDER.map(s => (
             <button key={s} onClick={() => { onChange(s); setOpen(false); }}
               className="w-full flex items-center px-3 py-2 transition-colors"
