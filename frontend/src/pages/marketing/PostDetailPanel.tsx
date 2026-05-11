@@ -268,6 +268,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   const [newTask, setNewTask] = useState({ title: '', assigned_to: '', due_date: '', priority: 'alta' });
   const [savingTask, setSavingTask] = useState(false);
   const [openTaskId, setOpenTaskId] = useState<number | null>(null);
+  const [panelTab, setPanelTab] = useState<'post' | 'planejamento' | 'producao'>('post');
 
   useEffect(() => {
     contentApi.getTasks(post.id).then(r => setTasks(r.data || []));
@@ -467,132 +468,32 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
           </div>
         </div>
 
-        {/* Body — two columns */}
-        <div className="flex-1 overflow-hidden flex">
-
-          {/* LEFT column — media + basic info */}
-          <div className="w-[420px] flex-shrink-0 overflow-y-auto px-6 py-6 space-y-5"
-            style={{ borderRight: '1px solid rgba(59,130,246,0.08)' }}>
-
-            {/* Title */}
-            <div>
-              <label className={labelCls} style={labelStyle}>Título</label>
-              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
-                className={inputCls} style={inputStyle} placeholder="Título do post" />
-            </div>
-
-            {/* Type + Date */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls} style={labelStyle}>Tipo</label>
-                <div className="flex rounded-xl overflow-hidden"
-                  style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                  {POST_TYPES.map(t => (
-                    <button key={t.value}
-                      onClick={() => { setForm(f => ({ ...f, type: t.value })); setMediaFiles([]); }}
-                      className="flex-1 py-2 text-xs font-medium transition-all"
-                      style={{ color: form.type === t.value ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: form.type === t.value ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>Data prevista</label>
-                <input type="date" value={form.scheduled_date}
-                  onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
-                  className={inputCls} style={inputStyle} />
-              </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>Horário</label>
-                <input type="time" value={form.scheduled_time}
-                  onChange={e => setForm(f => ({ ...f, scheduled_time: e.target.value }))}
-                  className={inputCls} style={inputStyle} />
-              </div>
-            </div>
-
-            {/* Objective */}
-            <div>
-              <label className={labelCls} style={labelStyle}>Objetivo</label>
-              <select value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))}
-                className={inputCls} style={{ ...inputStyle, cursor: 'pointer' }}>
-                <option value="">Selecionar objetivo</option>
-                {OBJECTIVES.map(o => <option key={o} value={o}>{o}</option>)}
-              </select>
-            </div>
-
-            {/* MÍDIA */}
-            <div>
-              <label className={labelCls} style={labelStyle}>Mídia</label>
-
-              {(form.type === 'estatico' || form.type === 'carrossel') && (
-                <div className="space-y-3">
-                  {carouselImages.length > 0 && (
-                    <CarouselViewer
-                      images={carouselImages}
-                      onRemove={i => {
-                        const imgOnly = mediaFiles.filter(f => f.type === 'image');
-                        const toRemove = imgOnly[i];
-                        setMediaFiles(prev => prev.filter(f => f !== toRemove));
-                      }}
-                    />
-                  )}
-                  {(form.type === 'carrossel' || carouselImages.length === 0) && (
-                    <DropZone
-                      accept="image/jpeg,image/png,image/webp,image/gif"
-                      multiple={form.type === 'carrossel'}
-                      label={form.type === 'carrossel' ? 'Adicionar imagens ao carrossel' : 'Subir imagem'}
-                      icon={ImageIcon}
-                      uploading={uploading === 'images'}
-                      onFiles={files => uploadFiles(files, 'images')}
-                    />
-                  )}
-                  {form.type === 'estatico' && carouselImages.length > 0 && (
-                    <button onClick={() => setMediaFiles(prev => prev.filter(f => f.type !== 'image'))}
-                      className="text-xs flex items-center gap-1.5 transition-opacity hover:opacity-70"
-                      style={{ color: 'rgba(100,116,139,0.5)' }}>
-                      <Upload size={10} /> Trocar imagem
-                    </button>
-                  )}
-                </div>
+        {/* Tabs bar */}
+        <div className="flex-shrink-0 flex px-6 gap-1"
+          style={{ borderBottom: '1px solid rgba(59,130,246,0.08)', background: 'rgba(7,7,26,0.95)' }}>
+          {([
+            { id: 'post',        label: 'Post' },
+            { id: 'planejamento',label: 'Planejamento' },
+            { id: 'producao',    label: 'Produção Interna' },
+          ] as const).map(t => (
+            <button key={t.id} onClick={() => setPanelTab(t.id)}
+              className="px-5 py-3 text-sm font-medium transition-all relative"
+              style={{ color: panelTab === t.id ? '#93c5fd' : 'rgba(100,116,139,0.55)' }}>
+              {t.label}
+              {panelTab === t.id && (
+                <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t"
+                  style={{ background: '#3b82f6' }} />
               )}
+            </button>
+          ))}
+        </div>
 
-              {form.type === 'reels' && (
-                <div className="space-y-3">
-                  {reelsVideo ? (
-                    <ReelsViewer
-                      video={reelsVideo}
-                      cover={reelsCover ?? undefined}
-                      onRemoveVideo={removeVideoForReels}
-                      onRemoveCover={removeCoverForReels}
-                    />
-                  ) : (
-                    <DropZone
-                      accept="video/mp4,video/quicktime,video/webm"
-                      multiple={false}
-                      label="Subir vídeo do Reels"
-                      icon={Video}
-                      uploading={uploading === 'video'}
-                      onFiles={files => uploadFiles(files, 'video')}
-                    />
-                  )}
-                  {!reelsCover && (
-                    <DropZone
-                      accept="image/jpeg,image/png,image/webp"
-                      multiple={false}
-                      label="Capa do Reels (opcional)"
-                      icon={ImageIcon}
-                      uploading={uploading === 'cover'}
-                      onFiles={files => uploadFiles(files, 'cover')}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Body — single column, tabbed */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="max-w-2xl mx-auto px-6 py-6 space-y-5">
 
-          {/* RIGHT column — copy, legenda, referências, produção */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+          {/* ── POST TAB ── */}
+          {panelTab === 'post' && (<>
 
             {/* Caption */}
             <div>
@@ -630,6 +531,106 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                     className={inputCls} style={inputStyle} placeholder="Chamada para ação final…" />
                 </div>
               </div>
+            </div>
+
+            {/* Mídia */}
+            <div>
+              <label className={labelCls} style={labelStyle}>Mídia</label>
+              {(form.type === 'estatico' || form.type === 'carrossel') && (
+                <div className="space-y-3">
+                  {carouselImages.length > 0 && (
+                    <CarouselViewer images={carouselImages}
+                      onRemove={i => {
+                        const imgOnly = mediaFiles.filter(f => f.type === 'image');
+                        setMediaFiles(prev => prev.filter(f => f !== imgOnly[i]));
+                      }} />
+                  )}
+                  {(form.type === 'carrossel' || carouselImages.length === 0) && (
+                    <DropZone accept="image/jpeg,image/png,image/webp,image/gif"
+                      multiple={form.type === 'carrossel'}
+                      label={form.type === 'carrossel' ? 'Adicionar imagens ao carrossel' : 'Subir imagem'}
+                      icon={ImageIcon} uploading={uploading === 'images'}
+                      onFiles={files => uploadFiles(files, 'images')} />
+                  )}
+                  {form.type === 'estatico' && carouselImages.length > 0 && (
+                    <button onClick={() => setMediaFiles(prev => prev.filter(f => f.type !== 'image'))}
+                      className="text-xs flex items-center gap-1.5 transition-opacity hover:opacity-70"
+                      style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      <Upload size={10} /> Trocar imagem
+                    </button>
+                  )}
+                </div>
+              )}
+              {form.type === 'reels' && (
+                <div className="space-y-3">
+                  {reelsVideo ? (
+                    <ReelsViewer video={reelsVideo} cover={reelsCover ?? undefined}
+                      onRemoveVideo={removeVideoForReels} onRemoveCover={removeCoverForReels} />
+                  ) : (
+                    <DropZone accept="video/mp4,video/quicktime,video/webm" multiple={false}
+                      label="Subir vídeo do Reels" icon={Video} uploading={uploading === 'video'}
+                      onFiles={files => uploadFiles(files, 'video')} />
+                  )}
+                  {!reelsCover && (
+                    <DropZone accept="image/jpeg,image/png,image/webp" multiple={false}
+                      label="Capa do Reels (opcional)" icon={ImageIcon} uploading={uploading === 'cover'}
+                      onFiles={files => uploadFiles(files, 'cover')} />
+                  )}
+                </div>
+              )}
+            </div>
+          </>)}
+
+          {/* ── PLANEJAMENTO TAB ── */}
+          {panelTab === 'planejamento' && (<>
+
+            {/* Title */}
+            <div>
+              <label className={labelCls} style={labelStyle}>Título</label>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                className={inputCls} style={inputStyle} placeholder="Título do post" />
+            </div>
+
+            {/* Type */}
+            <div>
+              <label className={labelCls} style={labelStyle}>Tipo</label>
+              <div className="flex rounded-xl overflow-hidden"
+                style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                {POST_TYPES.map(t => (
+                  <button key={t.value}
+                    onClick={() => { setForm(f => ({ ...f, type: t.value })); setMediaFiles([]); }}
+                    className="flex-1 py-2 text-xs font-medium transition-all"
+                    style={{ color: form.type === t.value ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: form.type === t.value ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Date + Time */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={labelCls} style={labelStyle}>Data prevista</label>
+                <input type="date" value={form.scheduled_date}
+                  onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                  className={inputCls} style={inputStyle} />
+              </div>
+              <div>
+                <label className={labelCls} style={labelStyle}>Horário</label>
+                <input type="time" value={form.scheduled_time}
+                  onChange={e => setForm(f => ({ ...f, scheduled_time: e.target.value }))}
+                  className={inputCls} style={inputStyle} />
+              </div>
+            </div>
+
+            {/* Objective */}
+            <div>
+              <label className={labelCls} style={labelStyle}>Objetivo</label>
+              <select value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))}
+                className={inputCls} style={{ ...inputStyle, cursor: 'pointer' }}>
+                <option value="">Selecionar objetivo</option>
+                {OBJECTIVES.map(o => <option key={o} value={o}>{o}</option>)}
+              </select>
             </div>
 
             {/* Referências */}
@@ -675,11 +676,13 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                 </div>
               </div>
             </div>
+          </>)}
 
-            {/* Produção interna */}
+          {/* ── PRODUÇÃO INTERNA TAB ── */}
+          {panelTab === 'producao' && (
             <div>
               <div className="flex items-center justify-between mb-3">
-                <label className={labelCls} style={{ ...labelStyle, marginBottom: 0 }}>Produção Interna</label>
+                <label className={labelCls} style={{ ...labelStyle, marginBottom: 0 }}>Tarefas</label>
                 <div className="flex items-center gap-2">
                   {tasks.length === 0 && (
                     <button onClick={() => setWorkflowModal(true)}
@@ -824,8 +827,10 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                 </div>
               )}
             </div>
-          </div>
-        </div>
+          )}
+
+          </div>{/* /max-w-2xl */}
+        </div>{/* /overflow-y-auto */}
       </div>
 
       {/* Workflow modal */}
