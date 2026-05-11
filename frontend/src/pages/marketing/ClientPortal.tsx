@@ -185,8 +185,8 @@ function PortalSidebar({
       label: 'Marketing',
       items: [
         { id: 'conteudos'   as PageId, label: 'Conteúdos',   icon: Grid3x3,   badge: pendingCount },
-        { id: 'performance' as PageId, label: 'Performance',  icon: BarChart3, badge: 0 },
         { id: 'trafico'     as PageId, label: 'Tráfego',      icon: Megaphone, badge: activeCampaignsCount },
+        { id: 'performance' as PageId, label: 'Performance',  icon: BarChart3, badge: 0 },
       ],
     },
     {
