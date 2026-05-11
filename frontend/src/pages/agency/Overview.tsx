@@ -206,11 +206,15 @@ export default function AgencyOverview() {
                 {/* Task bar */}
                 <div className="flex items-center justify-between text-[11px]"
                   style={{ color: 'rgba(100,116,139,0.6)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '12px' }}>
-                  <span>{c.tarefas_abertas} tarefa{c.tarefas_abertas !== 1 ? 's' : ''} em aberto</span>
+                  <button onClick={() => navigate(`/gerot?client_id=${c.id}`)}
+                    className="hover:text-white transition-colors">
+                    {c.tarefas_abertas} tarefa{c.tarefas_abertas !== 1 ? 's' : ''} em aberto
+                  </button>
                   {c.tarefas_atrasadas > 0 && (
-                    <span className="font-medium" style={{ color: '#f87171' }}>
+                    <button onClick={() => navigate(`/gerot?client_id=${c.id}`)}
+                      className="font-medium hover:opacity-80 transition-opacity" style={{ color: '#f87171' }}>
                       {c.tarefas_atrasadas} atrasada{c.tarefas_atrasadas !== 1 ? 's' : ''}
-                    </span>
+                    </button>
                   )}
                 </div>
               </div>

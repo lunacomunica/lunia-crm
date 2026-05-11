@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   Play, Pause, CheckCircle2, Plus, X, Clock, Calendar,
   FileImage, Megaphone, Timer, Trash2, Send, ArrowRight, Zap, AlertTriangle, CheckSquare,
@@ -95,6 +96,8 @@ const EMPTY_FORM = { title: '', description: '', assigned_to: '', agency_client_
 
 export default function Gerot() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const initialClientId = searchParams.get('client_id') || '';
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'hoje' | 'semana' | 'todas'>('hoje');
@@ -203,7 +206,7 @@ export default function Gerot() {
 
   // Admin, superadmin e manager usam o mesmo painel
   if (isManager || isAdmin) return <>
-    <ManagerPanel users={users} tasks={tasks} loading={loading} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} detail={detail} setDetail={setDetail} onOpenModal={() => { setModal(true); setForm(EMPTY_FORM); }} />
+    <ManagerPanel users={users} tasks={tasks} loading={loading} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} detail={detail} setDetail={setDetail} onOpenModal={() => { setModal(true); setForm(EMPTY_FORM); }} initialClientId={initialClientId} />
     {selectedPost && <PostDetailPanel post={selectedPost} onClose={() => setSelectedPost(null)} onUpdated={p => setSelectedPost(p)} onDeleted={() => { setSelectedPost(null); load(); }} />}
   </>;
 
@@ -337,18 +340,18 @@ export default function Gerot() {
 }
 
 /* ── Manager Panel ───────────────────────────────────────────────────────── */
-function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPause, onComplete, onDetail, detail, setDetail, onOpenModal }: {
+function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPause, onComplete, onDetail, detail, setDetail, onOpenModal, initialClientId = '' }: {
   users: any[]; tasks: Task[]; loading: boolean; acting: number | null; activeTask: Task | undefined;
   onStart: (id: number) => void; onPause: (id: number) => void; onComplete: (id: number, h?: any) => void;
   onDetail: (t: Task) => void; detail: Task | null; setDetail: (t: Task | null) => void;
-  onOpenModal: () => void;
+  onOpenModal: () => void; initialClientId?: string;
 }) {
   const { user } = useAuth();
   const [view, setView] = useState<'minhas' | 'calendario' | 'time'>('minhas');
   const [overview, setOverview] = useState<any>(null);
   const [showAllTasks, setShowAllTasks] = useState(false);
-  const [myFilter, setMyFilter] = useState<'hoje' | 'semana' | 'todas'>('hoje');
-  const [clientFilter, setClientFilter] = useState('');
+  const [myFilter, setMyFilter] = useState<'hoje' | 'semana' | 'todas'>(initialClientId ? 'todas' : 'hoje');
+  const [clientFilter, setClientFilter] = useState(initialClientId);
   const [calWeekOffset, setCalWeekOffset] = useState(0);
   const [calMonthOffset, setCalMonthOffset] = useState(0);
   const [calMode, setCalMode] = useState<'semana' | 'mes'>('semana');
