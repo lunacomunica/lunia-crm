@@ -445,9 +445,9 @@ export default function MarketingContent() {
                                   </span>
                                 </div>
                               )}
-                              {/* Position number */}
+                              {/* Position number — colored by status */}
                               <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
-                                style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.8)' }}>
+                                style={{ background: cfg.color, color: '#fff', boxShadow: `0 0 6px ${cfg.color}88` }}>
                                 {total - i}
                               </div>
                               {/* Type icon (Instagram style) */}

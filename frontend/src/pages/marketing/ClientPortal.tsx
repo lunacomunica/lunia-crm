@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   CheckCircle2, RotateCcw, MessageSquare, Calendar, X, Send, Eye,
-  FileImage, Clock, Grid3x3, Megaphone, Smartphone,
+  FileImage, Clock, Grid3x3, Megaphone, Smartphone, Clapperboard, Copy,
   TrendingUp, MousePointer, DollarSign, BarChart3, Target, Pencil,
   Plus, Trash2, ChevronRight, ChevronLeft, Zap, Users, Star, BookOpen, Briefcase,
   ArrowLeft, LayoutDashboard, Menu, Phone, UserPlus, Kanban, Settings, Search
@@ -450,7 +450,7 @@ export default function ClientPortal() {
             const overlay = FEED_OVERLAY[p.status];
             const isPublished = p.status === 'publicado';
             return (
-              <button key={p.id} onClick={() => openDetail(p)} className="relative aspect-square overflow-hidden group" style={{ background: 'rgba(255,255,255,0.03)' }}>
+              <button key={p.id} onClick={() => openDetail(p)} className="relative overflow-hidden group" style={{ aspectRatio: '1080/1350', background: 'rgba(255,255,255,0.03)' }}>
                 {p.media_url ? (
                   <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" style={{ opacity: overlay ? 0.65 : 1 }} />
                 ) : (
@@ -464,8 +464,8 @@ export default function ClientPortal() {
                     <span className="text-[9px] font-bold" style={{ color: overlay.color }}>{overlay.label}</span>
                   </div>
                 )}
-                {isPublished && <div className="absolute top-1 right-1"><div className="w-4 h-4 rounded-full flex items-center justify-center" style={{ background: '#10b981' }}><CheckCircle2 size={10} className="text-white" /></div></div>}
-                {p.type !== 'post' && <div className="absolute bottom-1 left-1"><span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: 'rgba(0,0,0,0.7)', color: 'rgba(255,255,255,0.8)' }}>{TYPE_LABEL[p.type]}</span></div>}
+                {p.type === 'carrossel' && <Copy size={14} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
+                {p.type === 'reels' && <Clapperboard size={14} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
               </button>
             );
           })}
@@ -1374,7 +1374,7 @@ export default function ClientPortal() {
               <div key={p.id} onClick={() => openDetail(p)}
                 className="rounded-2xl overflow-hidden cursor-pointer group transition-all duration-200"
                 style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: p.status === 'aguardando_aprovacao' ? '1px solid rgba(245,158,11,0.25)' : '1px solid rgba(255,255,255,0.04)' }}>
-                <div className="relative aspect-square overflow-hidden" style={{ background: 'rgba(59,130,246,0.03)' }}>
+                <div className="relative overflow-hidden" style={{ aspectRatio: '1080/1350', background: 'rgba(59,130,246,0.03)' }}>
                   {p.media_url ? (
                     <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   ) : (
@@ -1382,11 +1382,8 @@ export default function ClientPortal() {
                       <FileImage size={32} style={{ color: 'rgba(59,130,246,0.15)' }} />
                     </div>
                   )}
-                  <div className="absolute top-2 right-2">
-                    <span className="text-xs px-2 py-0.5 rounded-md" style={{ background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.6)', backdropFilter: 'blur(4px)' }}>
-                      {TYPE_LABEL[p.type] || p.type}
-                    </span>
-                  </div>
+                  {p.type === 'carrossel' && <Copy size={14} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
+                  {p.type === 'reels' && <Clapperboard size={14} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
                 </div>
                 <div className="p-4">
                   <p className="text-sm font-medium text-white mb-2 truncate">{p.title}</p>
