@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, Briefcase, Instagram, Clock, Eye } from 'lucide-react';
-import { agencyClientsApi } from '../../api/client';
+import { Plus, Pencil, Trash2, X, Briefcase, Instagram, Clock, Eye, Camera } from 'lucide-react';
+import { agencyClientsApi, uploadAnyApi } from '../../api/client';
 import { AgencyClient } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
-const emptyForm = { name: '', segment: '', contact_name: '', contact_email: '', instagram_handle: '' };
+const emptyForm = { name: '', segment: '', contact_name: '', contact_email: '', instagram_handle: '', logo: '' };
 
 export default function MarketingClients() {
   const { user } = useAuth();
@@ -17,6 +17,8 @@ export default function MarketingClients() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<number | null>(null);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
+  const logoInputRef = useRef<HTMLInputElement>(null);
 
   const load = () => { setLoading(true); agencyClientsApi.list().then(r => { setClients(r.data); setLoading(false); }); };
   useEffect(() => { load(); }, []);
@@ -24,8 +26,18 @@ export default function MarketingClients() {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setModal(true); };
   const openEdit = (c: AgencyClient) => {
     setEditing(c);
-    setForm({ name: c.name, segment: c.segment || '', contact_name: c.contact_name || '', contact_email: c.contact_email || '', instagram_handle: c.instagram_handle || '' });
+    setForm({ name: c.name, segment: c.segment || '', contact_name: c.contact_name || '', contact_email: c.contact_email || '', instagram_handle: c.instagram_handle || '', logo: c.logo || '' });
     setModal(true);
+  };
+
+  const handleLogoUpload = async (file: File) => {
+    setUploadingLogo(true);
+    try {
+      const r = await uploadAnyApi.files([file]);
+      setForm(f => ({ ...f, logo: r.data.files[0].url }));
+    } finally {
+      setUploadingLogo(false);
+    }
   };
 
   const handleSave = async () => {
@@ -154,6 +166,33 @@ export default function MarketingClients() {
                 style={{ color: 'rgba(100,116,139,0.6)' }}><X size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
+              {/* Logo upload */}
+              <div className="flex justify-center">
+                <input ref={logoInputRef} type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleLogoUpload(f); e.target.value = ''; }} />
+                <button onClick={() => logoInputRef.current?.click()}
+                  className="relative w-20 h-20 rounded-2xl overflow-hidden transition-all group"
+                  style={{ background: 'rgba(59,130,246,0.08)', border: '2px dashed rgba(59,130,246,0.25)' }}>
+                  {uploadingLogo ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+                    </div>
+                  ) : form.logo ? (
+                    <>
+                      <img src={form.logo} alt="logo" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: 'rgba(0,0,0,0.5)' }}>
+                        <Camera size={16} color="white" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                      <Camera size={18} style={{ color: 'rgba(59,130,246,0.6)' }} />
+                      <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>Logo</span>
+                    </div>
+                  )}
+                </button>
+              </div>
               <div>
                 <label className="label-dark">Nome da empresa *</label>
                 <input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} className="input-dark" placeholder="Ex: Studio Z" />
