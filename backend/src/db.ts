@@ -366,6 +366,7 @@ const migrations = [
   )`,
   "ALTER TABLE client_goals ADD COLUMN current_value REAL DEFAULT 0",
   "ALTER TABLE client_goals ADD COLUMN due_date TEXT",
+  "ALTER TABLE campaign_creatives ADD COLUMN utm_link TEXT",
   `CREATE TABLE IF NOT EXISTS client_products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     agency_client_id INTEGER NOT NULL REFERENCES agency_clients(id) ON DELETE CASCADE,

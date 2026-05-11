@@ -59,13 +59,12 @@ const selectStyle = {
 const emptyForm = {
   agency_client_id: '', name: '', platform: 'meta' as CampaignPlatform,
   status: 'rascunho' as CampaignStatus, objective: 'trafego' as CampaignObjective,
-  budget: '', spent: '', revenue: '', impressions: '', clicks: '', conversions: '',
-  target_audience: '', utm_link: '', start_date: '', end_date: '', notes: '',
+  budget: '', target_audience: '', start_date: '', end_date: '', notes: '',
 };
 
 const emptyCreativeForm = {
   title: '', type: 'image' as CreativeType, media_url: '', headline: '', description: '',
-  cta: '', status: 'ativo' as CreativeStatus,
+  cta: '', status: 'ativo' as CreativeStatus, utm_link: '',
   impressions: '', clicks: '', conversions: '', spend: '',
 };
 
@@ -202,9 +201,8 @@ export default function Traffic() {
     setForm({
       agency_client_id: String(c.agency_client_id || ''),
       name: c.name, platform: c.platform, status: c.status, objective: c.objective,
-      budget: String(c.budget), spent: String(c.spent), revenue: String(c.revenue),
-      impressions: String(c.impressions), clicks: String(c.clicks), conversions: String(c.conversions),
-      target_audience: c.target_audience || '', utm_link: c.utm_link || '',
+      budget: String(c.budget),
+      target_audience: c.target_audience || '',
       start_date: c.start_date?.slice(0,10) || '', end_date: c.end_date?.slice(0,10) || '',
       notes: c.notes || '',
     });
@@ -222,15 +220,18 @@ export default function Traffic() {
     const payload = {
       ...form,
       agency_client_id: form.agency_client_id || null,
-      budget: Number(form.budget) || 0, spent: Number(form.spent) || 0,
-      revenue: Number(form.revenue) || 0, impressions: Number(form.impressions) || 0,
-      clicks: Number(form.clicks) || 0, conversions: Number(form.conversions) || 0,
+      budget: Number(form.budget) || 0,
     };
-    if (editing) await campaignsApi.update(editing.id, payload);
-    else await campaignsApi.create(payload);
-    setSaving(false); setModal(false); load();
-    if (detail && editing && detail.id === editing.id) {
-      const r = await campaignsApi.get(editing.id); setDetail(r.data);
+    if (editing) {
+      await campaignsApi.update(editing.id, payload);
+      setSaving(false); setModal(false); load();
+      if (detail?.id === editing.id) { const r = await campaignsApi.get(editing.id); setDetail(r.data); }
+    } else {
+      const r = await campaignsApi.create(payload);
+      setSaving(false); setModal(false); load();
+      // Auto-open detail so user can immediately add creatives
+      const full = await campaignsApi.get(r.data.id);
+      setDetail(full.data);
     }
   };
 
@@ -246,6 +247,7 @@ export default function Traffic() {
     setCreativeForm({
       title: cr.title, type: cr.type, media_url: cr.media_url || '', headline: cr.headline || '',
       description: cr.description || '', cta: cr.cta || '', status: cr.status,
+      utm_link: (cr as any).utm_link || '',
       impressions: String(cr.impressions), clicks: String(cr.clicks),
       conversions: String(cr.conversions), spend: String(cr.spend),
     });
@@ -566,23 +568,12 @@ export default function Traffic() {
                 </div>
               </div>
 
-              <p className="label-dark pt-2">Orçamento & Métricas</p>
-              <div className="grid grid-cols-3 gap-3">
-                {[
-                  { label: 'Budget (R$)', key: 'budget' }, { label: 'Investido (R$)', key: 'spent' },
-                  { label: 'Receita (R$)', key: 'revenue' }, { label: 'Impressões', key: 'impressions' },
-                  { label: 'Cliques', key: 'clicks' }, { label: 'Conversões', key: 'conversions' },
-                ].map(f => (
-                  <div key={f.key}>
-                    <label className="label-dark">{f.label}</label>
-                    <input type="number" min="0" value={(form as any)[f.key]}
-                      onChange={e => setForm({ ...form, [f.key]: e.target.value })} className="input-dark" />
-                  </div>
-                ))}
-              </div>
-
-              <p className="label-dark pt-2">Configurações</p>
               <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="label-dark">Budget (R$)</label>
+                  <input type="number" min="0" value={form.budget} onChange={e => setForm({ ...form, budget: e.target.value })} className="input-dark" placeholder="0" />
+                </div>
+                <div />
                 <div>
                   <label className="label-dark">Início</label>
                   <input type="date" value={form.start_date} onChange={e => setForm({ ...form, start_date: e.target.value })} className="input-dark" />
@@ -594,10 +585,6 @@ export default function Traffic() {
                 <div className="col-span-2">
                   <label className="label-dark">Público-alvo</label>
                   <input value={form.target_audience} onChange={e => setForm({ ...form, target_audience: e.target.value })} className="input-dark" placeholder="Ex: Mulheres 25-40 interessadas em moda, SP e RJ" />
-                </div>
-                <div className="col-span-2">
-                  <label className="label-dark">Link / UTM</label>
-                  <input value={form.utm_link} onChange={e => setForm({ ...form, utm_link: e.target.value })} className="input-dark" placeholder="https://seusite.com.br/?utm_source=meta&utm_campaign=..." />
                 </div>
                 <div className="col-span-2">
                   <label className="label-dark">Observações</label>
@@ -661,6 +648,10 @@ export default function Traffic() {
                 <div>
                   <label className="label-dark">Gasto (R$)</label>
                   <input type="number" min="0" value={creativeForm.spend} onChange={e => setCreativeForm({ ...creativeForm, spend: e.target.value })} className="input-dark" />
+                </div>
+                <div className="col-span-2">
+                  <label className="label-dark">Link / UTM</label>
+                  <input value={creativeForm.utm_link} onChange={e => setCreativeForm({ ...creativeForm, utm_link: e.target.value })} className="input-dark" placeholder="https://seusite.com.br/?utm_source=meta&utm_campaign=..." />
                 </div>
               </div>
               <p className="label-dark">Métricas</p>

@@ -8,7 +8,11 @@ router.get('/', (req, res) => {
   let q = `
     SELECT c.*,
       ac.name as client_name,
-      (SELECT COUNT(*) FROM campaign_creatives cc WHERE cc.campaign_id = c.id) as creative_count
+      (SELECT COUNT(*) FROM campaign_creatives cc WHERE cc.campaign_id = c.id) as creative_count,
+      COALESCE((SELECT SUM(cc.spend) FROM campaign_creatives cc WHERE cc.campaign_id = c.id), 0) as spent,
+      COALESCE((SELECT SUM(cc.impressions) FROM campaign_creatives cc WHERE cc.campaign_id = c.id), 0) as impressions,
+      COALESCE((SELECT SUM(cc.clicks) FROM campaign_creatives cc WHERE cc.campaign_id = c.id), 0) as clicks,
+      COALESCE((SELECT SUM(cc.conversions) FROM campaign_creatives cc WHERE cc.campaign_id = c.id), 0) as conversions
     FROM campaigns c
     LEFT JOIN agency_clients ac ON c.agency_client_id = ac.id
     WHERE c.tenant_id = ?
@@ -68,21 +72,21 @@ router.delete('/:id', (req, res) => {
 // Creatives
 router.post('/:id/creatives', (req, res) => {
   const { title, type = 'image', media_url, headline, description, cta, status = 'ativo',
-    impressions = 0, clicks = 0, conversions = 0, spend = 0 } = req.body;
+    impressions = 0, clicks = 0, conversions = 0, spend = 0, utm_link } = req.body;
   if (!title) return res.status(400).json({ error: 'Título é obrigatório' });
   const r = db.prepare(`
-    INSERT INTO campaign_creatives (campaign_id, title, type, media_url, headline, description, cta, status, impressions, clicks, conversions, spend)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(req.params.id, title, type, media_url || null, headline || null, description || null, cta || null, status, impressions, clicks, conversions, spend);
+    INSERT INTO campaign_creatives (campaign_id, title, type, media_url, headline, description, cta, status, impressions, clicks, conversions, spend, utm_link)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(req.params.id, title, type, media_url || null, headline || null, description || null, cta || null, status, impressions, clicks, conversions, spend, utm_link || null);
   res.status(201).json(db.prepare('SELECT * FROM campaign_creatives WHERE id=?').get(r.lastInsertRowid));
 });
 
 router.put('/:id/creatives/:cid', (req, res) => {
-  const { title, type, media_url, headline, description, cta, status, impressions, clicks, conversions, spend } = req.body;
+  const { title, type, media_url, headline, description, cta, status, impressions, clicks, conversions, spend, utm_link } = req.body;
   db.prepare(`
-    UPDATE campaign_creatives SET title=?, type=?, media_url=?, headline=?, description=?, cta=?, status=?, impressions=?, clicks=?, conversions=?, spend=?
+    UPDATE campaign_creatives SET title=?, type=?, media_url=?, headline=?, description=?, cta=?, status=?, impressions=?, clicks=?, conversions=?, spend=?, utm_link=?
     WHERE id=? AND campaign_id=?
-  `).run(title, type, media_url || null, headline || null, description || null, cta || null, status, impressions, clicks, conversions, spend, req.params.cid, req.params.id);
+  `).run(title, type, media_url || null, headline || null, description || null, cta || null, status, impressions, clicks, conversions, spend, utm_link || null, req.params.cid, req.params.id);
   res.json(db.prepare('SELECT * FROM campaign_creatives WHERE id=?').get(req.params.cid));
 });
 
