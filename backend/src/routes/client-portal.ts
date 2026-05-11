@@ -108,6 +108,14 @@ router.put('/:clientId/positioning', (req, res) => {
     desejos_secretos, desejos_aspiracional,
     dores_profundas, dores_travando,
     objecoes_desculpas, objecoes_medos,
+    branding_direcao, branding_sensacoes,
+    visual_identidade_link,
+    visual_logo_url, visual_logo_texto,
+    visual_cores_url, visual_cores_texto,
+    visual_tipografia_url, visual_tipografia_texto,
+    visual_mood_pinterest, visual_mood_url,
+    verbal_tom, verbal_jargoes, verbal_emojis,
+    proibido_design, proibido_imagens, proibido_conteudo, proibido_copys,
   } = req.body;
   db.prepare(`
     INSERT INTO client_positioning (
@@ -119,8 +127,16 @@ router.put('/:clientId/positioning', (req, res) => {
       crencas_tentou, crencas_nao_acredita,
       desejos_secretos, desejos_aspiracional,
       dores_profundas, dores_travando,
-      objecoes_desculpas, objecoes_medos
-    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+      objecoes_desculpas, objecoes_medos,
+      branding_direcao, branding_sensacoes,
+      visual_identidade_link,
+      visual_logo_url, visual_logo_texto,
+      visual_cores_url, visual_cores_texto,
+      visual_tipografia_url, visual_tipografia_texto,
+      visual_mood_pinterest, visual_mood_url,
+      verbal_tom, verbal_jargoes, verbal_emojis,
+      proibido_design, proibido_imagens, proibido_conteudo, proibido_copys
+    ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ON CONFLICT(agency_client_id) DO UPDATE SET
       icp=excluded.icp, promise=excluded.promise,
       differentials=excluded.differentials, cases=excluded.cases, mission=excluded.mission,
@@ -134,6 +150,15 @@ router.put('/:clientId/positioning', (req, res) => {
       desejos_secretos=excluded.desejos_secretos, desejos_aspiracional=excluded.desejos_aspiracional,
       dores_profundas=excluded.dores_profundas, dores_travando=excluded.dores_travando,
       objecoes_desculpas=excluded.objecoes_desculpas, objecoes_medos=excluded.objecoes_medos,
+      branding_direcao=excluded.branding_direcao, branding_sensacoes=excluded.branding_sensacoes,
+      visual_identidade_link=excluded.visual_identidade_link,
+      visual_logo_url=excluded.visual_logo_url, visual_logo_texto=excluded.visual_logo_texto,
+      visual_cores_url=excluded.visual_cores_url, visual_cores_texto=excluded.visual_cores_texto,
+      visual_tipografia_url=excluded.visual_tipografia_url, visual_tipografia_texto=excluded.visual_tipografia_texto,
+      visual_mood_pinterest=excluded.visual_mood_pinterest, visual_mood_url=excluded.visual_mood_url,
+      verbal_tom=excluded.verbal_tom, verbal_jargoes=excluded.verbal_jargoes, verbal_emojis=excluded.verbal_emojis,
+      proibido_design=excluded.proibido_design, proibido_imagens=excluded.proibido_imagens,
+      proibido_conteudo=excluded.proibido_conteudo, proibido_copys=excluded.proibido_copys,
       updated_at=datetime('now')
   `).run(
     cid, icp||'', promise||'', JSON.stringify(differentials||[]), JSON.stringify(cases||[]), mission||'',
@@ -145,6 +170,14 @@ router.put('/:clientId/positioning', (req, res) => {
     desejos_secretos||'', desejos_aspiracional||'',
     dores_profundas||'', dores_travando||'',
     objecoes_desculpas||'', objecoes_medos||'',
+    branding_direcao||'', branding_sensacoes ? JSON.stringify(branding_sensacoes) : '[]',
+    visual_identidade_link||'',
+    visual_logo_url||'', visual_logo_texto||'',
+    visual_cores_url||'', visual_cores_texto||'',
+    visual_tipografia_url||'', visual_tipografia_texto||'',
+    visual_mood_pinterest||'', visual_mood_url||'',
+    verbal_tom||'', verbal_jargoes||'', verbal_emojis||'',
+    proibido_design||'', proibido_imagens||'', proibido_conteudo||'', proibido_copys||'',
   );
   res.json(db.prepare('SELECT * FROM client_positioning WHERE agency_client_id = ?').get(cid));
 });
