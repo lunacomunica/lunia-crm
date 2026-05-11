@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Plus, X, Trash2, FileImage, ChevronDown, ChevronLeft, ChevronRight, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye, List, CalendarDays, LayoutGrid } from 'lucide-react';
+import { Plus, X, Trash2, FileImage, ChevronDown, ChevronLeft, ChevronRight, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye, List, CalendarDays, LayoutGrid, Clapperboard, Copy } from 'lucide-react';
 import { contentApi, agencyClientsApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
 import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
@@ -450,9 +450,9 @@ export default function MarketingContent() {
                                 style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.8)' }}>
                                 {total - i}
                               </div>
-                              {/* Status dot */}
-                              <div className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-                                style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.color}` }} />
+                              {/* Type icon (Instagram style) */}
+                              {p.type === 'carrossel' && <Copy size={14} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
+                              {p.type === 'reels' && <Clapperboard size={14} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
                               {/* Hover overlay */}
                               <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                                 style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(2px)' }}>

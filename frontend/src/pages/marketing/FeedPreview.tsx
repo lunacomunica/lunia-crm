@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, CheckCircle2, Clock, RotateCcw, FileImage, Grid3x3, Smartphone, X, Send, Calendar, MessageSquare } from 'lucide-react';
+import { ArrowLeft, Eye, CheckCircle2, Clock, RotateCcw, FileImage, Grid3x3, Smartphone, X, Send, Calendar, MessageSquare, Clapperboard, Copy } from 'lucide-react';
 import { contentApi, agencyClientsApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
 import { format } from 'date-fns';
@@ -162,25 +162,9 @@ export default function FeedPreview() {
                 </div>
               )}
 
-              {/* Published checkmark */}
-              {isPublished && (
-                <div className="absolute top-1 right-1">
-                  <div className="w-4 h-4 rounded-full flex items-center justify-center"
-                    style={{ background: '#10b981' }}>
-                    <CheckCircle2 size={10} className="text-white" />
-                  </div>
-                </div>
-              )}
-
-              {/* Type tag */}
-              {p.type !== 'post' && (
-                <div className="absolute bottom-1 left-1">
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                    style={{ background: 'rgba(0,0,0,0.7)', color: 'rgba(255,255,255,0.8)' }}>
-                    {TYPE_LABEL[p.type]}
-                  </span>
-                </div>
-              )}
+              {/* Type icon (Instagram style) — top right */}
+              {p.type === 'carrossel' && <Copy size={16} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
+              {p.type === 'reels' && <Clapperboard size={16} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
 
               {/* Hover date */}
               {p.scheduled_date && (
