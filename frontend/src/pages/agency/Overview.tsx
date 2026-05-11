@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { agencyClientsApi, contentApi } from '../../api/client';
 import { AlertTriangle, Clock, CheckCircle2, Users, ExternalLink, Trash2, X, FileImage } from 'lucide-react';
+import PostDetailPanel from '../marketing/PostDetailPanel';
 
 interface ClientProduction {
   id: number; name: string; segment: string; logo: string | null;
@@ -47,6 +48,7 @@ export default function AgencyOverview() {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [piecesLoading, setPiecesLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [panelPost, setPanelPost] = useState<any | null>(null);
 
   const load = () => agencyClientsApi.production().then(r => { setClients(r.data); setLoading(false); });
   useEffect(() => { load(); }, []);
@@ -223,6 +225,18 @@ export default function AgencyOverview() {
         </div>
       )}
 
+      {panelPost && (
+        <PostDetailPanel
+          post={panelPost}
+          onClose={() => setPanelPost(null)}
+          onUpdated={(updated) => {
+            setPieces(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p));
+            setPanelPost(updated);
+          }}
+          onDeleted={() => { setPieces(prev => prev.filter(p => p.id !== panelPost.id)); setPanelPost(null); load(); }}
+        />
+      )}
+
       {/* Pieces modal */}
       {modal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.7)' }}
@@ -269,9 +283,11 @@ export default function AgencyOverview() {
               ) : pieces.length === 0 ? (
                 <div className="py-16 text-center text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Nenhuma peça encontrada</div>
               ) : pieces.map(p => (
-                <div key={p.id} className="flex items-center gap-3 px-5 py-3 group transition-colors hover:bg-white/[0.02]"
+                <div key={p.id} onClick={() => setPanelPost(p)}
+                  className="flex items-center gap-3 px-5 py-3 group transition-colors hover:bg-white/[0.02] cursor-pointer"
                   style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
                   <input type="checkbox" checked={selected.has(p.id)}
+                    onClick={e => e.stopPropagation()}
                     onChange={() => setSelected(prev => { const s = new Set(prev); s.has(p.id) ? s.delete(p.id) : s.add(p.id); return s; })}
                     style={{ accentColor: '#3b82f6' }} />
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden"
@@ -286,7 +302,7 @@ export default function AgencyOverview() {
                       {p.type} {p.scheduled_date ? `· ${new Date(p.scheduled_date).toLocaleDateString('pt-BR')}` : ''} {p.batch_id ? '' : '· sem lote'}
                     </p>
                   </div>
-                  <button onClick={() => deleteSingle(p.id)} disabled={deleting}
+                  <button onClick={e => { e.stopPropagation(); deleteSingle(p.id); }} disabled={deleting}
                     className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all hover:bg-red-500/10"
                     style={{ color: 'rgba(248,113,113,0.6)' }}>
                     <Trash2 size={13} />
