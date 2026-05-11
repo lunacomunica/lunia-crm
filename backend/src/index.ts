@@ -33,7 +33,7 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 const IS_PROD = process.env.NODE_ENV === 'production';
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const UPLOAD_DIR = join(__dirname, '../uploads');
+const UPLOAD_DIR = process.env.UPLOAD_DIR || join(__dirname, '../uploads');
 if (!existsSync(UPLOAD_DIR)) mkdirSync(UPLOAD_DIR, { recursive: true });
 
 if (!IS_PROD) {
