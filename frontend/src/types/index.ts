@@ -46,6 +46,7 @@ export interface ContentPiece {
   objective: string | null;
   status: ContentStatus;
   copy_text?: string | null;
+  media_files?: string | null;
   creator_name?: string;
   comments?: ContentComment[];
   created_at: string;

@@ -2354,7 +2354,28 @@ export default function ClientPortal() {
               <button onClick={() => setDetail(null)} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
             </div>
             <div className="p-6 space-y-6">
-              {detail.media_url && <img src={detail.media_url} alt={detail.title} className="w-full rounded-2xl object-cover" style={{ maxHeight: '320px' }} />}
+              {(() => {
+                const files: { type: string; url: string }[] = (() => { try { return JSON.parse(detail.media_files || '[]'); } catch { return []; } })();
+                const images = files.filter(f => f.type === 'image' && f.url);
+                const allImgs = images.length > 0 ? images.map(f => f.url) : detail.media_url ? [detail.media_url] : [];
+                if (allImgs.length === 0) return null;
+                return (
+                  <div className="space-y-2">
+                    {allImgs.map((url, i) => (
+                      <div key={i} className="rounded-2xl overflow-hidden" style={{ background: '#000' }}>
+                        <img src={url} alt={`${detail.title} ${i + 1}`} className="w-full object-contain"
+                          style={{ maxHeight: '480px', display: 'block' }}
+                          onError={e => { (e.target as HTMLImageElement).parentElement!.style.display = 'none'; }} />
+                      </div>
+                    ))}
+                    {allImgs.length > 1 && (
+                      <p className="text-center text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                        {allImgs.length} imagens · carrossel
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <span className="badge badge-slate">{TYPE_LABEL[detail.type]}</span>
