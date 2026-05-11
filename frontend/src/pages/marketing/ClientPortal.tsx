@@ -1186,16 +1186,60 @@ export default function ClientPortal() {
 
   function PageConteudos() {
     const [tab, setTab] = useState<'feed' | 'aprovar'>('aprovar');
+    const [monthFilter, setMonthFilter] = useState<string>('all');
+    const [statusFilter, setStatusFilter] = useState<string>('all');
+
     const pending = pieces.filter(p => p.status === 'aguardando_aprovacao');
-    const feedSorted = [...feedDisplayed].sort((a, b) => {
+    const feedSorted = [...pieces].sort((a, b) => {
       const da = a.scheduled_date || a.created_at || '';
       const db2 = b.scheduled_date || b.created_at || '';
       return da < db2 ? 1 : da > db2 ? -1 : 0;
     });
-    const displayed = tab === 'aprovar' ? pending : feedSorted;
+
+    // Derive available months from all pieces
+    const availableMonths = (() => {
+      const seen = new Set<string>();
+      const months: { key: string; label: string }[] = [];
+      feedSorted.forEach(p => {
+        const d = p.scheduled_date || p.created_at;
+        if (!d) return;
+        const dt = new Date(d);
+        const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          months.push({ key, label: format(dt, "MMM yyyy", { locale: ptBR }) });
+        }
+      });
+      return months;
+    })();
+
+    const STATUS_GROUPS = [
+      { id: 'all',       label: 'Todos',        color: '#94a3b8', statuses: [] as string[] },
+      { id: 'criacao',   label: 'Em criação',   color: '#94a3b8', statuses: ['em_criacao', 'em_revisao'] },
+      { id: 'aprovar',   label: 'Para aprovar', color: '#f59e0b', statuses: ['aguardando_aprovacao'] },
+      { id: 'aprovado',  label: 'Aprovados',    color: '#60a5fa', statuses: ['aprovado'] },
+      { id: 'ajuste',    label: 'Com ajuste',   color: '#f87171', statuses: ['ajuste_solicitado'] },
+      { id: 'agendado',  label: 'Programados',  color: '#a78bfa', statuses: ['agendado'] },
+      { id: 'publicado', label: 'Publicados',   color: '#10b981', statuses: ['publicado'] },
+    ];
+
+    const feedFiltered = feedSorted.filter(p => {
+      const d = p.scheduled_date || p.created_at;
+      const matchMonth = monthFilter === 'all' || (() => {
+        if (!d) return false;
+        const dt = new Date(d);
+        const key = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
+        return key === monthFilter;
+      })();
+      const group = STATUS_GROUPS.find(g => g.id === statusFilter);
+      const matchStatus = statusFilter === 'all' || (group && group.statuses.includes(p.status));
+      return matchMonth && matchStatus;
+    });
+
+    const displayed = tab === 'aprovar' ? pending : feedFiltered;
 
     return (
-      <div className="space-y-6">
+      <div className="space-y-5">
         <div className="flex items-end justify-between flex-wrap gap-3">
           <div>
             <h2 className="text-2xl font-semibold text-white mb-1">Conteúdos</h2>
@@ -1216,10 +1260,60 @@ export default function ClientPortal() {
           </div>
         </div>
 
+        {/* Filters — only in feed tab */}
+        {tab === 'feed' && (
+          <div className="space-y-3">
+            {/* Month/year pills */}
+            {availableMonths.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
+                <button onClick={() => setMonthFilter('all')}
+                  className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                  style={monthFilter === 'all'
+                    ? { background: 'rgba(255,255,255,0.1)', color: 'rgba(226,232,240,0.9)', border: '1px solid rgba(255,255,255,0.15)' }
+                    : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  Todos os meses
+                </button>
+                {availableMonths.map(m => (
+                  <button key={m.key} onClick={() => setMonthFilter(m.key)}
+                    className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-medium capitalize transition-all"
+                    style={monthFilter === m.key
+                      ? { background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.25)' }
+                      : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            {/* Status chips */}
+            <div className="flex gap-2 flex-wrap">
+              {STATUS_GROUPS.filter(g => g.id === 'all' || feedSorted.some(p => g.statuses.includes(p.status))).map(g => (
+                <button key={g.id} onClick={() => setStatusFilter(g.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                  style={statusFilter === g.id
+                    ? { background: `${g.color}18`, color: g.color, border: `1px solid ${g.color}35` }
+                    : { background: 'transparent', color: 'rgba(100,116,139,0.45)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  {statusFilter === g.id && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: g.color }} />}
+                  {g.label}
+                  <span className="opacity-50">
+                    {g.id === 'all' ? feedSorted.length : feedSorted.filter(p => g.statuses.includes(p.status)).length}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {displayed.length === 0 ? (
           <div className="text-center py-24">
             <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
-            <p className="text-white font-medium mb-1">{tab === 'aprovar' ? 'Nenhuma aprovação pendente' : 'Nenhum conteúdo ainda'}</p>
+            <p className="text-white font-medium mb-1">{tab === 'aprovar' ? 'Nenhuma aprovação pendente' : 'Nenhum conteúdo com esse filtro'}</p>
+            {tab === 'feed' && (monthFilter !== 'all' || statusFilter !== 'all') && (
+              <button onClick={() => { setMonthFilter('all'); setStatusFilter('all'); }}
+                className="mt-3 text-xs px-4 py-2 rounded-xl transition-all"
+                style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                Limpar filtros
+              </button>
+            )}
           </div>
         ) : tab === 'feed' ? (
           <div className="grid grid-cols-3 gap-0.5">
