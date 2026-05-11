@@ -360,7 +360,7 @@ export default function MarketingContent() {
                               </p>
                             )}
                           </div>
-                          <div onClick={e => e.stopPropagation()}>
+                          <div className="flex-shrink-0" onClick={e => e.stopPropagation()}>
                             <StatusDropdown current={p.status} onChange={s => handleStatusChange(p.id, s)} />
                           </div>
                           <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
