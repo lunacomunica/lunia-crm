@@ -1,7 +1,7 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid, Eye, ChevronDown, BarChart2, CheckCircle2, AlertTriangle, ArrowRight
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid, Eye, ChevronDown, BarChart2, CheckCircle2, AlertTriangle, ArrowRight, Menu
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useEffect, useState, useRef } from 'react';
@@ -258,6 +258,67 @@ function NotificationBell() {
 }
 
 const ROLE_LABEL: Record<string, string> = { owner: 'Proprietária', manager: 'Gestão', team: 'Time', client: 'Cliente' };
+
+const BOTTOM_ITEMS: Record<string, { path: string; icon: any; label: string }[]> = {
+  owner: [
+    { path: '/dashboard',           icon: LayoutDashboard, label: 'Home'      },
+    { path: '/marketing/content',   icon: FileImage,       label: 'Conteúdo'  },
+    { path: '/marketing/clients',   icon: Briefcase,       label: 'Clientes'  },
+    { path: '/gerot',               icon: CheckSquare,     label: 'Gerot'     },
+  ],
+  manager: [
+    { path: '/gerot',               icon: CheckSquare,     label: 'Gerot'     },
+    { path: '/marketing/content',   icon: FileImage,       label: 'Conteúdo'  },
+    { path: '/marketing/clients',   icon: Briefcase,       label: 'Clientes'  },
+    { path: '/marketing/traffic',   icon: Megaphone,       label: 'Tráfego'   },
+  ],
+  team: [
+    { path: '/gerot',               icon: CheckSquare,     label: 'Gerot'     },
+    { path: '/marketing/content',   icon: FileImage,       label: 'Conteúdo'  },
+    { path: '/marketing/traffic',   icon: Megaphone,       label: 'Tráfego'   },
+  ],
+};
+
+export function BottomNav({ onMore }: { onMore: () => void }) {
+  const { user } = useAuth();
+  const { pathname } = useLocation();
+  const navigate = useNavigate();
+  const items = BOTTOM_ITEMS[user?.role || 'team'] || BOTTOM_ITEMS.team;
+
+  return (
+    <nav className="fixed bottom-0 left-0 right-0 md:hidden z-50 flex items-stretch"
+      style={{
+        background: 'rgba(3,3,20,0.97)',
+        backdropFilter: 'blur(24px)',
+        borderTop: '1px solid rgba(59,130,246,0.1)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }}>
+      {items.map(item => {
+        const active = pathname === item.path || (item.path !== '/dashboard' && pathname.startsWith(item.path));
+        return (
+          <button key={item.path} onClick={() => navigate(item.path)}
+            className="flex-1 flex flex-col items-center justify-center gap-1 py-3 relative transition-all duration-200"
+            style={{ color: active ? '#60a5fa' : 'rgba(100,116,139,0.45)' }}>
+            {active && (
+              <span className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-0.5 rounded-full"
+                style={{ background: '#3b82f6', boxShadow: '0 0 8px rgba(59,130,246,0.8)' }} />
+            )}
+            <item.icon size={19} style={active ? { filter: 'drop-shadow(0 0 5px rgba(59,130,246,0.7))' } : {}} />
+            <span className="text-[10px] font-medium">{item.label}</span>
+          </button>
+        );
+      })}
+      <button onClick={onMore}
+        className="flex-1 flex flex-col items-center justify-center gap-1 py-3 transition-colors"
+        style={{ color: 'rgba(100,116,139,0.45)' }}
+        onTouchStart={e => (e.currentTarget.style.color = 'rgba(226,232,240,0.8)')}
+        onTouchEnd={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.45)')}>
+        <Menu size={19} />
+        <span className="text-[10px] font-medium">Mais</span>
+      </button>
+    </nav>
+  );
+}
 
 export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
   const { user, logout } = useAuth();
