@@ -210,6 +210,17 @@ export default function Gerot() {
   if (isManager || isAdmin) return <>
     <ManagerPanel users={users} tasks={tasks} loading={loading} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} detail={detail} setDetail={setDetail} onOpenModal={() => { setModal(true); setForm(EMPTY_FORM); }} initialClientId={initialClientId} />
     {selectedPost && <PostDetailPanel post={selectedPost} onClose={() => setSelectedPost(null)} onUpdated={p => setSelectedPost(p)} onDeleted={() => { setSelectedPost(null); load(); }} />}
+    {modal && (
+      <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setModal(false)}>
+        <div className="w-full max-w-md rounded-2xl p-6" style={{ background: '#07071a', border: '1px solid rgba(59,130,246,0.15)', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-semibold text-white">Nova tarefa</h2>
+            <button onClick={() => setModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
+          </div>
+          <TaskForm form={form} setForm={setForm} clients={clients} users={users} onSubmit={handleCreate} onCancel={() => setModal(false)} saving={saving} />
+        </div>
+      </div>
+    )}
   </>;
 
   // ── Fallback (não deve chegar aqui) ─────────────────────────────────────
@@ -369,7 +380,10 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
   const myActiveTask = tasks.find(t => t.assigned_to === user?.id && t.status === 'em_andamento');
 
   const myFiltered = (() => {
-    let list = clientFilter ? myTasks.filter(t => String(t.agency_client_id) === clientFilter) : myTasks;
+    // When a client filter is active, show all tasks for that client (including unassigned)
+    let list = clientFilter
+      ? tasks.filter(t => String(t.agency_client_id) === clientFilter && t.status !== 'concluida')
+      : myTasks;
     if (myFilter === 'hoje') return list.filter(t => !t.due_date || isToday(new Date(t.due_date + 'T12:00:00')) || (new Date(t.created_at) && isToday(new Date(t.created_at))));
     if (myFilter === 'semana') return list.filter(t => !t.due_date || isThisWeek(new Date(t.due_date + 'T12:00:00'), { weekStartsOn: 1 }));
     return list;
@@ -1267,7 +1281,10 @@ function TaskRow({ task, acting, activeTask, onStart, onPause, onComplete, onDet
           {task.campaign_name && <span className="text-[10px] px-1.5 py-0.5 rounded-md" style={{ background: 'rgba(167,139,250,0.08)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.15)' }}>{task.campaign_name}</span>}
         </div>
         <div className="flex items-center gap-3 mt-0.5">
-          {task.assigned_name && <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{task.assigned_name}</span>}
+          {task.assigned_name
+            ? <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{task.assigned_name}</span>
+            : <span className="text-[10px] px-1.5 py-0.5 rounded-md font-medium" style={{ background: 'rgba(245,158,11,0.08)', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.2)' }}>Sem responsável</span>
+          }
           {task.due_date && <span className="flex items-center gap-1 text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}><Calendar size={9} />{format(new Date(task.due_date), "d MMM", { locale: ptBR })}</span>}
           {task.total_minutes > 0 && !isRunning && <span className="flex items-center gap-1 text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}><Clock size={9} />{fmtTime(task.total_minutes)}</span>}
         </div>
@@ -1392,7 +1409,7 @@ function DetailPanel({ detail, acting, isAdmin, users, onClose, onStart, onPause
 
           <div className="grid grid-cols-2 gap-3">
             {detail.client_name && <InfoCard label="Cliente" value={detail.client_name} />}
-            {detail.assigned_name && <InfoCard label="Responsável" value={detail.assigned_name} />}
+            <InfoCard label="Responsável" value={detail.assigned_name || '— Sem responsável'} />
             <div className="rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(59,130,246,0.08)' }}>
               <p className="text-[10px] mb-1 font-semibold uppercase tracking-wide" style={{ color: 'rgba(100,116,139,0.5)' }}>Prazo</p>
               <input type="date" value={dueDate}

@@ -156,7 +156,7 @@ function NotificationBell() {
             ) : notifications.map(n => {
               const meta = typeof n.meta === 'string' ? JSON.parse(n.meta) : n.meta;
               return (
-                <button key={n.id} onClick={() => { setOpen(false); if (meta?.client_id) navigate(`/marketing/content?client=${meta.client_id}`); }}
+                <button key={n.id} onClick={() => { setOpen(false); if (meta?.client_id) navigate(n.type === 'ajuste_solicitado' ? `/gerot?client_id=${meta.client_id}` : `/marketing/content?client=${meta.client_id}`); }}
                   className="w-full flex items-start gap-3 px-4 py-3 text-left transition-colors"
                   style={{ background: n.read ? 'transparent' : 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.07)')}
