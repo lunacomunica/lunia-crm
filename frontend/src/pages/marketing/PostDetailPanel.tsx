@@ -249,6 +249,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
 
   const [uploading, setUploading] = useState<'images' | 'video' | 'cover' | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [tasks, setTasks] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -329,6 +330,8 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
         post_references: JSON.stringify(references),
       });
       onUpdated(r.data);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.error('Erro ao salvar post:', err);
     } finally {
@@ -428,6 +431,12 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
               </button>
             )}
             <button onClick={onClose} className="btn-ghost">Cancelar</button>
+            {saved && (
+              <span className="flex items-center gap-1.5 text-sm font-medium" style={{ color: '#34d399' }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Post salvo
+              </span>
+            )}
             <button onClick={handleSave} disabled={saving} className="btn-primary">
               {saving ? 'Salvando…' : 'Salvar'}
             </button>
