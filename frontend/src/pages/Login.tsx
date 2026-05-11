@@ -147,7 +147,7 @@ export default function Login() {
         </div>
 
         {/* Footer */}
-        <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.3)' }}>lun.ia CRM © 2026</p>
+        <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.3)' }}>Lun.ia ERP © 2026</p>
       </div>
 
       {/* ── Right panel — form ──────────────────────────────────────────── */}
@@ -264,7 +264,7 @@ export default function Login() {
           </form>
 
           <p className="text-center text-[10px] mt-8" style={{ color: 'rgba(100,116,139,0.28)' }}>
-            lun.ia CRM © 2026 · @lunacomunica
+            Lun.ia ERP © 2026 · @lunacomunica
           </p>
         </div>
       </div>

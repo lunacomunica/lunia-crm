@@ -124,15 +124,15 @@ app.get('/privacy', (_req, res) => {
   res.send(`<!DOCTYPE html>
 <html lang="pt-BR">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Política de Privacidade — lun.ia CRM</title>
+<title>Política de Privacidade — Lun.ia ERP</title>
 <style>body{font-family:system-ui,sans-serif;max-width:800px;margin:60px auto;padding:0 24px;color:#1e293b;line-height:1.7}h1{color:#3b82f6}h2{margin-top:2rem;color:#334155}a{color:#3b82f6}</style>
 </head>
 <body>
 <h1>Política de Privacidade</h1>
-<p><strong>lun.ia CRM</strong> — desenvolvido por <strong>@lunacomunica</strong><br>Última atualização: ${new Date().toLocaleDateString('pt-BR')}</p>
+<p><strong>Lun.ia ERP</strong> — desenvolvido por <strong>@lunacomunica</strong><br>Última atualização: ${new Date().toLocaleDateString('pt-BR')}</p>
 
 <h2>1. Informações coletadas</h2>
-<p>O lun.ia CRM coleta dados de contatos e mensagens provenientes de integrações com o Instagram e WhatsApp Business via API da Meta, incluindo: nome, telefone, e-mail, mensagens trocadas e dados de leads gerados por anúncios.</p>
+<p>O Lun.ia ERP coleta dados de contatos e mensagens provenientes de integrações com o Instagram e WhatsApp Business via API da Meta, incluindo: nome, telefone, e-mail, mensagens trocadas e dados de leads gerados por anúncios.</p>
 
 <h2>2. Uso das informações</h2>
 <p>Os dados são utilizados exclusivamente para gestão de relacionamento com clientes (CRM), incluindo: organização de contatos, histórico de conversas, acompanhamento de funil de vendas e análise de performance de campanhas.</p>
@@ -152,7 +152,7 @@ app.get('/privacy', (_req, res) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok', app: 'lun.ia CRM', timestamp: new Date().toISOString() });
+  res.json({ status: 'ok', app: 'Lun.ia ERP', timestamp: new Date().toISOString() });
 });
 
 // Serve frontend
