@@ -1239,7 +1239,9 @@ export default function ClientPortal() {
   function PageConteudos() {
     const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
 
-    const [tab, setTab] = useState<'feed' | 'aprovar'>('aprovar');
+    const [tab, setTab] = useState<'feed' | 'aprovar'>(() =>
+      conteudosInitFilter !== 'all' ? 'feed' : 'aprovar'
+    );
     const [statusFilter, setStatusFilter] = useState<string>(() => {
       const init = conteudosInitFilter;
       setConteudosInitFilter('all');
