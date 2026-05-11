@@ -20,14 +20,14 @@ const MODE = {
   client: {
     label: 'Cliente',
     icon: User,
-    accent: '#a78bfa',
-    glow: 'rgba(139,92,246,0.4)',
-    ring: 'rgba(139,92,246,0.25)',
-    bg: 'rgba(139,92,246,0.07)',
+    accent: '#60a5fa',
+    glow: 'rgba(59,130,246,0.4)',
+    ring: 'rgba(59,130,246,0.25)',
+    bg: 'rgba(59,130,246,0.07)',
     tagline: 'Acompanhe seu projeto, aprovações e resultados em tempo real.',
     placeholder: 'cliente@email.com',
-    orb1: 'radial-gradient(circle, rgba(139,92,246,0.25) 0%, transparent 70%)',
-    orb2: 'radial-gradient(circle, rgba(236,72,153,0.18) 0%, transparent 70%)',
+    orb1: 'radial-gradient(circle, rgba(59,130,246,0.25) 0%, transparent 70%)',
+    orb2: 'radial-gradient(circle, rgba(99,102,241,0.2) 0%, transparent 70%)',
   },
 } satisfies Record<Mode, any>;
 
@@ -249,7 +249,7 @@ export default function Login() {
             <button type="submit" disabled={loading}
               className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white mt-2 transition-all duration-300"
               style={{
-                background: `linear-gradient(135deg, ${cfg.accent}, ${mode === 'agency' ? '#6366f1' : '#ec4899'})`,
+                background: `linear-gradient(135deg, ${cfg.accent}, #6366f1)`,
                 boxShadow: `0 4px 24px ${cfg.glow}`,
                 opacity: loading ? 0.7 : 1,
                 transition: 'all 0.6s ease',
