@@ -5,7 +5,7 @@ import {
   FileImage, Megaphone, Timer, Trash2, Send, ArrowRight, Zap, AlertTriangle, CheckSquare,
   LayoutList, CalendarDays, ChevronLeft, ChevronRight
 } from 'lucide-react';
-import { tasksApi, agencyClientsApi, contentApi } from '../api/client';
+import { tasksApi, agencyClientsApi, contentApi, campaignsApi } from '../api/client';
 import PostDetailPanel from './marketing/PostDetailPanel';
 import { useAuth } from '../context/AuthContext';
 import { format, isToday, isThisWeek } from 'date-fns';
@@ -92,7 +92,7 @@ function ElapsedTimer({ startedAt, baseMinutes }: { startedAt: string; baseMinut
   );
 }
 
-const EMPTY_FORM = { title: '', description: '', assigned_to: '', agency_client_id: '', priority: 'media', stage: 'geral', due_date: '', est_hours: '', est_minutes: '' };
+const EMPTY_FORM = { title: '', description: '', assigned_to: '', agency_client_id: '', priority: 'media', stage: 'geral', due_date: '', est_hours: '', est_minutes: '', content_piece_id: '', campaign_id: '' };
 
 export default function Gerot() {
   const { user } = useAuth();
@@ -191,6 +191,8 @@ export default function Gerot() {
       priority: form.priority, stage: form.stage,
       due_date: form.due_date || null,
       estimated_minutes,
+      content_piece_id: form.content_piece_id || null,
+      campaign_id: form.campaign_id || null,
     });
     setTasks(prev => [r.data, ...prev]);
     setModal(false); setForm(EMPTY_FORM);
@@ -1536,6 +1538,15 @@ function InfoCard({ label, value }: { label: string; value: string }) {
 }
 
 function TaskForm({ form, setForm, clients, users, onSubmit, onCancel, saving }: any) {
+  const [pieces, setPieces] = useState<any[]>([]);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (!form.agency_client_id) { setPieces([]); setCampaigns([]); return; }
+    contentApi.list({ client_id: form.agency_client_id }).then(r => setPieces(r.data));
+    campaignsApi.list({ client_id: form.agency_client_id }).then(r => setCampaigns(r.data));
+  }, [form.agency_client_id]);
+
   return (
     <div className="space-y-4">
       <div>
@@ -1572,7 +1583,9 @@ function TaskForm({ form, setForm, clients, users, onSubmit, onCancel, saving }:
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label-dark">Cliente</label>
-          <select value={form.agency_client_id} onChange={e => setForm((f: any) => ({ ...f, agency_client_id: e.target.value }))} className="input-dark w-full mt-1 text-sm">
+          <select value={form.agency_client_id}
+            onChange={e => setForm((f: any) => ({ ...f, agency_client_id: e.target.value, content_piece_id: '', campaign_id: '' }))}
+            className="input-dark w-full mt-1 text-sm">
             <option value="">Sem cliente</option>
             {clients.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
@@ -1587,6 +1600,24 @@ function TaskForm({ form, setForm, clients, users, onSubmit, onCancel, saving }:
           </div>
         )}
       </div>
+      {form.agency_client_id && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label-dark">Post relacionado</label>
+            <select value={form.content_piece_id} onChange={e => setForm((f: any) => ({ ...f, content_piece_id: e.target.value }))} className="input-dark w-full mt-1 text-sm">
+              <option value="">Nenhum</option>
+              {pieces.map((p: any) => <option key={p.id} value={p.id}>{p.title}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label-dark">Campanha relacionada</label>
+            <select value={form.campaign_id} onChange={e => setForm((f: any) => ({ ...f, campaign_id: e.target.value }))} className="input-dark w-full mt-1 text-sm">
+              <option value="">Nenhuma</option>
+              {campaigns.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+        </div>
+      )}
       <div>
         <label className="label-dark">Tempo estimado</label>
         <div className="flex gap-2 mt-1">
