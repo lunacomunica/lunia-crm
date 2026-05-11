@@ -306,11 +306,11 @@ export default function Production() {
           ) : (
             <div className="grid md:grid-cols-3 gap-6">
               <FeedColumn title="Sem fluxo" color="#f59e0b" batches={semFluxo} selected={selected}
-                onToggle={toggleSelect} onSelectAll={() => selectGroup(semFluxo.map(b => b.id))} />
+                onToggle={toggleSelect} onSelectAll={() => selectGroup(semFluxo.map(b => b.id))} onDelete={async id => { await contentApi.deleteBatch(id); loadFeeds(); }} />
               <FeedColumn title="Em produção" color="#60a5fa" batches={emProducao} selected={selected}
-                onToggle={toggleSelect} onSelectAll={() => selectGroup(emProducao.map(b => b.id))} />
+                onToggle={toggleSelect} onSelectAll={() => selectGroup(emProducao.map(b => b.id))} onDelete={async id => { await contentApi.deleteBatch(id); loadFeeds(); }} />
               <FeedColumn title="Concluído" color="#34d399" batches={concluido} selected={selected}
-                onToggle={toggleSelect} onSelectAll={() => selectGroup(concluido.map(b => b.id))} />
+                onToggle={toggleSelect} onSelectAll={() => selectGroup(concluido.map(b => b.id))} onDelete={async id => { await contentApi.deleteBatch(id); loadFeeds(); }} />
             </div>
           )}
 
@@ -669,9 +669,10 @@ export default function Production() {
   );
 }
 
-function FeedColumn({ title, color, batches, selected, onToggle, onSelectAll }: {
+function FeedColumn({ title, color, batches, selected, onToggle, onSelectAll, onDelete }: {
   title: string; color: string; batches: BatchProduction[];
   selected: Set<number>; onToggle: (id: number) => void; onSelectAll: () => void;
+  onDelete: (id: number) => void;
 }) {
   const allSelected = batches.length > 0 && batches.every(b => selected.has(b.id));
   return (
@@ -695,18 +696,27 @@ function FeedColumn({ title, color, batches, selected, onToggle, onSelectAll }: 
             <p className="text-xs" style={{ color: 'rgba(100,116,139,0.3)' }}>Nenhum feed</p>
           </div>
         ) : batches.map(b => (
-          <BatchCard key={b.id} batch={b} selected={selected.has(b.id)} onToggle={() => onToggle(b.id)} />
+          <BatchCard key={b.id} batch={b} selected={selected.has(b.id)} onToggle={() => onToggle(b.id)} onDelete={() => onDelete(b.id)} />
         ))}
       </div>
     </div>
   );
 }
 
-function BatchCard({ batch: b, selected, onToggle }: { batch: BatchProduction; selected: boolean; onToggle: () => void }) {
+function BatchCard({ batch: b, selected, onToggle, onDelete }: { batch: BatchProduction; selected: boolean; onToggle: () => void; onDelete: () => void }) {
   const progress = b.task_count > 0 ? b.tasks_done / b.task_count : 0;
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Excluir feed "${b.name}" e suas ${b.task_count} tarefas?`)) return;
+    setDeleting(true);
+    await onDelete();
+  };
+
   return (
-    <div className="flex items-start gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all"
-      style={{ background: selected ? 'rgba(167,139,250,0.08)' : 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: selected ? '1px solid rgba(167,139,250,0.25)' : '1px solid rgba(59,130,246,0.08)' }}
+    <div className="group flex items-start gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all"
+      style={{ background: selected ? 'rgba(167,139,250,0.08)' : 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: selected ? '1px solid rgba(167,139,250,0.25)' : '1px solid rgba(59,130,246,0.08)', opacity: deleting ? 0.5 : 1 }}
       onClick={onToggle}>
       <div className="mt-0.5 flex-shrink-0" style={{ color: selected ? '#a78bfa' : 'rgba(100,116,139,0.3)' }}>
         {selected ? <CheckSquare size={15} /> : <Square size={15} />}
@@ -730,6 +740,11 @@ function BatchCard({ batch: b, selected, onToggle }: { batch: BatchProduction; s
           </div>
         )}
       </div>
+      <button onClick={handleDelete} disabled={deleting}
+        className="opacity-0 group-hover:opacity-100 mt-0.5 p-1 rounded-lg transition-all flex-shrink-0 hover:bg-red-500/10"
+        style={{ color: 'rgba(248,113,113,0.5)' }}>
+        <Trash2 size={13} />
+      </button>
     </div>
   );
 }

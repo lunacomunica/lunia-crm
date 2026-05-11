@@ -36,7 +36,14 @@ router.post('/batches', (req, res) => {
 });
 
 router.delete('/batches/:id', (req, res) => {
-  db.prepare('DELETE FROM feed_batches WHERE id=? AND tenant_id=?').run(req.params.id, req.user.tenant_id);
+  const bid = req.params.id;
+  const tid = req.user.tenant_id;
+  // Delete tasks linked to content pieces in this batch
+  db.prepare(`DELETE FROM tasks WHERE content_piece_id IN (SELECT id FROM content_pieces WHERE batch_id = ? AND tenant_id = ?)`).run(bid, tid);
+  // Delete content pieces in this batch
+  db.prepare('DELETE FROM content_pieces WHERE batch_id = ? AND tenant_id = ?').run(bid, tid);
+  // Delete the batch itself
+  db.prepare('DELETE FROM feed_batches WHERE id = ? AND tenant_id = ?').run(bid, tid);
   res.json({ ok: true });
 });
 
