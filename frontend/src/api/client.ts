@@ -94,6 +94,7 @@ export const contentApi = {
   productionBatches: () => api.get('/content/batches/production'),
   bulkWorkflow: (batch_ids: number[], stages: any[], template_id?: number) => api.post('/content/batches/bulk-workflow', { batch_ids, stages, template_id }),
   bulkCreateBatches: (data: { clients: { id: number; post_count: number }[]; month: number; year: number; default_template_id?: number }) => api.post('/content/batches/bulk-create', data),
+  bulkDeleteByStatus: (status: string, agency_client_id?: number) => api.delete('/content/bulk-by-status', { data: { status, agency_client_id } }),
 };
 
 export const workflowTemplatesApi = {

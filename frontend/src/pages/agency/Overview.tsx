@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { agencyClientsApi } from '../../api/client';
-import { AlertTriangle, Clock, CheckCircle2, Users, ExternalLink } from 'lucide-react';
+import { agencyClientsApi, contentApi } from '../../api/client';
+import { AlertTriangle, Clock, CheckCircle2, Users, ExternalLink, Trash2 } from 'lucide-react';
 
 interface ClientProduction {
   id: number; name: string; segment: string; logo: string | null;
@@ -39,9 +39,8 @@ export default function AgencyOverview() {
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    agencyClientsApi.production().then(r => { setClients(r.data); setLoading(false); });
-  }, []);
+  const load = () => agencyClientsApi.production().then(r => { setClients(r.data); setLoading(false); });
+  useEffect(() => { load(); }, []);
 
   const totals = clients.reduce(
     (acc, c) => ({
@@ -150,10 +149,23 @@ export default function AgencyOverview() {
                   {(['ajuste_solicitado','aguardando_aprovacao','em_revisao','em_criacao','aprovado','agendado','publicado_mes'] as const).map(key => {
                     const val = c[key as keyof ClientProduction] as number;
                     if (!val) return null;
+                    const isOrphan = key === 'em_criacao' && val > 10;
                     return (
-                      <span key={key} className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                      <span key={key} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full font-medium"
                         style={{ background: `${STATUS_COLORS[key]}18`, color: STATUS_COLORS[key], border: `1px solid ${STATUS_COLORS[key]}30` }}>
                         {val} {STATUS_LABELS[key]}
+                        {isOrphan && (
+                          <button title="Limpar peças em criação"
+                            onClick={async () => {
+                              if (!confirm(`Deletar ${val} peças "em criação" de ${c.name}?`)) return;
+                              await contentApi.bulkDeleteByStatus('em_criacao', c.id);
+                              load();
+                            }}
+                            style={{ color: STATUS_COLORS[key], opacity: 0.7 }}
+                            className="hover:opacity-100 transition-opacity">
+                            <Trash2 size={9} />
+                          </button>
+                        )}
                       </span>
                     );
                   })}

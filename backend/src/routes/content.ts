@@ -395,6 +395,17 @@ router.post('/:id/comments', (req, res) => {
   res.status(201).json(db.prepare('SELECT * FROM content_comments WHERE id = ?').get(r.lastInsertRowid));
 });
 
+/* ── Bulk delete by status (admin cleanup) ───────────────────────────────── */
+router.delete('/bulk-by-status', (req, res) => {
+  const { status, agency_client_id } = req.body as { status: string; agency_client_id?: number };
+  if (!status) return res.status(400).json({ error: 'status é obrigatório' });
+  let sql = 'DELETE FROM content_pieces WHERE tenant_id = ? AND status = ?';
+  const params: any[] = [req.user.tenant_id, status];
+  if (agency_client_id) { sql += ' AND agency_client_id = ?'; params.push(agency_client_id); }
+  const r = db.prepare(sql).run(...params);
+  res.json({ deleted: r.changes });
+});
+
 router.delete('/:id', (req, res) => {
   db.prepare('DELETE FROM content_pieces WHERE id = ? AND tenant_id = ?').run(req.params.id, req.user.tenant_id);
   res.json({ ok: true });
