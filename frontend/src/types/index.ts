@@ -32,6 +32,8 @@ export interface AgencyClient {
   owner_name?: string | null;
   owner_avatar?: string | null;
   owner_job_title?: string | null;
+  instagram_user_id?: string | null;
+  instagram_token_expires?: string | null;
   created_at: string;
 }
 

@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, mkdirSync } from 'fs';
+import https from 'https';
 
 dotenv.config();
 
@@ -47,6 +48,73 @@ app.use('/uploads', express.static(UPLOAD_DIR));
 
 // Public routes
 app.use('/api/auth', authRouter);
+
+// Meta OAuth callback — public, called by Meta after user authorizes
+app.get('/api/meta/callback', async (req, res) => {
+  const code = req.query.code as string;
+  const state = req.query.state as string;
+  const error = req.query.error as string;
+
+  if (error) return res.redirect(`/?meta_error=${encodeURIComponent(error)}`);
+  if (!code || !state) return res.redirect('/?meta_error=missing_params');
+
+  let tenantId: number, clientId: number;
+  try {
+    const decoded = Buffer.from(state, 'base64').toString('utf8');
+    [tenantId, clientId] = decoded.split(':').map(Number);
+    if (!tenantId || !clientId) throw new Error('invalid state');
+  } catch {
+    return res.redirect('/?meta_error=invalid_state');
+  }
+
+  const appId = process.env.META_APP_ID!;
+  const appSecret = process.env.META_APP_SECRET!;
+  const redirectUri = process.env.META_REDIRECT_URI || 'https://app.lunacomunica.com/api/meta/callback';
+
+  function httpsGet(url: string): Promise<any> {
+    return new Promise((resolve, reject) => {
+      https.get(url, r => {
+        let d = ''; r.on('data', c => { d += c; }); r.on('end', () => {
+          try { resolve(JSON.parse(d)); } catch { reject(new Error('parse')); }
+        });
+      }).on('error', reject);
+    });
+  }
+
+  try {
+    // Exchange code for short-lived token
+    const tokenData = await httpsGet(
+      `https://graph.facebook.com/v19.0/oauth/access_token?client_id=${appId}&client_secret=${appSecret}&redirect_uri=${encodeURIComponent(redirectUri)}&code=${code}`
+    );
+    if (!tokenData.access_token) throw new Error(tokenData.error?.message || 'no token');
+
+    // Exchange for long-lived token (60 days)
+    const llData = await httpsGet(
+      `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${tokenData.access_token}`
+    );
+    const longToken = llData.access_token || tokenData.access_token;
+    const expiresIn = llData.expires_in || 5184000;
+    const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
+    // Get Instagram Business Account ID via /me/accounts
+    const pages = await httpsGet(`https://graph.facebook.com/v19.0/me/accounts?access_token=${longToken}`);
+    let igUserId: string | null = null;
+    for (const page of pages.data || []) {
+      try {
+        const igData = await httpsGet(`https://graph.facebook.com/v19.0/${page.id}?fields=instagram_business_account&access_token=${page.access_token || longToken}`);
+        if (igData.instagram_business_account?.id) { igUserId = igData.instagram_business_account.id; break; }
+      } catch {}
+    }
+
+    db.prepare("UPDATE agency_clients SET instagram_token=?, instagram_user_id=?, instagram_token_expires=? WHERE id=? AND tenant_id=?")
+      .run(longToken, igUserId, expiresAt, clientId, tenantId);
+
+    res.redirect(`/marketing/clients/${clientId}?meta_connected=1`);
+  } catch (err: any) {
+    console.error('[meta/callback]', err.message);
+    res.redirect(`/marketing/clients/${clientId}?meta_error=${encodeURIComponent(err.message)}`);
+  }
+});
 
 // Meta webhook public (no auth) — Meta calls this directly
 app.get('/api/meta/webhook', (req, res) => {

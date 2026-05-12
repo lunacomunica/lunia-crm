@@ -58,6 +58,9 @@ export const metaApi = {
   getInstagramLeads: () => api.get('/meta/instagram-leads'),
   convertLead: (id: number) => api.post(`/meta/instagram-leads/${id}/convert`),
   deleteLead: (id: number) => api.delete(`/meta/instagram-leads/${id}`),
+  getAuthUrl: (clientId: number) => api.get(`/meta/auth?client_id=${clientId}`),
+  getIgStatus: (clientId: number) => api.get(`/meta/instagram-status/${clientId}`),
+  disconnectIg: (clientId: number) => api.delete(`/meta/instagram-status/${clientId}`),
 };
 
 export const notificationsApi = {

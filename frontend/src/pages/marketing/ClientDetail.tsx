@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import ClientPositioning from './ClientPositioning';
 import {
   ArrowLeft, Eye, Plus, Trash2, X, Instagram, Pencil,
@@ -9,7 +9,7 @@ import {
   List, CalendarDays, LayoutGrid,
   Image, Video, MousePointerClick, Link, FileText
 } from 'lucide-react';
-import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi, contentIdeasApi } from '../../api/client';
+import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi, contentIdeasApi, metaApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
 import TaskDetailDrawer from './TaskDetailDrawer';
 import { ContentStatus, Campaign, CampaignCreative, CampaignPlatform, CampaignStatus, CampaignObjective, CreativeType, CreativeStatus } from '../../types';
@@ -191,6 +191,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 export default function ClientDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const cid = Number(id);
 
   const [tab, setTab] = useState<Tab>('estrategia');
@@ -274,6 +275,10 @@ export default function ClientDetail() {
   // Client data form
   const [dataForm, setDataForm] = useState({ name: '', segment: '', instagram_handle: '', contact_name: '', contact_email: '', logo: '' });
 
+  // Instagram connection
+  const [igConnected, setIgConnected] = useState(false);
+  const [igConnecting, setIgConnecting] = useState(false);
+
   // Modules (flywheel)
   const [modules, setModules] = useState({ posicionamento: false, marketing_conteudo: false, marketing_trafego: false, comercial: false });
   const [savingModules, setSavingModules] = useState(false);
@@ -287,6 +292,7 @@ export default function ClientDetail() {
     ]);
     const c = cRes.data;
     setClient(c);
+    setIgConnected(!!c.instagram_user_id);
     setDataForm({ name: c.name, segment: c.segment || '', instagram_handle: c.instagram_handle || '', contact_name: c.contact_name || '', contact_email: c.contact_email || '', logo: c.logo || '' });
 
     const pos = posRes.data;
@@ -405,7 +411,27 @@ export default function ClientDetail() {
   );
 
   useEffect(() => { load(); }, [cid]);
+  useEffect(() => {
+    if (searchParams.get('meta_connected') === '1') {
+      navigate(`/marketing/clients/${cid}`, { replace: true });
+    }
+  }, [searchParams]);
   useEffect(() => { if (tab === 'operacao' && batches.length === 0 && !loadingBatches) loadOp(); }, [tab]);
+
+  const connectInstagram = async () => {
+    setIgConnecting(true);
+    try {
+      const res = await metaApi.getAuthUrl(cid);
+      window.location.href = res.data.url;
+    } catch {
+      setIgConnecting(false);
+    }
+  };
+
+  const disconnectInstagram = async () => {
+    await metaApi.disconnectIg(cid);
+    setIgConnected(false);
+  };
 
   const savePositioning = async () => {
     setSavingPos(true);
@@ -590,14 +616,30 @@ export default function ClientDetail() {
             </div>
           </div>
         </div>
-        <button onClick={() => navigate(`/marketing/portal/${cid}`)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
-          style={{ color: 'rgba(100,116,139,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f59e0b'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(245,158,11,0.2)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}>
-          <Eye size={13} /> Ver como cliente
-          <ExternalLink size={11} />
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {igConnected ? (
+            <button onClick={disconnectInstagram}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+              style={{ color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}
+              title="Instagram conectado — clique para desconectar">
+              <Instagram size={13} /> Instagram conectado
+            </button>
+          ) : (
+            <button onClick={connectInstagram} disabled={igConnecting}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+              style={{ color: igConnecting ? 'rgba(236,72,153,0.4)' : 'rgba(236,72,153,0.7)', background: 'rgba(236,72,153,0.06)', border: '1px solid rgba(236,72,153,0.15)' }}>
+              <Instagram size={13} /> {igConnecting ? 'Redirecionando...' : 'Conectar Instagram'}
+            </button>
+          )}
+          <button onClick={() => navigate(`/marketing/portal/${cid}`)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+            style={{ color: 'rgba(100,116,139,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f59e0b'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(245,158,11,0.2)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}>
+            <Eye size={13} /> Ver como cliente
+            <ExternalLink size={11} />
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

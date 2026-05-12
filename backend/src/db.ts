@@ -461,6 +461,9 @@ const migrations = [
     created_at TEXT DEFAULT (datetime('now'))
   )`,
   "ALTER TABLE agency_clients ADD COLUMN squad TEXT DEFAULT NULL",
+  "ALTER TABLE agency_clients ADD COLUMN instagram_token TEXT DEFAULT NULL",
+  "ALTER TABLE agency_clients ADD COLUMN instagram_user_id TEXT DEFAULT NULL",
+  "ALTER TABLE agency_clients ADD COLUMN instagram_token_expires TEXT DEFAULT NULL",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

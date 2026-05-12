@@ -1,7 +1,54 @@
 import { Router } from 'express';
 import db from '../db.js';
+import https from 'https';
 
 const router = Router();
+
+function httpsGet(url: string): Promise<any> {
+  return new Promise((resolve, reject) => {
+    https.get(url, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch { reject(new Error('JSON parse failed')); }
+      });
+    }).on('error', reject);
+  });
+}
+
+// Generate Meta OAuth URL for a specific agency client
+router.get('/auth', (req, res) => {
+  const clientId = req.query.client_id as string;
+  if (!clientId) return res.status(400).json({ error: 'client_id obrigatório' });
+
+  const appId = process.env.META_APP_ID;
+  const redirectUri = process.env.META_REDIRECT_URI || 'https://app.lunacomunica.com/api/meta/callback';
+  if (!appId) return res.status(500).json({ error: 'META_APP_ID não configurado' });
+
+  const state = Buffer.from(`${req.user.tenant_id}:${clientId}`).toString('base64');
+  const scopes = 'instagram_basic,instagram_content_publish,instagram_manage_insights,pages_read_engagement,pages_show_list,business_management';
+  const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&state=${state}&response_type=code`;
+  res.json({ url });
+});
+
+// Return IG connection status for a client
+router.get('/instagram-status/:clientId', (req, res) => {
+  const client = db.prepare('SELECT instagram_user_id, instagram_token_expires FROM agency_clients WHERE id=? AND tenant_id=?')
+    .get(req.params.clientId, req.user.tenant_id) as any;
+  if (!client) return res.status(404).json({ error: 'Cliente não encontrado' });
+  res.json({
+    connected: !!client.instagram_user_id,
+    instagram_user_id: client.instagram_user_id || null,
+    expires_at: client.instagram_token_expires || null,
+  });
+});
+
+// Disconnect IG for a client
+router.delete('/instagram-status/:clientId', (req, res) => {
+  db.prepare("UPDATE agency_clients SET instagram_token=NULL, instagram_user_id=NULL, instagram_token_expires=NULL WHERE id=? AND tenant_id=?")
+    .run(req.params.clientId, req.user.tenant_id);
+  res.json({ ok: true });
+});
 
 // Webhook verification (public — no auth)
 router.get('/webhook', (req, res) => {
