@@ -400,7 +400,19 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
     else if (action === 'pause') await tasksApi.pause(id);
     else await tasksApi.complete(id);
     const r = await contentApi.getTasks(post.id);
-    setTasks(r.data || []);
+    const updatedTasks = r.data || [];
+    setTasks(updatedTasks);
+
+    // Auto-volta para aguardando_aprovacao quando todos os ajustes são concluídos
+    if (action === 'complete' && form.status === 'ajuste_solicitado') {
+      const reworkTasks = updatedTasks.filter((t: any) => t.category === 'retrabalho');
+      if (reworkTasks.length > 0 && reworkTasks.every((t: any) => t.status === 'concluida')) {
+        const newStatus: ContentStatus = 'aguardando_aprovacao';
+        await contentApi.updateStatus(post.id, newStatus, 'Ajustes concluídos — aguardando nova aprovação');
+        setForm(f => ({ ...f, status: newStatus }));
+        onUpdated({ ...post, ...form, type: form.type as any, status: newStatus });
+      }
+    }
   };
 
   const handleCreateFlow = async () => {

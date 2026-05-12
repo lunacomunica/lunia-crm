@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Eye, CheckCircle2, Clock, RotateCcw, FileImage, Grid3x3, Smartphone, X, Send, Calendar, MessageSquare, Clapperboard, Copy } from 'lucide-react';
+import { ArrowLeft, Eye, CheckCircle2, Clock, RotateCcw, FileImage, Grid3x3, Smartphone, X, Send, Calendar, MessageSquare } from 'lucide-react';
 import { contentApi, agencyClientsApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
 import { format } from 'date-fns';
@@ -161,9 +161,26 @@ export default function FeedPreview() {
                 </div>
               )}
 
-              {/* Type icon (Instagram style) — top right */}
-              {p.type === 'carrossel' && <Copy size={16} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
-              {p.type === 'reels' && <Clapperboard size={16} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
+              {/* Type icons — top right, idênticos ao Instagram */}
+              {p.type === 'carrossel' && (
+                <span className="absolute top-1.5 right-1.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                  {/* Instagram carousel icon: two overlapping squares */}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                    <path d="M2 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8z"/>
+                    <path d="M6 4h13a3 3 0 0 1 3 3v11" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                  </svg>
+                </span>
+              )}
+              {p.type === 'reels' && (
+                <span className="absolute top-1.5 right-1.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                  {/* Instagram reels icon */}
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+                    <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5zm0 0"/>
+                    <path d="M2 8h20M8 3v5M16 3v5" stroke="black" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                    <path d="M10 12l5 3-5 3v-6z" fill="black"/>
+                  </svg>
+                </span>
+              )}
 
               {/* Hover date */}
               {p.scheduled_date && (
@@ -273,8 +290,27 @@ export default function FeedPreview() {
             </div>
             <div className="p-5 space-y-5">
               {detail.media_url && (
-                <img src={detail.media_url} alt={detail.title} className="w-full rounded-xl object-cover"
-                  style={{ border: '1px solid rgba(59,130,246,0.1)', maxHeight: '300px' }} />
+                <div className="relative w-full rounded-xl overflow-hidden"
+                  style={{ aspectRatio: '1080/1350', border: '1px solid rgba(59,130,246,0.1)' }}>
+                  <img src={detail.media_url} alt={detail.title} className="absolute inset-0 w-full h-full object-cover" />
+                  {/* Type badge overlay — top right like Instagram */}
+                  {(detail.type === 'carrossel' || detail.type === 'reels') && (
+                    <span className="absolute top-2 right-2 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                      {detail.type === 'carrossel' ? (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                          <path d="M2 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8z"/>
+                          <path d="M6 4h13a3 3 0 0 1 3 3v11" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                        </svg>
+                      ) : (
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                          <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5z"/>
+                          <path d="M2 8h20M8 3v5M16 3v5" stroke="black" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                          <path d="M10 12l5 3-5 3v-6z" fill="black"/>
+                        </svg>
+                      )}
+                    </span>
+                  )}
+                </div>
               )}
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="badge badge-slate">{TYPE_LABEL[detail.type]}</span>

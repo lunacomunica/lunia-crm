@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Plus, X, Trash2, FileImage, ChevronDown, ChevronLeft, ChevronRight, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye, List, CalendarDays, LayoutGrid, Clapperboard, Copy } from 'lucide-react';
+import { Plus, X, Trash2, FileImage, ChevronDown, ChevronLeft, ChevronRight, Send, CheckCircle2, RotateCcw, Calendar, Clock, Eye, List, CalendarDays, LayoutGrid } from 'lucide-react';
 import { contentApi, agencyClientsApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
 import { ContentPiece, ContentStatus, AgencyClient } from '../../types';
@@ -223,6 +223,19 @@ export default function MarketingContent() {
     return a.scheduled_date.localeCompare(b.scheduled_date);
   });
 
+  // Drag-and-drop state for calendar
+  const [dragPost, setDragPost] = useState<ContentPiece | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+
+  const handleCalDrop = async (day: Date) => {
+    if (!dragPost) return;
+    const newDate = format(day, 'yyyy-MM-dd');
+    setDragOverDay(null);
+    setPosts(prev => prev.map(p => p.id === dragPost.id ? { ...p, scheduled_date: newDate } : p));
+    setDragPost(null);
+    await contentApi.update(dragPost.id, { scheduled_date: newDate });
+  };
+
   return (
     <div className="p-4 md:p-8 animate-fade-up">
       {/* Header */}
@@ -403,9 +416,20 @@ export default function MarketingContent() {
                         {calDays.map(day => {
                           const dayPosts = byDay(day);
                           const today = isToday(day);
+                          const dayKey = format(day, 'yyyy-MM-dd');
+                          const isOver = dragOverDay === dayKey;
                           return (
                             <div key={day.toISOString()} className="min-h-20 p-1.5 transition-colors"
-                              style={{ borderRight: '1px solid rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(59,130,246,0.04)', background: today ? 'rgba(59,130,246,0.04)' : 'transparent' }}>
+                              onDragOver={e => { e.preventDefault(); setDragOverDay(dayKey); }}
+                              onDragLeave={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverDay(null); }}
+                              onDrop={e => { e.preventDefault(); handleCalDrop(day); }}
+                              style={{
+                                borderRight: '1px solid rgba(59,130,246,0.04)',
+                                borderBottom: '1px solid rgba(59,130,246,0.04)',
+                                background: isOver ? 'rgba(59,130,246,0.12)' : today ? 'rgba(59,130,246,0.04)' : 'transparent',
+                                outline: isOver ? '1px dashed rgba(59,130,246,0.4)' : undefined,
+                                outlineOffset: '-2px',
+                              }}>
                               <p className="text-[10px] font-medium mb-1 w-5 h-5 flex items-center justify-center rounded-full"
                                 style={{ color: today ? '#fff' : 'rgba(148,163,184,0.5)', background: today ? '#3b82f6' : 'transparent' }}>
                                 {format(day, 'd')}
@@ -413,10 +437,15 @@ export default function MarketingContent() {
                               <div className="space-y-0.5">
                                 {dayPosts.map(p => {
                                   const color = STATUS_CONFIG[p.status]?.color || '#94a3b8';
+                                  const isDragging = dragPost?.id === p.id;
                                   return (
-                                    <div key={p.id} onClick={() => openEditPost(p)}
-                                      className="flex items-center gap-1 px-1 py-0.5 rounded cursor-pointer text-[9px] truncate hover:opacity-80 transition-opacity"
-                                      style={{ background: `${color}18`, border: `1px solid ${color}28`, color }}>
+                                    <div key={p.id}
+                                      draggable
+                                      onDragStart={() => setDragPost(p)}
+                                      onDragEnd={() => { setDragPost(null); setDragOverDay(null); }}
+                                      onClick={() => openEditPost(p)}
+                                      className="flex items-center gap-1 px-1 py-0.5 rounded cursor-grab active:cursor-grabbing text-[9px] truncate hover:opacity-80 transition-opacity"
+                                      style={{ background: `${color}18`, border: `1px solid ${color}28`, color, opacity: isDragging ? 0.4 : 1 }}>
                                       <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: color }} />
                                       {p.title}
                                     </div>
@@ -468,9 +497,24 @@ export default function MarketingContent() {
                                 style={{ background: cfg.color, color: '#fff', boxShadow: `0 0 6px ${cfg.color}88` }}>
                                 {total - i}
                               </div>
-                              {/* Type icon (Instagram style) */}
-                              {p.type === 'carrossel' && <Copy size={14} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
-                              {p.type === 'reels' && <Clapperboard size={14} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
+                              {/* Type icons Instagram-style */}
+                              {p.type === 'carrossel' && (
+                                <span className="absolute top-1.5 right-1.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                                    <path d="M2 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8z"/>
+                                    <path d="M6 4h13a3 3 0 0 1 3 3v11" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
+                                  </svg>
+                                </span>
+                              )}
+                              {p.type === 'reels' && (
+                                <span className="absolute top-1.5 right-1.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+                                  <svg width="14" height="14" viewBox="0 0 24 24" fill="white">
+                                    <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5z"/>
+                                    <path d="M2 8h20M8 3v5M16 3v5" stroke="black" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+                                    <path d="M10 12l5 3-5 3v-6z" fill="black"/>
+                                  </svg>
+                                </span>
+                              )}
                               {/* Hover overlay */}
                               <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
                                 style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(2px)' }}>
