@@ -212,12 +212,14 @@ export default function Gerot() {
     {selectedPost && <PostDetailPanel post={selectedPost} onClose={() => setSelectedPost(null)} onUpdated={p => setSelectedPost(p)} onDeleted={() => { setSelectedPost(null); load(); }} />}
     {modal && (
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setModal(false)}>
-        <div className="w-full max-w-md rounded-2xl p-6" style={{ background: '#07071a', border: '1px solid rgba(59,130,246,0.15)', boxShadow: '0 24px 64px rgba(0,0,0,0.6)' }} onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-5">
+        <div className="w-full max-w-md rounded-2xl overflow-hidden flex flex-col" style={{ background: '#07071a', border: '1px solid rgba(59,130,246,0.15)', boxShadow: '0 24px 64px rgba(0,0,0,0.6)', maxHeight: '90vh' }} onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between px-6 pt-6 pb-4 flex-shrink-0">
             <h2 className="text-lg font-semibold text-white">Nova tarefa</h2>
             <button onClick={() => setModal(false)} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={18} /></button>
           </div>
-          <TaskForm form={form} setForm={setForm} clients={clients} users={users} onSubmit={handleCreate} onCancel={() => setModal(false)} saving={saving} />
+          <div className="overflow-y-auto px-6 pb-6">
+            <TaskForm form={form} setForm={setForm} clients={clients} users={users} onSubmit={handleCreate} onCancel={() => setModal(false)} saving={saving} />
+          </div>
         </div>
       </div>
     )}
