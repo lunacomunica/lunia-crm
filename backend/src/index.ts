@@ -258,6 +258,8 @@ app.get('/terms', (_req, res) => {
 </body></html>`);
 });
 
+app.get('/datadeletion', (_req, res) => res.redirect('/data-deletion'));
+
 app.get('/data-deletion', (_req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
