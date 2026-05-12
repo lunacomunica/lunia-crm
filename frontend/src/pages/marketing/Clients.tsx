@@ -135,13 +135,23 @@ export default function MarketingClients() {
                 </div>
               )}
 
-              <div className="flex items-center gap-3 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
-                <div className="flex items-center gap-1.5">
-                  <FileImageIcon size={11} style={{ color: 'rgba(100,116,139,0.5)' }} />
-                  <span className="text-xs" style={{ color: 'rgba(100,116,139,0.6)' }}>{c.content_count || 0} peças</span>
-                </div>
+              <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
+                {(c as any).current_feed_name ? (
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <FileImageIcon size={11} style={{ color: 'rgba(100,116,139,0.5)' }} />
+                    <span className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                      {(c as any).current_feed_name}
+                      <span className="ml-1" style={{ color: 'rgba(100,116,139,0.4)' }}>· {(c as any).current_feed_posts || 0} posts</span>
+                    </span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5">
+                    <FileImageIcon size={11} style={{ color: 'rgba(100,116,139,0.3)' }} />
+                    <span className="text-xs" style={{ color: 'rgba(100,116,139,0.35)' }}>Sem feed</span>
+                  </div>
+                )}
                 {(c.pending_approvals || 0) > 0 && (
-                  <div className="flex items-center gap-1 ml-auto">
+                  <div className="flex items-center gap-1 ml-auto flex-shrink-0">
                     <Clock size={11} style={{ color: '#f59e0b' }} />
                     <span className="text-xs font-medium" style={{ color: '#f59e0b' }}>{c.pending_approvals} aguardando</span>
                   </div>

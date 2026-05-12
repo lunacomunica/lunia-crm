@@ -31,8 +31,11 @@ router.get('/production', (req, res) => {
 
 router.get('/', (req, res) => {
   const clients = db.prepare(`
-    SELECT ac.*, COUNT(cp.id) as content_count,
-      SUM(CASE WHEN cp.status = 'aguardando_aprovacao' THEN 1 ELSE 0 END) as pending_approvals
+    SELECT ac.*,
+      COUNT(cp.id) as content_count,
+      SUM(CASE WHEN cp.status = 'aguardando_aprovacao' THEN 1 ELSE 0 END) as pending_approvals,
+      (SELECT name FROM feed_batches WHERE agency_client_id = ac.id AND tenant_id = ac.tenant_id ORDER BY year DESC, month DESC LIMIT 1) as current_feed_name,
+      (SELECT COUNT(*) FROM content_pieces WHERE batch_id = (SELECT id FROM feed_batches WHERE agency_client_id = ac.id AND tenant_id = ac.tenant_id ORDER BY year DESC, month DESC LIMIT 1)) as current_feed_posts
     FROM agency_clients ac
     LEFT JOIN content_pieces cp ON cp.agency_client_id = ac.id
     WHERE ac.tenant_id = ?
