@@ -642,7 +642,14 @@ export default function Production() {
                         style={{ background: s.active ? '#a78bfa' : 'rgba(255,255,255,0.05)', border: s.active ? '1px solid #a78bfa' : '1px solid rgba(255,255,255,0.1)' }}>
                         {s.active && <span style={{ color: 'white', fontSize: 10, lineHeight: 1 }}>✓</span>}
                       </button>
-                      <span className="text-sm font-medium flex-1" style={{ color: s.active ? '#e2e8f0' : 'rgba(100,116,139,0.4)' }}>{s.label}</span>
+                      <input
+                        value={s.label}
+                        onChange={e => setTplStages(prev => prev.map((st, j) => j === i ? { ...st, label: e.target.value } : st))}
+                        onClick={ev => ev.stopPropagation()}
+                        className="text-sm font-medium flex-1 bg-transparent outline-none border-b border-transparent focus:border-purple-400/40 transition-colors"
+                        style={{ color: s.active ? '#e2e8f0' : 'rgba(100,116,139,0.4)', minWidth: 0 }}
+                        placeholder="Nome da etapa"
+                      />
                       {s.active && (
                         <select value={s.assigned_to} onChange={e => setTplStages(prev => prev.map((st, j) => j === i ? { ...st, assigned_to: e.target.value } : st))}
                           className="input-dark text-xs py-1 flex-1 max-w-[200px]">
