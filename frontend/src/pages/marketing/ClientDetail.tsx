@@ -16,7 +16,7 @@ import { ContentStatus, Campaign, CampaignCreative, CampaignPlatform, CampaignSt
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-type Tab = 'estrategia' | 'operacao' | 'dados';
+type Tab = 'estrategia' | 'operacao' | 'dados' | 'integracao';
 type OpTab = 'conteudo' | 'trafego' | 'tarefas' | 'projetos' | 'ideias';
 
 const PROJECT_STATUS: { id: string; label: string; color: string }[] = [
@@ -572,6 +572,7 @@ export default function ClientDetail() {
     { id: 'estrategia', label: 'Estratégia', icon: Star },
     { id: 'operacao',   label: 'Operação',   icon: CheckSquare },
     { id: 'dados',      label: 'Dados',      icon: Pencil },
+    { id: 'integracao', label: 'Integração', icon: Link },
   ];
 
   const OP_TABS: { id: OpTab; label: string; count: number }[] = [
@@ -616,30 +617,14 @@ export default function ClientDetail() {
             </div>
           </div>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
-          {igConnected ? (
-            <button onClick={disconnectInstagram}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
-              style={{ color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}
-              title="Instagram conectado — clique para desconectar">
-              <Instagram size={13} /> Instagram conectado
-            </button>
-          ) : (
-            <button onClick={connectInstagram} disabled={igConnecting}
-              className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
-              style={{ color: igConnecting ? 'rgba(236,72,153,0.4)' : 'rgba(236,72,153,0.7)', background: 'rgba(236,72,153,0.06)', border: '1px solid rgba(236,72,153,0.15)' }}>
-              <Instagram size={13} /> {igConnecting ? 'Redirecionando...' : 'Conectar Instagram'}
-            </button>
-          )}
-          <button onClick={() => navigate(`/marketing/portal/${cid}`)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
-            style={{ color: 'rgba(100,116,139,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f59e0b'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(245,158,11,0.2)'; }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}>
-            <Eye size={13} /> Ver como cliente
-            <ExternalLink size={11} />
-          </button>
-        </div>
+        <button onClick={() => navigate(`/marketing/portal/${cid}`)}
+          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
+          style={{ color: 'rgba(100,116,139,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f59e0b'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(245,158,11,0.2)'; }}
+          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}>
+          <Eye size={13} /> Ver como cliente
+          <ExternalLink size={11} />
+        </button>
       </div>
 
       {/* Tabs */}
@@ -1488,6 +1473,91 @@ export default function ClientDetail() {
           </div>
         </Section>
         </>
+      )}
+
+      {/* ──────────────────── INTEGRAÇÃO ──────────────────── */}
+      {tab === 'integracao' && (
+        <div className="space-y-4">
+
+          {/* Instagram */}
+          <div className="rounded-2xl p-6 space-y-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.2)' }}>
+                  <Instagram size={16} style={{ color: '#ec4899' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Instagram Business</p>
+                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.6)' }}>Publicação, agendamento e insights</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                style={igConnected
+                  ? { color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }
+                  : { color: 'rgba(100,116,139,0.5)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                {igConnected ? 'CONECTADO' : 'NÃO CONECTADO'}
+              </span>
+            </div>
+
+            {igConnected && client?.instagram_user_id && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Instagram Business Account ID</p>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1 px-4 py-2.5 rounded-xl text-sm font-mono" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.8)' }}>
+                    {client.instagram_user_id}
+                  </div>
+                  <button onClick={() => navigator.clipboard.writeText(client.instagram_user_id || '')}
+                    className="p-2.5 rounded-xl transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(100,116,139,0.5)' }}>
+                    <FileText size={14} />
+                  </button>
+                </div>
+                {client.instagram_token_expires && (
+                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                    Token expira em {new Date(client.instagram_token_expires).toLocaleDateString('pt-BR')}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              {igConnected ? (
+                <button onClick={disconnectInstagram}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
+                  style={{ color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)' }}>
+                  <X size={14} /> Desconectar
+                </button>
+              ) : (
+                <button onClick={connectInstagram} disabled={igConnecting}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+                  style={{ color: '#ec4899', background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.2)' }}>
+                  <Instagram size={14} /> {igConnecting ? 'Redirecionando...' : 'Conectar Instagram'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Meta Ads */}
+          <div className="rounded-2xl p-6 space-y-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)', opacity: 0.6 }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                  <Megaphone size={16} style={{ color: '#60a5fa' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Meta Ads</p>
+                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.6)' }}>Métricas reais de campanhas e anúncios</p>
+                </div>
+              </div>
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
+                EM BREVE
+              </span>
+            </div>
+            <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
+              Requer revisão de permissões <code style={{ color: 'rgba(148,163,184,0.6)' }}>ads_read</code> e <code style={{ color: 'rgba(148,163,184,0.6)' }}>ads_management</code> aprovadas pela Meta.
+            </p>
+          </div>
+
+        </div>
       )}
 
       {/* Batch modal */}
