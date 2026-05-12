@@ -124,31 +124,67 @@ app.get('/privacy', (_req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
 <html lang="pt-BR">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Política de Privacidade — Lun.ia ERP</title>
-<style>body{font-family:system-ui,sans-serif;max-width:800px;margin:60px auto;padding:0 24px;color:#1e293b;line-height:1.7}h1{color:#3b82f6}h2{margin-top:2rem;color:#334155}a{color:#3b82f6}</style>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Política de Privacidade — Lun.ia</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #07071a; color: #cbd5e1; line-height: 1.8; min-height: 100vh; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 60px 24px 80px; }
+  .header { display: flex; align-items: center; gap: 14px; margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .logo { width: 42px; height: 42px; border-radius: 50%; }
+  .brand { font-size: 1.25rem; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+  .brand span { color: #60a5fa; }
+  .updated { font-size: 0.75rem; color: rgba(100,116,139,0.6); margin-top: 2px; }
+  h1 { font-size: 1.75rem; font-weight: 300; color: #fff; margin-bottom: 8px; letter-spacing: -0.02em; }
+  .subtitle { color: rgba(100,116,139,0.7); font-size: 0.9rem; margin-bottom: 40px; }
+  h2 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #60a5fa; margin: 36px 0 10px; }
+  p { color: rgba(148,163,184,0.85); font-size: 0.92rem; }
+  a { color: #60a5fa; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.07); font-size: 0.78rem; color: rgba(100,116,139,0.5); }
+</style>
 </head>
 <body>
-<h1>Política de Privacidade</h1>
-<p><strong>Lun.ia ERP</strong> — desenvolvido por <strong>@lunacomunica</strong><br>Última atualização: ${new Date().toLocaleDateString('pt-BR')}</p>
+<div class="wrap">
+  <div class="header">
+    <img src="/logo.png" alt="lun.ia" class="logo" />
+    <div>
+      <div class="brand">lun<span>.</span>ia</div>
+      <div class="updated">ERP by @lunacomunica · app.lunacomunica.co</div>
+    </div>
+  </div>
 
-<h2>1. Informações coletadas</h2>
-<p>O Lun.ia ERP coleta dados de contatos e mensagens provenientes de integrações com o Instagram e WhatsApp Business via API da Meta, incluindo: nome, telefone, e-mail, mensagens trocadas e dados de leads gerados por anúncios.</p>
+  <h1>Política de Privacidade</h1>
+  <p class="subtitle">Última atualização: ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
 
-<h2>2. Uso das informações</h2>
-<p>Os dados são utilizados exclusivamente para gestão de relacionamento com clientes (CRM), incluindo: organização de contatos, histórico de conversas, acompanhamento de funil de vendas e análise de performance de campanhas.</p>
+  <h2>1. Quem somos</h2>
+  <p>O <strong style="color:#fff">Lun.ia</strong> é um sistema de gestão (ERP) desenvolvido pela <strong style="color:#fff">Agência Luna Comunicação</strong> para uso interno e de seus clientes. Nosso site é <a href="https://app.lunacomunica.co">app.lunacomunica.co</a>.</p>
 
-<h2>3. Compartilhamento de dados</h2>
-<p>Os dados <strong>não são compartilhados</strong> com terceiros, exceto para viabilizar as integrações com a plataforma Meta (Instagram/WhatsApp) conforme os Termos de Serviço da Meta.</p>
+  <h2>2. Dados coletados</h2>
+  <p>Coletamos dados necessários para o funcionamento do sistema, incluindo: nome, e-mail e telefone de contatos; mensagens trocadas via Instagram Direct e WhatsApp Business; dados de leads gerados por anúncios no Meta Ads; métricas de desempenho de publicações e campanhas.</p>
 
-<h2>4. Armazenamento e segurança</h2>
-<p>Os dados são armazenados em banco de dados seguro com acesso restrito por autenticação. Todo acesso à plataforma requer login com e-mail e senha.</p>
+  <h2>3. Como usamos os dados</h2>
+  <p>Os dados são utilizados exclusivamente para: gestão de relacionamento com clientes (CRM), organização de funil de vendas, acompanhamento de campanhas de tráfego pago, agendamento e publicação de conteúdo via API da Meta, e análise de performance.</p>
 
-<h2>5. Direitos do usuário</h2>
-<p>Os usuários podem solicitar a exclusão dos seus dados a qualquer momento entrando em contato pelo Instagram <a href="https://instagram.com/lunacomunica">@lunacomunica</a>.</p>
+  <h2>4. Integrações com a Meta</h2>
+  <p>O sistema se integra à plataforma Meta (Instagram e WhatsApp Business) via API oficial. Os dados obtidos por essas integrações seguem os <a href="https://developers.facebook.com/terms/" target="_blank">Termos da Plataforma Meta</a> e são usados apenas para as finalidades descritas nesta política.</p>
 
-<h2>6. Contato</h2>
-<p>Dúvidas sobre esta política: <a href="https://instagram.com/lunacomunica">@lunacomunica</a></p>
+  <h2>5. Compartilhamento</h2>
+  <p>Os dados <strong style="color:#fff">não são vendidos nem compartilhados</strong> com terceiros, exceto quando necessário para viabilizar as integrações técnicas com a Meta Platforms, Inc.</p>
+
+  <h2>6. Armazenamento e segurança</h2>
+  <p>Os dados são armazenados em servidor seguro com acesso restrito por autenticação (e-mail e senha). Todo acesso à plataforma requer login individual com credenciais únicas.</p>
+
+  <h2>7. Seus direitos</h2>
+  <p>Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento entrando em contato pelo Instagram <a href="https://instagram.com/lunacomunica" target="_blank">@lunacomunica</a> ou pelo e-mail <a href="mailto:vanessaraeski@gmail.com">vanessaraeski@gmail.com</a>.</p>
+
+  <h2>8. Contato</h2>
+  <p>Dúvidas sobre esta política: <a href="https://instagram.com/lunacomunica" target="_blank">@lunacomunica</a> · <a href="mailto:vanessaraeski@gmail.com">vanessaraeski@gmail.com</a></p>
+
+  <div class="footer">© ${new Date().getFullYear()} Agência Luna Comunicação · Todos os direitos reservados</div>
+</div>
 </body></html>`);
 });
 
