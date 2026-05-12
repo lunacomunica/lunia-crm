@@ -188,6 +188,76 @@ app.get('/privacy', (_req, res) => {
 </body></html>`);
 });
 
+app.get('/data-deletion', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exclusão de Dados — Lun.ia</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #07071a; color: #cbd5e1; line-height: 1.8; min-height: 100vh; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 60px 24px 80px; }
+  .header { display: flex; align-items: center; gap: 14px; margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .logo { width: 42px; height: 42px; border-radius: 50%; }
+  .brand { font-size: 1.25rem; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+  .brand span { color: #60a5fa; }
+  h1 { font-size: 1.75rem; font-weight: 300; color: #fff; margin-bottom: 8px; letter-spacing: -0.02em; }
+  .subtitle { color: rgba(100,116,139,0.7); font-size: 0.9rem; margin-bottom: 40px; }
+  h2 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #60a5fa; margin: 36px 0 10px; }
+  p { color: rgba(148,163,184,0.85); font-size: 0.92rem; margin-bottom: 12px; }
+  a { color: #60a5fa; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .box { background: rgba(59,130,246,0.06); border: 1px solid rgba(59,130,246,0.18); border-radius: 16px; padding: 24px 28px; margin: 28px 0; }
+  .box p { margin: 0; }
+  .steps { list-style: none; counter-reset: steps; margin: 12px 0; }
+  .steps li { counter-increment: steps; padding: 10px 0 10px 44px; position: relative; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.92rem; color: rgba(148,163,184,0.85); }
+  .steps li:last-child { border-bottom: none; }
+  .steps li::before { content: counter(steps); position: absolute; left: 0; top: 10px; width: 28px; height: 28px; background: rgba(59,130,246,0.15); border: 1px solid rgba(59,130,246,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 600; color: #60a5fa; line-height: 28px; text-align: center; }
+  .footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.07); font-size: 0.78rem; color: rgba(100,116,139,0.5); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <img src="/logo.png" alt="lun.ia" class="logo" />
+    <div>
+      <div class="brand">lun<span>.</span>ia</div>
+      <div style="font-size:0.75rem;color:rgba(100,116,139,0.6);margin-top:2px">ERP by @lunacomunica · app.lunacomunica.com</div>
+    </div>
+  </div>
+
+  <h1>Exclusão de Dados</h1>
+  <p class="subtitle">Como solicitar a remoção dos seus dados do Lun.ia</p>
+
+  <div class="box">
+    <p>Se você conectou sua conta do Instagram ou Facebook ao <strong style="color:#fff">Lun.ia</strong> e deseja que seus dados sejam removidos, siga as instruções abaixo. Atendemos todas as solicitações em até <strong style="color:#fff">7 dias úteis</strong>.</p>
+  </div>
+
+  <h2>Como solicitar a exclusão</h2>
+  <ol class="steps">
+    <li>Envie um e-mail para <a href="mailto:contato@lunacomunica.com">contato@lunacomunica.com</a> com o assunto <strong style="color:#fff">"Exclusão de dados — Lun.ia"</strong></li>
+    <li>Informe o nome completo e o e-mail ou Instagram vinculado à conta</li>
+    <li>Nossa equipe confirmará o recebimento em até 48h e processará a exclusão em até 7 dias úteis</li>
+    <li>Você receberá uma confirmação por e-mail quando os dados forem removidos</li>
+  </ol>
+
+  <h2>O que será removido</h2>
+  <p>Ao solicitar a exclusão, removeremos permanentemente: dados de perfil, histórico de mensagens, leads, métricas e qualquer informação associada à sua conta no sistema.</p>
+
+  <h2>Contato direto</h2>
+  <p>
+    📧 <a href="mailto:contato@lunacomunica.com">contato@lunacomunica.com</a><br>
+    📱 Instagram: <a href="https://instagram.com/lunacomunica" target="_blank">@lunacomunica</a>
+  </p>
+
+  <div class="footer">© ${new Date().getFullYear()} Agência Luna Comunicação · <a href="/privacy">Política de Privacidade</a></div>
+</div>
+</body></html>`);
+});
+
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok', app: 'Lun.ia ERP', timestamp: new Date().toISOString() });
 });
