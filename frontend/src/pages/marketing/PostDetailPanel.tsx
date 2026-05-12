@@ -271,6 +271,10 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   const [panelTab, setPanelTab] = useState<'post' | 'planejamento' | 'producao' | 'insights'>('post');
   const [mediaInsights, setMediaInsights] = useState<any>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishError, setPublishError] = useState<string | null>(null);
+  const [linkInput, setLinkInput] = useState('');
+  const [linking, setLinking] = useState(false);
 
   useEffect(() => {
     contentApi.getTasks(post.id).then(r => setTasks(r.data || []));
@@ -906,9 +910,66 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
             return (
               <div className="space-y-5">
                 {!igId ? (
-                  <div className="text-center py-10 space-y-2">
-                    <p className="text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>Este post ainda não foi publicado via lun.ia</p>
-                    <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Após publicar pelo sistema, os insights aparecerão aqui automaticamente</p>
+                  <div className="space-y-4">
+                    {/* Publicar agora */}
+                    <div className="rounded-2xl p-5 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Publicar no Instagram</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                        Publica agora usando as mídias e legenda cadastradas no post.
+                      </p>
+                      <button
+                        onClick={async () => {
+                          setPublishing(true); setPublishError(null);
+                          try {
+                            const r = await metaApi.publish(clientId, post.id);
+                            onUpdated({ ...post, status: 'publicado', ig_media_id: r.data.ig_media_id } as any);
+                          } catch (e: any) {
+                            setPublishError(e.response?.data?.error || 'Erro ao publicar');
+                          }
+                          setPublishing(false);
+                        }}
+                        disabled={publishing}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+                        style={{ color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        <Send size={13} className={publishing ? 'animate-pulse' : ''} />
+                        {publishing ? 'Publicando…' : 'Publicar agora'}
+                      </button>
+                      {publishError && <p className="text-xs text-red-400">{publishError}</p>}
+                    </div>
+
+                    {/* Vincular post existente */}
+                    <div className="rounded-2xl p-5 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Vincular post já publicado</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                        Cole o link do post do Instagram para conectar e ver os insights.
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          value={linkInput}
+                          onChange={e => setLinkInput(e.target.value)}
+                          placeholder="https://www.instagram.com/p/…"
+                          className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }}
+                        />
+                        <button
+                          onClick={async () => {
+                            if (!linkInput.trim()) return;
+                            setLinking(true);
+                            try {
+                              const r = await metaApi.linkMediaId(post.id, linkInput.trim());
+                              onUpdated(r.data);
+                            } catch (e: any) {
+                              setPublishError(e.response?.data?.error || 'Erro ao vincular');
+                            }
+                            setLinking(false);
+                          }}
+                          disabled={linking || !linkInput.trim()}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-40 flex-shrink-0"
+                          style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                          <Link size={12} /> {linking ? 'Vinculando…' : 'Vincular'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <>

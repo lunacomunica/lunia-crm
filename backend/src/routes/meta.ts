@@ -170,6 +170,116 @@ router.get('/test-instagram/:clientId', async (req, res) => {
   }
 });
 
+// ── Instagram Publishing ─────────────────────────────────────────────────────
+
+async function httpsPost(url: string, body: Record<string, string>): Promise<any> {
+  const qs = new URLSearchParams(body).toString();
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'Content-Length': Buffer.byteLength(qs) } }, res => {
+      let data = '';
+      res.on('data', chunk => { data += chunk; });
+      res.on('end', () => { try { resolve(JSON.parse(data)); } catch { reject(new Error('parse')); } });
+    });
+    req.on('error', reject);
+    req.write(qs);
+    req.end();
+  });
+}
+
+// Core publish function — reusable by endpoint and cron
+export async function publishToInstagram(tenantId: number, contentId: number): Promise<{ ig_media_id: string; ig_permalink: string }> {
+  const token = (db.prepare("SELECT value FROM settings WHERE tenant_id=? AND key='meta_user_token'").get(tenantId) as any)?.value;
+  if (!token) throw new Error('Token da agência não configurado');
+
+  const piece = db.prepare('SELECT cp.*, ac.instagram_user_id FROM content_pieces cp LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id WHERE cp.id = ? AND cp.tenant_id = ?').get(contentId, tenantId) as any;
+  if (!piece) throw new Error('Post não encontrado');
+  if (!piece.instagram_user_id) throw new Error('Conta do Instagram não configurada para este cliente');
+
+  const igId = piece.instagram_user_id;
+  const caption = piece.caption || piece.copy_text || piece.title || '';
+  const mediaFiles: { url: string; type: string }[] = JSON.parse(piece.media_files || '[]');
+
+  let creationId: string;
+
+  if (piece.type === 'carrossel' && mediaFiles.length > 1) {
+    // Create item containers
+    const children: string[] = [];
+    for (const file of mediaFiles) {
+      const isVideo = file.type === 'video';
+      const params: Record<string, string> = { access_token: token, is_carousel_item: 'true' };
+      if (isVideo) { params.media_type = 'VIDEO'; params.video_url = file.url; }
+      else { params.image_url = file.url; }
+      const item = await httpsPost(`https://graph.facebook.com/v19.0/${igId}/media`, params);
+      if (item.error) throw new Error(item.error.message);
+      children.push(item.id);
+    }
+    // Create carousel container
+    const carousel = await httpsPost(`https://graph.facebook.com/v19.0/${igId}/media`, {
+      media_type: 'CAROUSEL', children: children.join(','), caption, access_token: token,
+    });
+    if (carousel.error) throw new Error(carousel.error.message);
+    creationId = carousel.id;
+
+  } else if (piece.type === 'reels') {
+    const videoFile = mediaFiles.find(f => f.type === 'video') || mediaFiles[0];
+    if (!videoFile) throw new Error('Nenhum vídeo encontrado para o Reels');
+    const container = await httpsPost(`https://graph.facebook.com/v19.0/${igId}/media`, {
+      media_type: 'REELS', video_url: videoFile.url, caption, access_token: token,
+    });
+    if (container.error) throw new Error(container.error.message);
+    creationId = container.id;
+    // Wait for video processing (poll up to 60s)
+    for (let i = 0; i < 12; i++) {
+      await new Promise(r => setTimeout(r, 5000));
+      const status = await httpsGet(`https://graph.facebook.com/v19.0/${creationId}?fields=status_code&access_token=${token}`);
+      if (status.status_code === 'FINISHED') break;
+      if (status.status_code === 'ERROR') throw new Error('Erro no processamento do vídeo');
+    }
+
+  } else {
+    // Single image
+    const imageFile = mediaFiles.find(f => f.type === 'image') || mediaFiles[0];
+    const imageUrl = imageFile?.url || piece.media_url;
+    if (!imageUrl) throw new Error('Nenhuma imagem encontrada');
+    const container = await httpsPost(`https://graph.facebook.com/v19.0/${igId}/media`, {
+      image_url: imageUrl, caption, access_token: token,
+    });
+    if (container.error) throw new Error(container.error.message);
+    creationId = container.id;
+  }
+
+  // Publish
+  const published = await httpsPost(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+    creation_id: creationId, access_token: token,
+  });
+  if (published.error) throw new Error(published.error.message);
+
+  const igMediaId = published.id;
+
+  // Get permalink
+  let igPermalink = '';
+  try {
+    const info = await httpsGet(`https://graph.facebook.com/v19.0/${igMediaId}?fields=permalink&access_token=${token}`);
+    igPermalink = info.permalink || '';
+  } catch {}
+
+  // Update content piece
+  db.prepare("UPDATE content_pieces SET ig_media_id=?, ig_permalink=?, status='publicado', updated_at=datetime('now') WHERE id=? AND tenant_id=?")
+    .run(igMediaId, igPermalink, contentId, tenantId);
+
+  return { ig_media_id: igMediaId, ig_permalink: igPermalink };
+}
+
+// POST /meta/publish/:clientId/:contentId — publish immediately
+router.post('/publish/:clientId/:contentId', async (req, res) => {
+  try {
+    const result = await publishToInstagram(req.user.tenant_id, Number(req.params.contentId));
+    res.json({ ok: true, ...result });
+  } catch (e: any) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
 // Disconnect IG for a client
 router.delete('/instagram-status/:clientId', (req, res) => {
   db.prepare("UPDATE agency_clients SET instagram_token=NULL, instagram_user_id=NULL, instagram_token_expires=NULL WHERE id=? AND tenant_id=?")

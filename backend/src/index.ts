@@ -12,7 +12,7 @@ import contactsRouter from './routes/contacts.js';
 import dealsRouter from './routes/deals.js';
 import conversationsRouter from './routes/conversations.js';
 import dashboardRouter from './routes/dashboard.js';
-import metaRouter from './routes/meta.js';
+import metaRouter, { publishToInstagram } from './routes/meta.js';
 import settingsRouter from './routes/settings.js';
 import authRouter from './routes/auth.js';
 import usersRouter from './routes/users.js';
@@ -419,3 +419,32 @@ if (existsSync(frontendDist)) {
 app.listen(PORT, () => {
   console.log(`🌙 lun.ia API rodando na porta ${PORT}`);
 });
+
+// ── Cron: publica posts agendados a cada 5 minutos ────────────────────────────
+setInterval(async () => {
+  try {
+    const now = new Date().toISOString().slice(0, 16); // YYYY-MM-DDTHH:MM
+    const scheduled = db.prepare(`
+      SELECT cp.id, cp.tenant_id, cp.scheduled_date, cp.scheduled_time
+      FROM content_pieces cp
+      WHERE cp.status = 'agendado'
+        AND cp.ig_media_id IS NULL
+        AND cp.scheduled_date IS NOT NULL
+    `).all() as any[];
+
+    for (const post of scheduled) {
+      const scheduledAt = post.scheduled_time
+        ? `${post.scheduled_date}T${post.scheduled_time.slice(0,5)}`
+        : `${post.scheduled_date}T00:00`;
+      if (scheduledAt > now) continue;
+      try {
+        await publishToInstagram(post.tenant_id, post.id);
+        console.log(`[cron] Post ${post.id} publicado no Instagram`);
+      } catch (e: any) {
+        console.error(`[cron] Erro ao publicar post ${post.id}:`, e.message);
+      }
+    }
+  } catch (e: any) {
+    console.error('[cron] Erro no job de publicação:', e.message);
+  }
+}, 5 * 60 * 1000);
