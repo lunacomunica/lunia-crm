@@ -21,17 +21,17 @@ router.get('/batches', (req, res) => {
     WHERE fb.tenant_id = ?`;
   const params: any[] = [tid];
   if (client_id) { q += ' AND fb.agency_client_id = ?'; params.push(client_id); }
-  q += ' GROUP BY fb.id ORDER BY fb.agency_client_id, fb.order_num';
+  q += ' GROUP BY fb.id ORDER BY fb.agency_client_id, fb.year, fb.month';
   res.json(db.prepare(q).all(...params));
 });
 
 router.post('/batches', (req, res) => {
   const { agency_client_id, month, year } = req.body;
   if (!agency_client_id || !month || !year) return res.status(400).json({ error: 'Campos obrigatórios' });
-  const orderNum = ((db.prepare('SELECT COUNT(*) as c FROM feed_batches WHERE tenant_id=? AND agency_client_id=?').get(req.user.tenant_id, agency_client_id) as any).c as number) + 1;
-  const name = `${String(orderNum).padStart(2, '0')} | Feed ${MONTHS_PT[Number(month) - 1]}`;
+  const shortYear = String(year).slice(-2);
+  const name = `Feed ${MONTHS_PT[Number(month) - 1]}/${shortYear}`;
   const r = db.prepare('INSERT INTO feed_batches (tenant_id, agency_client_id, name, month, year, order_num) VALUES (?, ?, ?, ?, ?, ?)')
-    .run(req.user.tenant_id, agency_client_id, name, month, year, orderNum);
+    .run(req.user.tenant_id, agency_client_id, name, month, year, 0);
   res.status(201).json(db.prepare('SELECT fb.*, ac.name as client_name FROM feed_batches fb LEFT JOIN agency_clients ac ON fb.agency_client_id = ac.id WHERE fb.id=?').get(r.lastInsertRowid));
 });
 
