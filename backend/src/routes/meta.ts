@@ -26,7 +26,7 @@ router.get('/auth', (req, res) => {
   if (!appId) return res.status(500).json({ error: 'META_APP_ID não configurado' });
 
   const state = Buffer.from(`${req.user.tenant_id}:${clientId}`).toString('base64');
-  const scopes = 'public_profile,pages_show_list,pages_read_engagement,instagram_basic';
+  const scopes = 'instagram_business_basic,instagram_content_publish,instagram_manage_insights,instagram_manage_comments,pages_show_list,pages_read_engagement';
   const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&state=${state}&response_type=code`;
   res.json({ url });
 });
