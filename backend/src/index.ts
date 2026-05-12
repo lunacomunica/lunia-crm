@@ -188,6 +188,76 @@ app.get('/privacy', (_req, res) => {
 </body></html>`);
 });
 
+app.get('/terms', (_req, res) => {
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.send(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Termos de Serviço — Lun.ia</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: system-ui, -apple-system, sans-serif; background: #07071a; color: #cbd5e1; line-height: 1.8; min-height: 100vh; }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 60px 24px 80px; }
+  .header { display: flex; align-items: center; gap: 14px; margin-bottom: 48px; padding-bottom: 32px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .logo { width: 42px; height: 42px; border-radius: 50%; }
+  .brand { font-size: 1.25rem; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+  .brand span { color: #60a5fa; }
+  h1 { font-size: 1.75rem; font-weight: 300; color: #fff; margin-bottom: 8px; letter-spacing: -0.02em; }
+  .subtitle { color: rgba(100,116,139,0.7); font-size: 0.9rem; margin-bottom: 40px; }
+  h2 { font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #60a5fa; margin: 36px 0 10px; }
+  p { color: rgba(148,163,184,0.85); font-size: 0.92rem; margin-bottom: 12px; }
+  a { color: #60a5fa; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .footer { margin-top: 56px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.07); font-size: 0.78rem; color: rgba(100,116,139,0.5); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <img src="/logo.png" alt="lun.ia" class="logo" />
+    <div>
+      <div class="brand">lun<span>.</span>ia</div>
+      <div style="font-size:0.75rem;color:rgba(100,116,139,0.6);margin-top:2px">ERP by @lunacomunica · app.lunacomunica.com</div>
+    </div>
+  </div>
+
+  <h1>Termos de Serviço</h1>
+  <p class="subtitle">Última atualização: ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+
+  <h2>1. Aceitação dos termos</h2>
+  <p>Ao acessar e utilizar o <strong style="color:#fff">Lun.ia</strong>, você concorda com estes Termos de Serviço. Se não concordar, não utilize a plataforma.</p>
+
+  <h2>2. Sobre o serviço</h2>
+  <p>O Lun.ia é um sistema de gestão (ERP/CRM) desenvolvido pela <strong style="color:#fff">Agência Luna Comunicação</strong> para uso interno e de seus clientes. A plataforma oferece ferramentas de gestão de conteúdo, tráfego pago, relacionamento com clientes e integração com redes sociais.</p>
+
+  <h2>3. Uso permitido</h2>
+  <p>O acesso à plataforma é restrito a usuários autorizados pela Agência Luna Comunicação. É vedado o uso para fins ilícitos, compartilhamento de credenciais de acesso ou qualquer ação que comprometa a segurança do sistema.</p>
+
+  <h2>4. Integrações com terceiros</h2>
+  <p>O Lun.ia pode se integrar a plataformas de terceiros, incluindo Meta (Instagram, Facebook e WhatsApp). O uso dessas integrações está sujeito também aos termos e políticas dessas plataformas.</p>
+
+  <h2>5. Propriedade intelectual</h2>
+  <p>Todo o conteúdo, código e design do Lun.ia são propriedade da Agência Luna Comunicação. É proibida a reprodução, cópia ou distribuição sem autorização expressa.</p>
+
+  <h2>6. Limitação de responsabilidade</h2>
+  <p>A Agência Luna Comunicação não se responsabiliza por eventuais indisponibilidades do serviço, perda de dados decorrente de falhas externas ou uso indevido da plataforma por parte dos usuários.</p>
+
+  <h2>7. Alterações nos termos</h2>
+  <p>Reservamos o direito de atualizar estes termos a qualquer momento. Mudanças relevantes serão comunicadas aos usuários ativos.</p>
+
+  <h2>8. Contato</h2>
+  <p>
+    📧 <a href="mailto:contato@lunacomunica.com">contato@lunacomunica.com</a><br>
+    📱 <a href="https://instagram.com/lunacomunica" target="_blank">@lunacomunica</a>
+  </p>
+
+  <div class="footer">© ${new Date().getFullYear()} Agência Luna Comunicação · <a href="/privacy">Política de Privacidade</a> · <a href="/data-deletion">Exclusão de Dados</a></div>
+</div>
+</body></html>`);
+});
+
 app.get('/data-deletion', (_req, res) => {
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   res.send(`<!DOCTYPE html>
