@@ -738,7 +738,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                     const PRIORITY_COLOR: Record<string, string> = { urgente: '#f87171', alta: '#fb923c', media: '#facc15', baixa: '#94a3b8' };
                     const pColor = PRIORITY_COLOR[t.priority] || '#94a3b8';
                     return (
-                      <div key={t.id} className="rounded-xl px-3 py-2.5 cursor-pointer transition-all"
+                      <div key={t.id} className="group rounded-xl px-3 py-2.5 cursor-pointer transition-all"
                         onClick={() => setOpenTaskId(t.id)}
                         style={{ background: isDone ? 'rgba(52,211,153,0.03)' : 'rgba(255,255,255,0.02)', border: `1px solid ${isDone ? 'rgba(52,211,153,0.12)' : 'rgba(255,255,255,0.05)'}`, opacity: isDone ? 0.7 : 1 }}
                         onMouseEnter={e => (e.currentTarget.style.background = isDone ? 'rgba(52,211,153,0.06)' : 'rgba(255,255,255,0.04)')}

@@ -208,7 +208,7 @@ export default function Gerot() {
 
   // Admin, superadmin e manager usam o mesmo painel
   if (isManager || isAdmin) return <>
-    <ManagerPanel users={users} tasks={tasks} loading={loading} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} detail={detail} setDetail={setDetail} onOpenModal={() => { setModal(true); setForm(EMPTY_FORM); }} initialClientId={initialClientId} />
+    <ManagerPanel users={users} tasks={tasks} loading={loading} acting={acting} activeTask={activeTask} onStart={handleStart} onPause={handlePause} onComplete={handleComplete} onDetail={handleDetail} onDelete={handleDelete} detail={detail} setDetail={setDetail} onOpenModal={() => { setModal(true); setForm(EMPTY_FORM); }} initialClientId={initialClientId} />
     {selectedPost && <PostDetailPanel post={selectedPost} onClose={() => setSelectedPost(null)} onUpdated={p => setSelectedPost(p)} onDeleted={() => { setSelectedPost(null); load(); }} />}
     {modal && (
       <div className="fixed inset-0 flex items-center justify-center z-50 p-4" style={{ background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)' }} onClick={() => setModal(false)}>
@@ -355,10 +355,10 @@ export default function Gerot() {
 }
 
 /* ── Manager Panel ───────────────────────────────────────────────────────── */
-function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPause, onComplete, onDetail, detail, setDetail, onOpenModal, initialClientId = '' }: {
+function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPause, onComplete, onDetail, onDelete, detail, setDetail, onOpenModal, initialClientId = '' }: {
   users: any[]; tasks: Task[]; loading: boolean; acting: number | null; activeTask: Task | undefined;
   onStart: (id: number) => void; onPause: (id: number) => void; onComplete: (id: number, h?: any) => void;
-  onDetail: (t: Task) => void; detail: Task | null; setDetail: (t: Task | null) => void;
+  onDetail: (t: Task) => void; onDelete: (id: number) => void; detail: Task | null; setDetail: (t: Task | null) => void;
   onOpenModal: () => void; initialClientId?: string;
 }) {
   const { user } = useAuth();
@@ -549,7 +549,7 @@ function ManagerPanel({ users, tasks, loading, acting, activeTask, onStart, onPa
             <div className="space-y-2">
               {myFiltered.map(task => (
                 <TaskRow key={task.id} task={task} acting={acting} activeTask={myActiveTask}
-                  onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} />
+                  onStart={onStart} onPause={onPause} onComplete={onComplete} onDetail={onDetail} onDelete={onDelete} />
               ))}
             </div>
           )}
@@ -1263,17 +1263,17 @@ function TeamTaskCard({ task, acting, activeTask, onStart, onPause, onComplete, 
 }
 
 /* ── Shared admin task row ───────────────────────────────────────────────── */
-function TaskRow({ task, acting, activeTask, onStart, onPause, onComplete, onDetail }: {
+function TaskRow({ task, acting, activeTask, onStart, onPause, onComplete, onDetail, onDelete }: {
   task: Task; acting: number | null; activeTask: Task | undefined;
   onStart: (id: number) => void; onPause: (id: number) => void;
-  onComplete: (id: number) => void; onDetail: (t: Task) => void;
+  onComplete: (id: number) => void; onDetail: (t: Task) => void; onDelete?: (id: number) => void;
 }) {
   const cfg = PRIORITY_CFG[task.priority];
   const isRunning = task.status === 'em_andamento';
 
   return (
     <div onClick={() => onDetail(task)}
-      className="flex items-center gap-4 px-4 py-3.5 rounded-xl cursor-pointer transition-all"
+      className="group flex items-center gap-4 px-4 py-3.5 rounded-xl cursor-pointer transition-all"
       style={{ background: isRunning ? 'rgba(59,130,246,0.06)' : 'linear-gradient(145deg,#0c0c28,#0e0e2e)', border: isRunning ? '1px solid rgba(59,130,246,0.2)' : '1px solid rgba(59,130,246,0.08)' }}>
       <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: cfg.dot }} />
       <div className="flex-1 min-w-0">
@@ -1305,6 +1305,15 @@ function TaskRow({ task, acting, activeTask, onStart, onPause, onComplete, onDet
           onMouseEnter={e => (e.currentTarget.style.color = '#34d399')} onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
           <CheckCircle2 size={13} />
         </button>
+        {onDelete && (
+          <button onClick={e => { e.stopPropagation(); onDelete(task.id); }} title="Apagar"
+            className="p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+            style={{ color: 'rgba(248,113,113,0.5)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(248,113,113,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+            <Trash2 size={13} />
+          </button>
+        )}
       </div>
     </div>
   );
