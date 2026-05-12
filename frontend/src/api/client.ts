@@ -61,6 +61,7 @@ export const metaApi = {
   getAuthUrl: (clientId: number) => api.get(`/meta/auth?client_id=${clientId}`),
   getIgStatus: (clientId: number) => api.get(`/meta/instagram-status/${clientId}`),
   disconnectIg: (clientId: number) => api.delete(`/meta/instagram-status/${clientId}`),
+  testInstagram: (clientId: number) => api.get(`/meta/test-instagram/${clientId}`),
 };
 
 export const notificationsApi = {
@@ -77,6 +78,7 @@ export const agencyClientsApi = {
   create: (data: any) => api.post('/agency-clients', data),
   update: (id: number, data: any) => api.put(`/agency-clients/${id}`, data),
   delete: (id: number) => api.delete(`/agency-clients/${id}`),
+  saveIntegration: (id: number, data: { instagram_token?: string; instagram_user_id?: string }) => api.patch(`/agency-clients/${id}/integration`, data),
   updateCeoMessage: (id: number, message: string) => api.patch(`/agency-clients/${id}/ceo-message`, { ceo_message: message }),
   updateModules: (id: number, modules: Record<string, boolean>) => api.patch(`/agency-clients/${id}/modules`, { modules }),
 };

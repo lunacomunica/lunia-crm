@@ -278,6 +278,10 @@ export default function ClientDetail() {
   // Instagram connection
   const [igConnected, setIgConnected] = useState(false);
   const [igConnecting, setIgConnecting] = useState(false);
+  const [igForm, setIgForm] = useState({ token: '', account_id: '' });
+  const [igSaving, setIgSaving] = useState(false);
+  const [igTesting, setIgTesting] = useState(false);
+  const [igTestResult, setIgTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Modules (flywheel)
   const [modules, setModules] = useState({ posicionamento: false, marketing_conteudo: false, marketing_trafego: false, comercial: false });
@@ -293,6 +297,7 @@ export default function ClientDetail() {
     const c = cRes.data;
     setClient(c);
     setIgConnected(!!c.instagram_user_id);
+    setIgForm({ token: c.instagram_token || '', account_id: c.instagram_user_id || '' });
     setDataForm({ name: c.name, segment: c.segment || '', instagram_handle: c.instagram_handle || '', contact_name: c.contact_name || '', contact_email: c.contact_email || '', logo: c.logo || '' });
 
     const pos = posRes.data;
@@ -431,6 +436,26 @@ export default function ClientDetail() {
   const disconnectInstagram = async () => {
     await metaApi.disconnectIg(cid);
     setIgConnected(false);
+    setIgForm({ token: '', account_id: '' });
+  };
+
+  const saveIgIntegration = async () => {
+    setIgSaving(true);
+    await agencyClientsApi.saveIntegration(cid, { instagram_token: igForm.token, instagram_user_id: igForm.account_id });
+    setIgConnected(!!igForm.account_id);
+    setIgSaving(false);
+  };
+
+  const testIgConnection = async () => {
+    setIgTesting(true);
+    setIgTestResult(null);
+    try {
+      const res = await metaApi.testInstagram(cid);
+      setIgTestResult(res.data);
+    } catch {
+      setIgTestResult({ success: false, message: 'Erro ao testar conexão' });
+    }
+    setIgTesting(false);
   };
 
   const savePositioning = async () => {
@@ -1476,89 +1501,108 @@ export default function ClientDetail() {
       )}
 
       {/* ──────────────────── INTEGRAÇÃO ──────────────────── */}
-      {tab === 'integracao' && (
-        <div className="space-y-4">
+      {tab === 'integracao' && (() => {
+        const cardStyle = { background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' };
+        const fieldLabel = { fontSize: '0.7rem', fontWeight: 600, textTransform: 'uppercase' as const, letterSpacing: '0.07em', color: '#3b82f6', marginBottom: '6px' };
+        const fieldInput = { background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: '12px', padding: '10px 14px', color: 'rgba(148,163,184,0.85)', fontSize: '0.85rem', width: '100%', outline: 'none', fontFamily: 'monospace' };
+        return (
+          <div className="space-y-4">
 
-          {/* Instagram */}
-          <div className="rounded-2xl p-6 space-y-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(236,72,153,0.1)', border: '1px solid rgba(236,72,153,0.2)' }}>
-                  <Instagram size={16} style={{ color: '#ec4899' }} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">Instagram Business</p>
-                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.6)' }}>Publicação, agendamento e insights</p>
-                </div>
-              </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                style={igConnected
-                  ? { color: '#10b981', background: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.2)' }
-                  : { color: 'rgba(100,116,139,0.5)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                {igConnected ? 'CONECTADO' : 'NÃO CONECTADO'}
-              </span>
-            </div>
-
-            {igConnected && client?.instagram_user_id && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Instagram Business Account ID</p>
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 px-4 py-2.5 rounded-xl text-sm font-mono" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.8)' }}>
-                    {client.instagram_user_id}
+            {/* Instagram API */}
+            <div className="rounded-2xl p-6 space-y-5" style={cardStyle}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{ background: 'linear-gradient(135deg,rgba(236,72,153,0.15),rgba(168,85,247,0.15))', border: '1px solid rgba(236,72,153,0.2)' }}>
+                    <Instagram size={16} style={{ color: '#ec4899' }} />
                   </div>
-                  <button onClick={() => navigator.clipboard.writeText(client.instagram_user_id || '')}
-                    className="p-2.5 rounded-xl transition-all" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(100,116,139,0.5)' }}>
-                    <FileText size={14} />
+                  <span className="text-base font-light text-white">Instagram API</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  {igTestResult && (
+                    <span className={`flex items-center gap-1.5 text-xs ${igTestResult.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {igTestResult.success ? <CheckCircle2 size={12} /> : <RotateCcw size={12} />}
+                      {igTestResult.message}
+                    </span>
+                  )}
+                  <button onClick={testIgConnection} disabled={igTesting || !igForm.token}
+                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-30"
+                    style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <RotateCcw size={12} className={igTesting ? 'animate-spin' : ''} />
+                    Testar conexão
                   </button>
                 </div>
-                {client.instagram_token_expires && (
-                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                    Token expira em {new Date(client.instagram_token_expires).toLocaleDateString('pt-BR')}
-                  </p>
-                )}
               </div>
-            )}
 
-            <div className="flex gap-3">
-              {igConnected ? (
-                <button onClick={disconnectInstagram}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all"
-                  style={{ color: '#f87171', background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)' }}>
-                  <X size={14} /> Desconectar
-                </button>
-              ) : (
-                <button onClick={connectInstagram} disabled={igConnecting}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
-                  style={{ color: '#ec4899', background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.2)' }}>
-                  <Instagram size={14} /> {igConnecting ? 'Redirecionando...' : 'Conectar Instagram'}
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Meta Ads */}
-          <div className="rounded-2xl p-6 space-y-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)', opacity: 0.6 }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                  <Megaphone size={16} style={{ color: '#60a5fa' }} />
+              <div className="space-y-4">
+                <div>
+                  <p style={fieldLabel}>Access Token</p>
+                  <input
+                    type="password"
+                    value={igForm.token}
+                    onChange={e => setIgForm(p => ({ ...p, token: e.target.value }))}
+                    placeholder="EAABsbCS…"
+                    style={fieldInput}
+                  />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-white">Meta Ads</p>
-                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.6)' }}>Métricas reais de campanhas e anúncios</p>
+                  <p style={fieldLabel}>Instagram Account ID</p>
+                  <input
+                    value={igForm.account_id}
+                    onChange={e => setIgForm(p => ({ ...p, account_id: e.target.value }))}
+                    placeholder="123456789"
+                    style={fieldInput}
+                  />
                 </div>
               </div>
-              <span className="text-xs font-semibold px-2.5 py-1 rounded-full" style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)' }}>
-                EM BREVE
-              </span>
-            </div>
-            <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
-              Requer revisão de permissões <code style={{ color: 'rgba(148,163,184,0.6)' }}>ads_read</code> e <code style={{ color: 'rgba(148,163,184,0.6)' }}>ads_management</code> aprovadas pela Meta.
-            </p>
-          </div>
 
-        </div>
-      )}
+              <div className="flex items-center justify-between pt-1">
+                <button onClick={connectInstagram} disabled={igConnecting}
+                  className="flex items-center gap-1.5 text-xs disabled:opacity-40 transition-all"
+                  style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  <Link size={11} /> {igConnecting ? 'Redirecionando...' : 'Conectar via OAuth'}
+                </button>
+                <button onClick={saveIgIntegration} disabled={igSaving}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+                  style={{ color: '#ec4899', background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.2)' }}>
+                  <Save size={13} /> {igSaving ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
+            </div>
+
+            {/* Meta Ads API */}
+            <div className="rounded-2xl p-6 space-y-5" style={cardStyle}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                    style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                    <Target size={16} style={{ color: '#60a5fa' }} />
+                  </div>
+                  <span className="text-base font-light text-white">Meta Ads API</span>
+                </div>
+                <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
+                  style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
+                  EM BREVE
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 opacity-40 pointer-events-none">
+                <div>
+                  <p style={fieldLabel}>Ad Account ID</p>
+                  <input disabled placeholder="act_123456789" style={fieldInput} />
+                </div>
+                <div>
+                  <p style={fieldLabel}>Access Token</p>
+                  <input disabled placeholder="EAABsbCS…" type="password" style={fieldInput} />
+                </div>
+              </div>
+              <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                Requer aprovação Meta para <code style={{ color: 'rgba(148,163,184,0.5)' }}>ads_read</code> e <code style={{ color: 'rgba(148,163,184,0.5)' }}>ads_management</code>.
+              </p>
+            </div>
+
+          </div>
+        );
+      })()}
 
       {/* Batch modal */}
       {batchModal && (

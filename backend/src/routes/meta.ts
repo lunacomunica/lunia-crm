@@ -43,6 +43,20 @@ router.get('/instagram-status/:clientId', (req, res) => {
   });
 });
 
+// Test Instagram token for a client
+router.get('/test-instagram/:clientId', async (req, res) => {
+  const client = db.prepare('SELECT instagram_token, instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?')
+    .get(req.params.clientId, req.user.tenant_id) as any;
+  if (!client?.instagram_token) return res.status(400).json({ success: false, message: 'Nenhum token configurado' });
+  try {
+    const data = await httpsGet(`https://graph.facebook.com/v19.0/me?access_token=${client.instagram_token}&fields=name,id`);
+    if (data.error) return res.json({ success: false, message: data.error.message });
+    res.json({ success: true, message: `Conectado como ${data.name || data.id}` });
+  } catch (e: any) {
+    res.json({ success: false, message: e.message });
+  }
+});
+
 // Disconnect IG for a client
 router.delete('/instagram-status/:clientId', (req, res) => {
   db.prepare("UPDATE agency_clients SET instagram_token=NULL, instagram_user_id=NULL, instagram_token_expires=NULL WHERE id=? AND tenant_id=?")
