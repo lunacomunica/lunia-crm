@@ -19,6 +19,7 @@ export default function MarketingClients() {
   const [deleting, setDeleting] = useState<number | null>(null);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [segmentFilter, setSegmentFilter] = useState('todos');
 
   const load = () => { setLoading(true); agencyClientsApi.list().then(r => { setClients(r.data); setLoading(false); }); };
   useEffect(() => { load(); }, []);
@@ -71,6 +72,26 @@ export default function MarketingClients() {
         )}
       </div>
 
+      {!loading && clients.length > 0 && (() => {
+        const segments = ['todos', ...Array.from(new Set(clients.map(c => c.segment).filter((s): s is string => !!s))).sort()];
+        return segments.length > 2 ? (
+          <div className="flex gap-2 flex-wrap mb-6">
+            {segments.map(s => (
+              <button key={s} onClick={() => setSegmentFilter(s)}
+                className="text-xs px-3 py-1.5 rounded-xl transition-all font-medium"
+                style={segmentFilter === s
+                  ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }
+                  : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                {s === 'todos' ? 'Todos' : s}
+                <span className="ml-1.5 opacity-50">
+                  {s === 'todos' ? clients.length : clients.filter(c => c.segment === s).length}
+                </span>
+              </button>
+            ))}
+          </div>
+        ) : null;
+      })()}
+
       {loading ? (
         <div className="flex justify-center py-20">
           <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
@@ -84,7 +105,7 @@ export default function MarketingClients() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {clients.map(c => (
+          {clients.filter(c => segmentFilter === 'todos' || c.segment === segmentFilter).map(c => (
             <div key={c.id} onClick={() => navigate(`/marketing/clients/${c.id}`)}
               className="card p-5 cursor-pointer group transition-all duration-200 hover:border-blue-500/20"
               style={{ borderColor: c.active ? 'rgba(59,130,246,0.1)' : 'rgba(100,116,139,0.06)' }}>
