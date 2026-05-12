@@ -634,7 +634,7 @@ export default function Production() {
               </div>
               <div className="space-y-2">
                 {tplStages.map((s, i) => (
-                  <div key={s.stage} className="rounded-xl p-3 transition-all"
+                  <div key={`${s.stage}-${i}`} className="rounded-xl p-3 transition-all"
                     style={{ background: s.active ? 'rgba(167,139,250,0.06)' : 'rgba(255,255,255,0.02)', border: s.active ? '1px solid rgba(167,139,250,0.15)' : '1px solid rgba(255,255,255,0.05)' }}>
                     <div className="flex items-center gap-3">
                       <button onClick={() => setTplStages(prev => prev.map((st, j) => j === i ? { ...st, active: !st.active } : st))}
@@ -652,14 +652,29 @@ export default function Production() {
                       />
                       {s.active && (
                         <select value={s.assigned_to} onChange={e => setTplStages(prev => prev.map((st, j) => j === i ? { ...st, assigned_to: e.target.value } : st))}
-                          className="input-dark text-xs py-1 flex-1 max-w-[200px]">
+                          className="input-dark text-xs py-1 flex-1 max-w-[180px]">
                           <option value="">Sem responsável</option>
                           {users.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
                         </select>
                       )}
+                      <button onClick={() => setTplStages(prev => prev.filter((_, j) => j !== i))}
+                        className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0 transition-colors"
+                        style={{ color: 'rgba(100,116,139,0.3)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.3)')}>
+                        <X size={11} />
+                      </button>
                     </div>
                   </div>
                 ))}
+                <button
+                  onClick={() => setTplStages(prev => [...prev, { stage: `custom_${Date.now()}`, label: '', active: true, assigned_to: '', due_date: '' }])}
+                  className="w-full py-2 rounded-xl text-xs font-medium transition-all flex items-center justify-center gap-1.5"
+                  style={{ color: 'rgba(167,139,250,0.6)', border: '1px dashed rgba(167,139,250,0.2)', background: 'transparent' }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(167,139,250,0.04)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(167,139,250,0.35)'; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(167,139,250,0.2)'; }}>
+                  <Plus size={11} /> Adicionar etapa
+                </button>
               </div>
             </div>
             <div className="flex gap-2 px-6 py-4 flex-shrink-0" style={{ borderTop: '1px solid rgba(167,139,250,0.08)' }}>
