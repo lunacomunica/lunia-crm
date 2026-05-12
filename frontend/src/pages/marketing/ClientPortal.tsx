@@ -2191,31 +2191,49 @@ export default function ClientPortal() {
                       </div>
                     ))}
                   </div>
-                  {media.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>Posts recentes</p>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {media.slice(0, 8).map((m: any) => (
-                          <a key={m.id} href={m.permalink} target="_blank" rel="noopener noreferrer"
-                            className="relative group overflow-hidden rounded-lg" style={{ aspectRatio: '1080/1350' }}>
-                            {(m.thumbnail_url || m.media_url) && (
-                              <img src={m.thumbnail_url || m.media_url} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                            )}
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1"
-                              style={{ background: 'rgba(0,0,0,0.7)' }}>
-                              <p className="text-white text-[10px] font-semibold">{(m.like_count || 0).toLocaleString('pt-BR')} ❤️</p>
-                              <p className="text-white text-[10px]">{(m.comments_count || 0).toLocaleString('pt-BR')} 💬</p>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })()}
           </div>
         </div>
+
+        {/* Posts via lun.ia */}
+        {(() => {
+          const perfPosts = [...pieces]
+            .filter(p => (p as any).ig_media_id || p.status === 'publicado' || p.status === 'agendado')
+            .sort((a, b) => new Date((b as any).scheduled_date || (b as any).created_at).getTime() - new Date((a as any).scheduled_date || (a as any).created_at).getTime());
+          if (perfPosts.length === 0) return null;
+          return (
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Posts publicados</p>
+              <div className="grid grid-cols-3 gap-2.5">
+                {perfPosts.map(p => {
+                  const cfg = STATUS_CFG[p.status];
+                  const thumb = getPostThumbnail(p);
+                  return (
+                    <button key={p.id} onClick={() => openDetail(p)}
+                      className="relative group rounded-xl overflow-hidden text-left"
+                      style={{ aspectRatio: '3/4', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      {thumb ? (
+                        <img src={thumb} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-2xl opacity-20">🖼️</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 flex flex-col justify-end p-2"
+                        style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 55%)' }}>
+                        <p className="text-[10px] font-medium text-white truncate">{p.title}</p>
+                        <span className="text-[9px] mt-0.5 px-1.5 py-0.5 rounded-full self-start font-medium"
+                          style={{ color: cfg?.color, background: `${cfg?.color}22` }}>{cfg?.label}</span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Tráfego pago */}
         <div>
