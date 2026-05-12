@@ -28,6 +28,25 @@ const PROJECT_STATUS: { id: string; label: string; color: string }[] = [
 ];
 type ContentView = 'list' | 'calendar' | 'preview';
 
+function IgCarouselIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="white" className="drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+      <path d="M2 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8z"/>
+      <path d="M6 4h13a3 3 0 0 1 3 3v11" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IgReelsIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="white" className="drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+      <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5z"/>
+      <path d="M2 8h20M8 3v5M16 3v5" stroke="black" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+      <path d="M10 12l5 3-5 3v-6z" fill="black"/>
+    </svg>
+  );
+}
+
 function toDisplayUrl(url: string): string {
   const m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
   if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
@@ -965,10 +984,10 @@ export default function ClientDetail() {
                               {previewPosts.map((p: any, i: number) => {
                                 const cfg = STATUS_CFG[p.status as ContentStatus];
                                 return (
-                                  <div key={p.id} className="relative group cursor-pointer" style={{ aspectRatio: '1' }}
+                                  <div key={p.id} className="relative group cursor-pointer overflow-hidden" style={{ aspectRatio: '1080/1350', background: 'rgba(255,255,255,0.03)' }}
                                     onClick={() => setPanelPost(p)}>
                                     {getPostThumbnail(p) ? (
-                                      <img src={getPostThumbnail(p)!} alt={p.title} className="w-full h-full object-cover" />
+                                      <img src={getPostThumbnail(p)!} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                                     ) : (
                                       <div className="w-full h-full flex flex-col items-center justify-center gap-1"
                                         style={{ background: 'rgba(59,130,246,0.06)' }}>
@@ -976,9 +995,11 @@ export default function ClientDetail() {
                                         <span className="text-[9px] font-mono" style={{ color: 'rgba(100,116,139,0.4)' }}>{String(total - i).padStart(2, '0')}</span>
                                       </div>
                                     )}
-                                    <div className="absolute top-1 left-1 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
-                                      style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.8)' }}>{total - i}</div>
-                                    <div className="absolute top-1 right-1 w-2 h-2 rounded-full" style={{ background: cfg.color, boxShadow: `0 0 5px ${cfg.color}` }} />
+                                    <div className="absolute top-1.5 left-1.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
+                                      style={{ background: 'rgba(0,0,0,0.6)', color: 'rgba(255,255,255,0.9)' }}>{total - i}</div>
+                                    {p.type === 'carrossel' && <span className="absolute top-1.5 right-1.5"><IgCarouselIcon size={14} /></span>}
+                                    {p.type === 'reels'     && <span className="absolute top-1.5 right-1.5"><IgReelsIcon size={14} /></span>}
+                                    <div className="absolute bottom-0 left-0 right-0 w-2 h-1.5" style={{ background: cfg.color, boxShadow: `0 0 8px ${cfg.color}` }} />
                                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
                                       style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(2px)' }}>
                                       <StatusBadge status={p.status} />
@@ -993,7 +1014,7 @@ export default function ClientDetail() {
                                 );
                               })}
                               {Array.from({ length: (3 - (total % 3)) % 3 }).map((_, i) => (
-                                <div key={`f-${i}`} style={{ aspectRatio: '1', background: 'rgba(255,255,255,0.015)' }} />
+                                <div key={`f-${i}`} style={{ aspectRatio: '1080/1350', background: 'rgba(255,255,255,0.015)' }} />
                               ))}
                             </div>
                             </>
