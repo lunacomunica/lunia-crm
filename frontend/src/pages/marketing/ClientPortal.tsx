@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ClientPositioning from './ClientPositioning';
 import {
   CheckCircle2, RotateCcw, MessageSquare, Calendar, X, Send, Eye,
-  FileImage, Clock, Grid3x3, Megaphone, Smartphone, Clapperboard, Copy,
+  FileImage, Clock, Grid3x3, Megaphone, Smartphone,
   TrendingUp, MousePointer, DollarSign, BarChart3, Target, Pencil,
   Plus, Trash2, ChevronRight, ChevronLeft, Zap, Users, Star, BookOpen, Briefcase,
   ArrowLeft, LayoutDashboard, Menu, Phone, UserPlus, Kanban, Settings, Search,
@@ -14,6 +14,41 @@ import { ContentPiece, ContentStatus, AgencyClient, Campaign } from '../../types
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '../../context/AuthContext';
+
+/* ─── Helpers ───────────────────────────────────────────────────────────── */
+function toDisplayUrl(url: string): string {
+  const m = url.match(/drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/);
+  if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  return url;
+}
+
+function getPostThumbnail(p: ContentPiece): string | null {
+  try {
+    const files = JSON.parse((p as any).media_files || '[]');
+    const img = files.find((f: any) => f.type === 'image');
+    if (img?.url) return toDisplayUrl(img.url);
+  } catch {}
+  return p.media_url ? toDisplayUrl(p.media_url) : null;
+}
+
+function IgCarouselIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="white" className="drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+      <path d="M2 8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V8z"/>
+      <path d="M6 4h13a3 3 0 0 1 3 3v11" stroke="white" strokeWidth="2" fill="none" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function IgReelsIcon({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="white" className="drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]">
+      <path d="M5 3a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H5z"/>
+      <path d="M2 8h20M8 3v5M16 3v5" stroke="black" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+      <path d="M10 12l5 3-5 3v-6z" fill="black"/>
+    </svg>
+  );
+}
 
 /* ─── Configs ────────────────────────────────────────────────────────────── */
 const STATUS_CFG: Record<ContentStatus, { label: string; color: string; bg: string; border: string }> = {
@@ -548,8 +583,8 @@ export default function ClientPortal() {
             const isPublished = p.status === 'publicado';
             return (
               <button key={p.id} onClick={() => openDetail(p)} className="relative overflow-hidden group" style={{ aspectRatio: '1080/1350', background: 'rgba(255,255,255,0.03)' }}>
-                {p.media_url ? (
-                  <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" style={{ opacity: overlay ? 0.65 : 1 }} />
+                {getPostThumbnail(p) ? (
+                  <img src={getPostThumbnail(p)!} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" style={{ opacity: overlay ? 0.65 : 1 }} />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.05)' }}>
                     <FileImage size={20} style={{ color: 'rgba(59,130,246,0.2)' }} />
@@ -561,8 +596,8 @@ export default function ClientPortal() {
                     <span className="text-[9px] font-bold" style={{ color: overlay.color }}>{overlay.label}</span>
                   </div>
                 )}
-                {p.type === 'carrossel' && <Copy size={14} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
-                {p.type === 'reels' && <Clapperboard size={14} className="absolute top-2 right-2 drop-shadow-md" style={{ color: '#fff' }} />}
+                {p.type === 'carrossel' && <span className="absolute top-2 right-2"><IgCarouselIcon size={16} /></span>}
+                {p.type === 'reels' && <span className="absolute top-2 right-2"><IgReelsIcon size={16} /></span>}
               </button>
             );
           })}
@@ -1310,11 +1345,11 @@ export default function ClientPortal() {
                 className="flex gap-3 p-3 rounded-2xl cursor-pointer transition-all duration-200 hover:brightness-110"
                 style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: `1px solid ${borderColor}` }}>
                 <div className="relative flex-shrink-0 rounded-xl overflow-hidden" style={{ width: 64, height: 80, background: 'rgba(59,130,246,0.05)' }}>
-                  {p.media_url
-                    ? <img src={p.media_url} alt={p.title} className="w-full h-full object-cover" />
+                  {getPostThumbnail(p)
+                    ? <img src={getPostThumbnail(p)!} alt={p.title} className="w-full h-full object-cover" />
                     : <div className="w-full h-full flex items-center justify-center"><FileImage size={16} style={{ color: 'rgba(59,130,246,0.2)' }} /></div>}
-                  {p.type === 'carrossel' && <Copy size={9} className="absolute top-1 right-1 drop-shadow-md" style={{ color: '#fff' }} />}
-                  {p.type === 'reels'    && <Clapperboard size={9} className="absolute top-1 right-1 drop-shadow-md" style={{ color: '#fff' }} />}
+                  {p.type === 'carrossel' && <span className="absolute top-1 right-1"><IgCarouselIcon size={10} /></span>}
+                  {p.type === 'reels'    && <span className="absolute top-1 right-1"><IgReelsIcon size={10} /></span>}
                 </div>
                 <div className="flex-1 min-w-0 flex flex-col justify-center gap-1.5">
                   <p className="text-sm font-medium text-white truncate">{p.title || 'Sem título'}</p>
@@ -1431,15 +1466,15 @@ export default function ClientPortal() {
               <div key={p.id} onClick={() => openDetail(p)}
                 className="relative cursor-pointer overflow-hidden group"
                 style={{ aspectRatio: '1080/1350', background: '#0d0d22' }}>
-                {p.media_url
-                  ? <img src={p.media_url} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                {getPostThumbnail(p)
+                  ? <img src={getPostThumbnail(p)!} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                   : <div className="w-full h-full flex items-center justify-center"><FileImage size={20} style={{ color: 'rgba(59,130,246,0.2)' }} /></div>}
                 <span className="absolute top-1.5 left-1.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold text-white"
                   style={{ background: cfg.color, boxShadow: `0 0 6px ${cfg.color}88` }}>
                   {idx + 1}
                 </span>
-                {p.type === 'carrossel' && <Copy size={12} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
-                {p.type === 'reels'    && <Clapperboard size={12} className="absolute top-1.5 right-1.5 drop-shadow-md" style={{ color: '#fff' }} />}
+                {p.type === 'carrossel' && <span className="absolute top-1.5 right-1.5"><IgCarouselIcon size={13} /></span>}
+                {p.type === 'reels'    && <span className="absolute top-1.5 right-1.5"><IgReelsIcon size={13} /></span>}
               </div>
             );
           })}
