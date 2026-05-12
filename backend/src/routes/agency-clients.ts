@@ -86,9 +86,9 @@ router.patch('/:id/integration', (req, res) => {
   if (req.user.role === 'team') return res.status(403).json({ error: 'Sem permissão' });
   const existing = db.prepare('SELECT * FROM agency_clients WHERE id=? AND tenant_id=?').get(req.params.id, req.user.tenant_id) as any;
   if (!existing) return res.status(404).json({ error: 'Cliente não encontrado' });
-  const { instagram_token, instagram_user_id } = req.body;
-  db.prepare("UPDATE agency_clients SET instagram_token=?, instagram_user_id=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?")
-    .run(instagram_token ?? existing.instagram_token, instagram_user_id ?? existing.instagram_user_id, req.params.id, req.user.tenant_id);
+  const { instagram_user_id } = req.body;
+  db.prepare("UPDATE agency_clients SET instagram_user_id=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?")
+    .run(instagram_user_id ?? existing.instagram_user_id, req.params.id, req.user.tenant_id);
   res.json({ ok: true });
 });
 

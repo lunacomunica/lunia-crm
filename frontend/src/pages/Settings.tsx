@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2, AlertTriangle, Eye, Pencil, Tag } from 'lucide-react';
-import { settingsApi, usersApi, profileApi, agencyClientsApi, taskCategoriesApi, uploadAnyApi } from '../api/client';
+import { settingsApi, usersApi, profileApi, agencyClientsApi, taskCategoriesApi, uploadAnyApi, metaApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 function Field({ label, id, value, onChange, placeholder, type = 'text', hint, mono = false }: {
@@ -667,6 +667,10 @@ export default function Settings() {
   const [resetConfirm, setResetConfirm] = useState('');
   const [resetting, setResetting] = useState(false);
   const [resetDone, setResetDone] = useState(false);
+  const [agencyToken, setAgencyToken] = useState<{ connected: boolean; expires_at: string | null }>({ connected: false, expires_at: null });
+  const [agencyTokenInput, setAgencyTokenInput] = useState('');
+  const [agencyTokenSaving, setAgencyTokenSaving] = useState(false);
+  const [agencyTokenResult, setAgencyTokenResult] = useState<{ success: boolean; message: string } | null>(null);
 
   const handleReset = async () => {
     if (resetConfirm !== 'LIMPAR') return;
@@ -683,7 +687,23 @@ export default function Settings() {
   useEffect(() => {
     settingsApi.get().then(r => setSettings(r.data));
     settingsApi.getWebhookInfo().then(r => setWebhookInfo(r.data));
+    metaApi.getAgencyToken().then(r => setAgencyToken(r.data)).catch(() => {});
   }, []);
+
+  const saveAgencyToken = async () => {
+    if (!agencyTokenInput.trim()) return;
+    setAgencyTokenSaving(true);
+    setAgencyTokenResult(null);
+    try {
+      const r = await metaApi.saveAgencyToken(agencyTokenInput.trim());
+      setAgencyToken({ connected: true, expires_at: null });
+      setAgencyTokenResult({ success: true, message: `Conectado como ${r.data.name}` });
+      setAgencyTokenInput('');
+    } catch (e: any) {
+      setAgencyTokenResult({ success: false, message: e.response?.data?.error || 'Token inválido' });
+    }
+    setAgencyTokenSaving(false);
+  };
 
   const set = (key: string, value: string) => setSettings(prev => ({ ...prev, [key]: value }));
   const handleSave = async () => {
@@ -833,7 +853,73 @@ export default function Settings() {
             </div>
           </Section>
 
-          <Section icon={Instagram} title="Instagram API" iconStyle="icon-pink"
+          {/* Meta — Token da Agência */}
+          <div className="card p-6 mb-5" style={{ borderColor: agencyToken.connected ? 'rgba(52,211,153,0.2)' : 'rgba(236,72,153,0.15)' }}>
+            <div className="flex items-center gap-2 mb-4">
+              <Instagram size={14} style={{ color: '#ec4899' }} />
+              <p className="section-label">Meta — Token da Agência</p>
+              <span className={`badge ml-auto ${agencyToken.connected ? 'badge-green' : 'badge-red'}`}>
+                {agencyToken.connected ? 'Conectado' : 'Não configurado'}
+              </span>
+            </div>
+
+            {agencyToken.connected ? (
+              <div className="space-y-2">
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                  Token ativo — compartilhado por todos os clientes para buscar métricas do Instagram.
+                  {agencyToken.expires_at && ` Expira em ${new Date(agencyToken.expires_at).toLocaleDateString('pt-BR')}.`}
+                </p>
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                  Para renovar, cole um novo token abaixo ou faça OAuth em qualquer cliente → aba Integração.
+                </p>
+                <div className="flex gap-2 mt-3">
+                  <input
+                    type="password"
+                    value={agencyTokenInput}
+                    onChange={e => setAgencyTokenInput(e.target.value)}
+                    placeholder="Novo token (EAABsbCS…)"
+                    className="flex-1 rounded-xl px-4 py-2.5 text-xs font-mono outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }}
+                  />
+                  <button onClick={saveAgencyToken} disabled={agencyTokenSaving || !agencyTokenInput.trim()}
+                    className="btn-primary px-4 text-xs disabled:opacity-40">
+                    {agencyTokenSaving ? <RefreshCw size={13} className="animate-spin" /> : <Key size={13} />}
+                    Atualizar
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  Cole o token de acesso Meta (gerado via OAuth ou Graph API Explorer). Será usado para buscar métricas de Instagram de todos os clientes.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={agencyTokenInput}
+                    onChange={e => setAgencyTokenInput(e.target.value)}
+                    placeholder="EAABsbCS…"
+                    className="flex-1 rounded-xl px-4 py-2.5 text-xs font-mono outline-none"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }}
+                  />
+                  <button onClick={saveAgencyToken} disabled={agencyTokenSaving || !agencyTokenInput.trim()}
+                    className="btn-primary px-4 text-xs disabled:opacity-40">
+                    {agencyTokenSaving ? <RefreshCw size={13} className="animate-spin" /> : <Key size={13} />}
+                    Salvar
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {agencyTokenResult && (
+              <p className={`text-xs mt-2 flex items-center gap-1.5 ${agencyTokenResult.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                {agencyTokenResult.success ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                {agencyTokenResult.message}
+              </p>
+            )}
+          </div>
+
+          <Section icon={Instagram} title="Instagram API (legado)" iconStyle="icon-pink"
             testType="instagram" onTest={handleTest} testResult={testResults.instagram}>
             <Field label="Access Token" id="instagram_token" value={settings.instagram_token || ''} onChange={v => set('instagram_token', v)} placeholder="EAABsbCS…" mono />
             <Field label="Instagram Account ID" id="instagram_account_id" value={settings.instagram_account_id || ''} onChange={v => set('instagram_account_id', v)} placeholder="123456789" mono />

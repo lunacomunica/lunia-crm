@@ -16,7 +16,7 @@ import { ContentStatus, Campaign, CampaignCreative, CampaignPlatform, CampaignSt
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-type Tab = 'estrategia' | 'operacao' | 'dados' | 'integracao';
+type Tab = 'estrategia' | 'operacao' | 'dados' | 'integracao' | 'performance';
 type OpTab = 'conteudo' | 'trafego' | 'tarefas' | 'projetos' | 'ideias';
 
 const PROJECT_STATUS: { id: string; label: string; color: string }[] = [
@@ -301,10 +301,17 @@ export default function ClientDetail() {
   // Instagram connection
   const [igConnected, setIgConnected] = useState(false);
   const [igConnecting, setIgConnecting] = useState(false);
-  const [igForm, setIgForm] = useState({ token: '', account_id: '' });
+  const [igAccountId, setIgAccountId] = useState('');
   const [igSaving, setIgSaving] = useState(false);
   const [igTesting, setIgTesting] = useState(false);
   const [igTestResult, setIgTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [igAccounts, setIgAccounts] = useState<any[]>([]);
+  const [igAccountsLoading, setIgAccountsLoading] = useState(false);
+  const [agencyTokenConnected, setAgencyTokenConnected] = useState(false);
+  const [agencyTokenExpires, setAgencyTokenExpires] = useState<string | null>(null);
+  const [agencyTokenInput, setAgencyTokenInput] = useState('');
+  const [agencyTokenSaving, setAgencyTokenSaving] = useState(false);
+  const [agencyTokenResult, setAgencyTokenResult] = useState<{ success: boolean; message: string } | null>(null);
 
   // Modules (flywheel)
   const [modules, setModules] = useState({ posicionamento: false, marketing_conteudo: false, marketing_trafego: false, comercial: false });
@@ -320,7 +327,12 @@ export default function ClientDetail() {
     const c = cRes.data;
     setClient(c);
     setIgConnected(!!c.instagram_user_id);
-    setIgForm({ token: c.instagram_token || '', account_id: c.instagram_user_id || '' });
+    setIgAccountId(c.instagram_user_id || '');
+    // Load agency token status
+    metaApi.getAgencyToken().then(r => {
+      setAgencyTokenConnected(r.data.connected);
+      setAgencyTokenExpires(r.data.expires_at);
+    }).catch(() => {});
     setDataForm({ name: c.name, segment: c.segment || '', instagram_handle: c.instagram_handle || '', contact_name: c.contact_name || '', contact_email: c.contact_email || '', logo: c.logo || '' });
 
     const pos = posRes.data;
@@ -466,14 +478,39 @@ export default function ClientDetail() {
   const disconnectInstagram = async () => {
     await metaApi.disconnectIg(cid);
     setIgConnected(false);
-    setIgForm({ token: '', account_id: '' });
+    setIgAccountId('');
   };
 
   const saveIgIntegration = async () => {
     setIgSaving(true);
-    await agencyClientsApi.saveIntegration(cid, { instagram_token: igForm.token, instagram_user_id: igForm.account_id });
-    setIgConnected(!!igForm.account_id);
+    await agencyClientsApi.saveIntegration(cid, { instagram_user_id: igAccountId });
+    setIgConnected(!!igAccountId);
     setIgSaving(false);
+  };
+
+  const saveAgencyToken = async () => {
+    if (!agencyTokenInput.trim()) return;
+    setAgencyTokenSaving(true);
+    setAgencyTokenResult(null);
+    try {
+      const r = await metaApi.saveAgencyToken(agencyTokenInput.trim());
+      setAgencyTokenConnected(true);
+      setAgencyTokenResult({ success: true, message: `Conectado como ${r.data.name}` });
+      setAgencyTokenInput('');
+    } catch (e: any) {
+      setAgencyTokenResult({ success: false, message: e.response?.data?.error || 'Erro ao salvar token' });
+    }
+    setAgencyTokenSaving(false);
+  };
+
+  const loadIgAccounts = async () => {
+    setIgAccountsLoading(true);
+    setIgAccounts([]);
+    try {
+      const r = await metaApi.getIgAccounts();
+      setIgAccounts(r.data);
+    } catch {}
+    setIgAccountsLoading(false);
   };
 
   const testIgConnection = async () => {
@@ -624,10 +661,11 @@ export default function ClientDetail() {
   );
 
   const TABS: { id: Tab; label: string; icon: any }[] = [
-    { id: 'estrategia', label: 'Estratégia', icon: Star },
-    { id: 'operacao',   label: 'Operação',   icon: CheckSquare },
-    { id: 'dados',      label: 'Dados',      icon: Pencil },
-    { id: 'integracao', label: 'Integração', icon: Link },
+    { id: 'estrategia',  label: 'Estratégia',  icon: Star },
+    { id: 'operacao',    label: 'Operação',     icon: CheckSquare },
+    { id: 'dados',       label: 'Dados',        icon: Pencil },
+    { id: 'performance', label: 'Performance',  icon: TrendingUp },
+    { id: 'integracao',  label: 'Integração',   icon: Link },
   ];
 
   const OP_TABS: { id: OpTab; label: string; count: number }[] = [
@@ -1451,81 +1489,6 @@ export default function ClientDetail() {
       {tab === 'dados' && (
         <>
 
-        {/* Instagram Performance */}
-        {igConnected && (
-          <div className="rounded-2xl p-6 space-y-5 mb-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,rgba(236,72,153,0.15),rgba(168,85,247,0.15))', border: '1px solid rgba(236,72,153,0.2)' }}>
-                  <Instagram size={15} style={{ color: '#ec4899' }} />
-                </div>
-                <p className="text-sm font-semibold text-white">Performance Orgânica — Instagram</p>
-              </div>
-              <button onClick={loadIgInsights} disabled={igInsightsLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
-                style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <RotateCcw size={11} className={igInsightsLoading ? 'animate-spin' : ''} />
-                {igInsights ? 'Atualizar' : 'Carregar insights'}
-              </button>
-            </div>
-
-            {igInsights && (() => {
-              const { profile, accountInsights, media } = igInsights;
-              const statCard = (label: string, value: any, color = '#60a5fa') => (
-                <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-xl font-semibold" style={{ color }}>{(value ?? 0).toLocaleString('pt-BR')}</p>
-                  <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>{label}</p>
-                </div>
-              );
-              return (
-                <div className="space-y-5">
-                  {/* Profile header */}
-                  <div className="flex items-center gap-3">
-                    {profile.profile_picture_url && <img src={profile.profile_picture_url} className="w-10 h-10 rounded-full object-cover" />}
-                    <div>
-                      <p className="text-sm font-medium text-white">{profile.name}</p>
-                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{profile.media_count} publicações</p>
-                    </div>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="grid grid-cols-3 gap-3">
-                    {statCard('Seguidores', profile.followers_count, '#ec4899')}
-                    {statCard('Alcance (30d)', accountInsights.reach, '#60a5fa')}
-                    {statCard('Impressões (30d)', accountInsights.impressions, '#a78bfa')}
-                  </div>
-
-                  {/* Recent media grid */}
-                  {media.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>Posts recentes</p>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {media.slice(0, 12).map((m: any) => (
-                          <a key={m.id} href={m.permalink} target="_blank" rel="noopener noreferrer"
-                            className="relative group overflow-hidden rounded-lg" style={{ aspectRatio: '1080/1350' }}>
-                            {(m.thumbnail_url || m.media_url) && (
-                              <img src={m.thumbnail_url || m.media_url} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                            )}
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1"
-                              style={{ background: 'rgba(0,0,0,0.7)' }}>
-                              <p className="text-white text-[10px] font-semibold">{(m.like_count || 0).toLocaleString('pt-BR')} ❤️</p>
-                              <p className="text-white text-[10px]">{(m.comments_count || 0).toLocaleString('pt-BR')} 💬</p>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })()}
-
-            {!igInsights && !igInsightsLoading && (
-              <p className="text-xs text-center py-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Clique em "Carregar insights" para ver as métricas do Instagram</p>
-            )}
-          </div>
-        )}
-
         <Section title="Dados do Cliente">
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1608,6 +1571,95 @@ export default function ClientDetail() {
         </>
       )}
 
+      {/* ──────────────────── PERFORMANCE ──────────────────── */}
+      {tab === 'performance' && (
+        <div className="space-y-6">
+          {/* Instagram Orgânico */}
+          <div className="rounded-2xl p-6 space-y-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,rgba(236,72,153,0.15),rgba(168,85,247,0.15))', border: '1px solid rgba(236,72,153,0.2)' }}>
+                  <Instagram size={15} style={{ color: '#ec4899' }} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">Performance Orgânica — Instagram</p>
+                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>Últimos 30 dias</p>
+                </div>
+              </div>
+              {igConnected ? (
+                <button onClick={loadIgInsights} disabled={igInsightsLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
+                  style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                  <RotateCcw size={11} className={igInsightsLoading ? 'animate-spin' : ''} />
+                  {igInsights ? 'Atualizar' : 'Carregar insights'}
+                </button>
+              ) : (
+                <span className="text-xs px-3 py-1.5 rounded-xl" style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  Instagram não conectado
+                </span>
+              )}
+            </div>
+
+            {!igConnected && (
+              <div className="text-center py-6">
+                <Instagram size={28} className="mx-auto mb-2" style={{ color: 'rgba(100,116,139,0.2)' }} />
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Conecte o Instagram na aba Integração para ver as métricas</p>
+              </div>
+            )}
+
+            {igConnected && igInsights && (() => {
+              const { profile, accountInsights, media } = igInsights;
+              const statCard = (label: string, value: any, color = '#60a5fa') => (
+                <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-xl font-semibold" style={{ color }}>{(value ?? 0).toLocaleString('pt-BR')}</p>
+                  <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>{label}</p>
+                </div>
+              );
+              return (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3">
+                    {profile.profile_picture_url && <img src={profile.profile_picture_url} className="w-10 h-10 rounded-full object-cover" />}
+                    <div>
+                      <p className="text-sm font-medium text-white">{profile.name}</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{profile.media_count} publicações</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {statCard('Seguidores', profile.followers_count, '#ec4899')}
+                    {statCard('Alcance (30d)', accountInsights.reach, '#60a5fa')}
+                    {statCard('Impressões (30d)', accountInsights.impressions, '#a78bfa')}
+                  </div>
+                  {media.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>Posts recentes</p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {media.slice(0, 12).map((m: any) => (
+                          <a key={m.id} href={m.permalink} target="_blank" rel="noopener noreferrer"
+                            className="relative group overflow-hidden rounded-lg" style={{ aspectRatio: '1080/1350' }}>
+                            {(m.thumbnail_url || m.media_url) && (
+                              <img src={m.thumbnail_url || m.media_url} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            )}
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1"
+                              style={{ background: 'rgba(0,0,0,0.7)' }}>
+                              <p className="text-white text-[10px] font-semibold">{(m.like_count || 0).toLocaleString('pt-BR')} ❤️</p>
+                              <p className="text-white text-[10px]">{(m.comments_count || 0).toLocaleString('pt-BR')} 💬</p>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {igConnected && !igInsights && !igInsightsLoading && (
+              <p className="text-xs text-center py-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Clique em "Carregar insights" para ver as métricas do Instagram</p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* ──────────────────── INTEGRAÇÃO ──────────────────── */}
       {tab === 'integracao' && (() => {
         const cardStyle = { background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' };
@@ -1616,7 +1668,7 @@ export default function ClientDetail() {
         return (
           <div className="space-y-4">
 
-            {/* Instagram API */}
+            {/* Instagram — conta deste cliente */}
             <div className="rounded-2xl p-6 space-y-5" style={cardStyle}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -1624,52 +1676,74 @@ export default function ClientDetail() {
                     style={{ background: 'linear-gradient(135deg,rgba(236,72,153,0.15),rgba(168,85,247,0.15))', border: '1px solid rgba(236,72,153,0.2)' }}>
                     <Instagram size={16} style={{ color: '#ec4899' }} />
                   </div>
-                  <span className="text-base font-light text-white">Instagram API</span>
+                  <div>
+                    <span className="text-base font-light text-white">Conta do Instagram</span>
+                    <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>Específica para este cliente</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  {igTestResult && (
-                    <span className={`flex items-center gap-1.5 text-xs ${igTestResult.success ? 'text-emerald-400' : 'text-red-400'}`}>
-                      {igTestResult.success ? <CheckCircle2 size={12} /> : <RotateCcw size={12} />}
-                      {igTestResult.message}
-                    </span>
+                <div className="flex items-center gap-2">
+                  {igConnected && (
+                    <button onClick={disconnectInstagram}
+                      className="text-xs px-2.5 py-1 rounded-lg transition-all"
+                      style={{ color: '#f87171', background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                      Desconectar
+                    </button>
                   )}
-                  <button onClick={testIgConnection} disabled={igTesting || !igForm.token}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-30"
-                    style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                    <RotateCcw size={12} className={igTesting ? 'animate-spin' : ''} />
-                    Testar conexão
-                  </button>
                 </div>
               </div>
 
-              <div className="space-y-4">
-                <div>
-                  <p style={fieldLabel}>Access Token</p>
-                  <input
-                    type="password"
-                    value={igForm.token}
-                    onChange={e => setIgForm(p => ({ ...p, token: e.target.value }))}
-                    placeholder="EAABsbCS…"
-                    style={fieldInput}
-                  />
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <p style={fieldLabel}>Perfil do Instagram</p>
+                  {agencyTokenConnected && (
+                    <button onClick={loadIgAccounts} disabled={igAccountsLoading}
+                      className="flex items-center gap-1 text-[11px] disabled:opacity-40 transition-all"
+                      style={{ color: '#60a5fa' }}>
+                      <RotateCcw size={10} className={igAccountsLoading ? 'animate-spin' : ''} />
+                      {igAccountsLoading ? 'Buscando...' : 'Buscar contas'}
+                    </button>
+                  )}
                 </div>
-                <div>
-                  <p style={fieldLabel}>Instagram Account ID</p>
-                  <input
-                    value={igForm.account_id}
-                    onChange={e => setIgForm(p => ({ ...p, account_id: e.target.value }))}
-                    placeholder="123456789"
-                    style={fieldInput}
-                  />
-                </div>
+
+                {!agencyTokenConnected && (
+                  <p className="text-xs mb-2" style={{ color: 'rgba(100,116,139,0.4)' }}>Configure o token da agência primeiro para buscar as contas disponíveis.</p>
+                )}
+
+                {igAccounts.length > 0 && (
+                  <div className="space-y-2 mb-3">
+                    {igAccounts.map(acc => (
+                      <button key={acc.ig_user_id} onClick={() => setIgAccountId(acc.ig_user_id)}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left"
+                        style={{
+                          background: igAccountId === acc.ig_user_id ? 'rgba(236,72,153,0.1)' : 'rgba(255,255,255,0.03)',
+                          border: `1px solid ${igAccountId === acc.ig_user_id ? 'rgba(236,72,153,0.35)' : 'rgba(255,255,255,0.06)'}`,
+                        }}>
+                        {acc.profile_picture_url
+                          ? <img src={acc.profile_picture_url} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
+                          : <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: 'rgba(236,72,153,0.1)' }}><Instagram size={14} style={{ color: '#ec4899' }} /></div>
+                        }
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white truncate">{acc.name}</p>
+                          <p className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                            {acc.username ? `@${acc.username}` : acc.page_name}
+                            {acc.followers_count ? ` · ${acc.followers_count.toLocaleString('pt-BR')} seguidores` : ''}
+                          </p>
+                        </div>
+                        {igAccountId === acc.ig_user_id && <CheckCircle2 size={14} style={{ color: '#ec4899', flexShrink: 0 }} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                <input
+                  value={igAccountId}
+                  onChange={e => setIgAccountId(e.target.value)}
+                  placeholder="ID da conta (ou clique em Buscar contas)"
+                  style={fieldInput}
+                />
               </div>
 
-              <div className="flex items-center justify-between pt-1">
-                <button onClick={connectInstagram} disabled={igConnecting}
-                  className="flex items-center gap-1.5 text-xs disabled:opacity-40 transition-all"
-                  style={{ color: 'rgba(100,116,139,0.5)' }}>
-                  <Link size={11} /> {igConnecting ? 'Redirecionando...' : 'Conectar via OAuth'}
-                </button>
+              <div className="flex justify-end pt-1">
                 <button onClick={saveIgIntegration} disabled={igSaving}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
                   style={{ color: '#ec4899', background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.2)' }}>

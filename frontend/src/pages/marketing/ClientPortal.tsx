@@ -3,13 +3,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import ClientPositioning from './ClientPositioning';
 import {
   CheckCircle2, RotateCcw, MessageSquare, Calendar, X, Send, Eye,
-  FileImage, Clock, Grid3x3, Megaphone, Smartphone,
+  FileImage, Clock, Grid3x3, Megaphone, Smartphone, Instagram,
   TrendingUp, MousePointer, DollarSign, BarChart3, Target, Pencil,
   Plus, Trash2, ChevronRight, ChevronLeft, Zap, Users, Star, BookOpen, Briefcase,
   ArrowLeft, LayoutDashboard, Menu, Phone, UserPlus, Kanban, Settings, Search,
   List, CalendarDays
 } from 'lucide-react';
-import { contentApi, agencyClientsApi, campaignsApi, clientPortalApi, clientCrmApi, conversationsApi, profileApi, contentIdeasApi } from '../../api/client';
+import { contentApi, agencyClientsApi, campaignsApi, clientPortalApi, clientCrmApi, conversationsApi, profileApi, contentIdeasApi, metaApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient, Campaign } from '../../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -386,6 +386,8 @@ export default function ClientPortal() {
   const [feedFilter, setFeedFilter] = useState<'all' | 'approved'>('all');
   const [conteudosInitFilter, setConteudosInitFilter] = useState<string>('all');
   const [phoneFrame, setPhoneFrame] = useState(true);
+  const [igInsights, setIgInsights] = useState<any>(null);
+  const [igInsightsLoading, setIgInsightsLoading] = useState(false);
 
   const cid = Number(clientId);
 
@@ -428,7 +430,20 @@ export default function ClientPortal() {
     setCrmLoading(false);
   };
 
+  const loadIgInsights = async () => {
+    if (igInsightsLoading) return;
+    setIgInsightsLoading(true);
+    try {
+      const r = await metaApi.getInsights(cid);
+      setIgInsights(r.data);
+    } catch {}
+    setIgInsightsLoading(false);
+  };
+
   useEffect(() => {
+    if (page === 'performance' && !igInsights && !igInsightsLoading) {
+      loadIgInsights();
+    }
     if ((page === 'crm_dashboard' || page === 'crm_contatos' || page === 'crm_pipeline' || page === 'crm_conversas') && !crmDash && !crmLoading) {
       loadCrm();
     }
@@ -2134,7 +2149,72 @@ export default function ClientPortal() {
       <div className="space-y-8">
         <div>
           <h2 className="text-2xl font-semibold text-white mb-1">Performance</h2>
-          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Resultados de tráfego pago e campanhas</p>
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Orgânico e tráfego pago</p>
+        </div>
+
+        {/* Instagram Orgânico */}
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Orgânico — Instagram</p>
+          <div className="rounded-2xl p-6 space-y-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {igInsightsLoading && (
+              <div className="flex items-center justify-center py-8 gap-2">
+                <RotateCcw size={14} className="animate-spin" style={{ color: 'rgba(100,116,139,0.4)' }} />
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Carregando métricas…</p>
+              </div>
+            )}
+            {!igInsightsLoading && !igInsights && (
+              <div className="text-center py-8">
+                <Instagram size={28} className="mx-auto mb-2" style={{ color: 'rgba(100,116,139,0.2)' }} />
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Dados de Instagram não disponíveis</p>
+              </div>
+            )}
+            {igInsights && (() => {
+              const { profile, accountInsights, media } = igInsights;
+              return (
+                <div className="space-y-5">
+                  <div className="flex items-center gap-3">
+                    {profile.profile_picture_url && <img src={profile.profile_picture_url} className="w-10 h-10 rounded-full object-cover" />}
+                    <div>
+                      <p className="text-sm font-medium text-white">{profile.name}</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{profile.media_count} publicações</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: 'Seguidores', value: profile.followers_count, color: '#ec4899' },
+                      { label: 'Alcance (30d)', value: accountInsights.reach, color: '#60a5fa' },
+                      { label: 'Impressões (30d)', value: accountInsights.impressions, color: '#a78bfa' },
+                    ].map(s => (
+                      <div key={s.label} className="rounded-xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <p className="text-xl font-semibold" style={{ color: s.color }}>{(s.value ?? 0).toLocaleString('pt-BR')}</p>
+                        <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>{s.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {media.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>Posts recentes</p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {media.slice(0, 8).map((m: any) => (
+                          <a key={m.id} href={m.permalink} target="_blank" rel="noopener noreferrer"
+                            className="relative group overflow-hidden rounded-lg" style={{ aspectRatio: '1080/1350' }}>
+                            {(m.thumbnail_url || m.media_url) && (
+                              <img src={m.thumbnail_url || m.media_url} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            )}
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1"
+                              style={{ background: 'rgba(0,0,0,0.7)' }}>
+                              <p className="text-white text-[10px] font-semibold">{(m.like_count || 0).toLocaleString('pt-BR')} ❤️</p>
+                              <p className="text-white text-[10px]">{(m.comments_count || 0).toLocaleString('pt-BR')} 💬</p>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
         </div>
 
         {/* Tráfego pago */}

@@ -31,6 +31,64 @@ router.get('/auth', (req, res) => {
   res.json({ url });
 });
 
+function getAgencyToken(tenantId: number): string | null {
+  return (db.prepare("SELECT value FROM settings WHERE tenant_id=? AND key='meta_user_token'").get(tenantId) as any)?.value || null;
+}
+
+// Agency Meta token status
+router.get('/agency-token', (req, res) => {
+  const token = getAgencyToken(req.user.tenant_id);
+  const expires = (db.prepare("SELECT value FROM settings WHERE tenant_id=? AND key='meta_user_token_expires'").get(req.user.tenant_id) as any)?.value || null;
+  res.json({ connected: !!token, expires_at: expires });
+});
+
+// Save agency token manually
+router.post('/agency-token', async (req, res) => {
+  const { token } = req.body as { token: string };
+  if (!token) return res.status(400).json({ error: 'token obrigatório' });
+  const upsert = db.prepare('INSERT OR REPLACE INTO settings (tenant_id, key, value) VALUES (?, ?, ?)');
+  upsert.run(req.user.tenant_id, 'meta_user_token', token);
+  // Try to get expiry info from token itself
+  try {
+    const info = await httpsGet(`https://graph.facebook.com/v19.0/me?fields=name&access_token=${token}`);
+    if (info.error) return res.status(400).json({ error: info.error.message });
+    res.json({ ok: true, name: info.name });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// List all Instagram Business accounts (uses agency token)
+router.get('/ig-accounts', async (req, res) => {
+  const token = getAgencyToken(req.user.tenant_id);
+  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
+
+  try {
+    const pages = await httpsGet(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,instagram_business_account&access_token=${token}`);
+    if (pages.error) return res.status(400).json({ error: pages.error.message });
+
+    const accounts: any[] = [];
+    for (const page of pages.data || []) {
+      if (!page.instagram_business_account?.id) continue;
+      const igId = page.instagram_business_account.id;
+      try {
+        const profile = await httpsGet(`https://graph.facebook.com/v19.0/${igId}?fields=id,name,username,profile_picture_url,followers_count&access_token=${token}`);
+        accounts.push({
+          ig_user_id: igId,
+          name: profile.name || profile.username || page.name,
+          username: profile.username,
+          profile_picture_url: profile.profile_picture_url,
+          followers_count: profile.followers_count,
+          page_name: page.name,
+        });
+      } catch {}
+    }
+    res.json(accounts);
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Return IG connection status for a client
 router.get('/instagram-status/:clientId', (req, res) => {
   const client = db.prepare('SELECT instagram_user_id, instagram_token_expires FROM agency_clients WHERE id=? AND tenant_id=?')
@@ -45,11 +103,13 @@ router.get('/instagram-status/:clientId', (req, res) => {
 
 // Account insights + recent media for a client
 router.get('/insights/:clientId', async (req, res) => {
-  const client = db.prepare('SELECT instagram_token, instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?')
-    .get(req.params.clientId, req.user.tenant_id) as any;
-  if (!client?.instagram_token) return res.status(400).json({ error: 'Instagram não conectado' });
+  const token = getAgencyToken(req.user.tenant_id);
+  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
 
-  const token = client.instagram_token;
+  const client = db.prepare('SELECT instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?')
+    .get(req.params.clientId, req.user.tenant_id) as any;
+  if (!client?.instagram_user_id) return res.status(400).json({ error: 'Conta do Instagram não configurada para este cliente' });
+
   const igId = client.instagram_user_id;
 
   try {
@@ -80,16 +140,15 @@ router.get('/insights/:clientId', async (req, res) => {
 
 // Individual media insights
 router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
-  const client = db.prepare('SELECT instagram_token FROM agency_clients WHERE id=? AND tenant_id=?')
-    .get(req.params.clientId, req.user.tenant_id) as any;
-  if (!client?.instagram_token) return res.status(400).json({ error: 'Instagram não conectado' });
+  const token = getAgencyToken(req.user.tenant_id);
+  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
 
   try {
-    const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink&access_token=${client.instagram_token}`);
+    const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink&access_token=${token}`);
     let insights: any = {};
     try {
       const metric = basic.media_type === 'VIDEO' ? 'impressions,reach,plays,saved,shares' : 'impressions,reach,saved,shares,engagement';
-      const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&access_token=${client.instagram_token}`);
+      const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&access_token=${token}`);
       for (const m of ins.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
     } catch {}
     res.json({ ...basic, insights });
@@ -98,13 +157,12 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
   }
 });
 
-// Test Instagram token for a client
+// Test agency token
 router.get('/test-instagram/:clientId', async (req, res) => {
-  const client = db.prepare('SELECT instagram_token, instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?')
-    .get(req.params.clientId, req.user.tenant_id) as any;
-  if (!client?.instagram_token) return res.status(400).json({ success: false, message: 'Nenhum token configurado' });
+  const token = getAgencyToken(req.user.tenant_id);
+  if (!token) return res.json({ success: false, message: 'Token da agência não configurado' });
   try {
-    const data = await httpsGet(`https://graph.facebook.com/v19.0/me?access_token=${client.instagram_token}&fields=name,id`);
+    const data = await httpsGet(`https://graph.facebook.com/v19.0/me?access_token=${token}&fields=name,id`);
     if (data.error) return res.json({ success: false, message: data.error.message });
     res.json({ success: true, message: `Conectado como ${data.name || data.id}` });
   } catch (e: any) {
