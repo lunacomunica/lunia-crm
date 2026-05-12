@@ -174,8 +174,8 @@ function ReelsViewer({ video, cover, onRemoveVideo, onRemoveCover, readOnly }: {
 }
 
 // ── Upload drop zone ──────────────────────────────────────────────────────────
-function DropZone({ accept, multiple, label, icon: Icon, onFiles, uploading }: {
-  accept: string; multiple: boolean; label: string; icon: any; onFiles: (files: File[]) => void; uploading: boolean;
+function DropZone({ accept, multiple, label, icon: Icon, onFiles, uploading, progress }: {
+  accept: string; multiple: boolean; label: string; icon: any; onFiles: (files: File[]) => void; uploading: boolean; progress?: number;
 }) {
   const [dragging, setDragging] = useState(false);
   const ref = useRef<HTMLInputElement>(null);
@@ -185,8 +185,9 @@ function DropZone({ accept, multiple, label, icon: Icon, onFiles, uploading }: {
       style={{
         border: `2px dashed ${dragging ? 'rgba(59,130,246,0.5)' : 'rgba(59,130,246,0.15)'}`,
         background: dragging ? 'rgba(59,130,246,0.06)' : 'rgba(255,255,255,0.02)',
+        pointerEvents: uploading ? 'none' : undefined,
       }}
-      onClick={() => ref.current?.click()}
+      onClick={() => !uploading && ref.current?.click()}
       onDragOver={e => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={e => {
@@ -200,10 +201,13 @@ function DropZone({ accept, multiple, label, icon: Icon, onFiles, uploading }: {
       <input ref={ref} type="file" accept={accept} multiple={multiple} className="hidden"
         onChange={e => { const files = Array.from(e.target.files || []); if (files.length) onFiles(files); e.target.value = ''; }} />
       {uploading ? (
-        <div className="flex flex-col items-center gap-2">
-          <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin"
-            style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
-          <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>Enviando…</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ background: 'rgba(59,130,246,0.15)' }}>
+            <div className="h-full rounded-full transition-all duration-300" style={{ width: `${progress ?? 0}%`, background: 'linear-gradient(90deg,#3b82f6,#6366f1)' }} />
+          </div>
+          <p className="text-xs" style={{ color: 'rgba(100,116,139,0.6)' }}>
+            {(progress ?? 0) < 100 ? `Enviando… ${progress ?? 0}%` : 'Processando…'}
+          </p>
         </div>
       ) : (
         <div className="flex flex-col items-center gap-2">
@@ -251,6 +255,8 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
   });
 
   const [uploading, setUploading] = useState<'images' | 'video' | 'cover' | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const captionRef = useRef<HTMLTextAreaElement>(null);
@@ -325,23 +331,30 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
 
   const uploadFiles = async (files: File[], kind: 'images' | 'video' | 'cover') => {
     setUploading(kind);
+    setUploadError(null);
+    setUploadProgress(0);
     try {
-      const r = await uploadApi.files(files);
+      const fd = new FormData();
+      files.forEach(f => fd.append('files', f));
+      const r = await import('axios').then(({ default: axios }) =>
+        axios.post('/api/upload', fd, {
+          headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${localStorage.getItem('lunia_token')}` },
+          timeout: 10 * 60 * 1000,
+          onUploadProgress: e => { if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100)); },
+        })
+      );
       const newFiles: MediaFile[] = r.data.files;
       setMediaFiles(prev => {
-        if (kind === 'video') {
-          // Replace existing video, keep images
-          return [...prev.filter(f => f.type === 'image'), ...newFiles];
-        }
-        if (kind === 'cover') {
-          // For reels: add as image (shown as cover)
-          return [...prev.filter(f => f.type === 'video'), ...newFiles.map(f => ({ ...f, type: 'image' as const }))];
-        }
-        // images: append
+        if (kind === 'video') return [...prev.filter(f => f.type === 'image'), ...newFiles];
+        if (kind === 'cover') return [...prev.filter(f => f.type === 'video'), ...newFiles.map(f => ({ ...f, type: 'image' as const }))];
         return [...prev, ...newFiles.map(f => ({ ...f, type: 'image' as const }))];
       });
+    } catch (e: any) {
+      const msg = e?.response?.status === 413 ? 'Arquivo muito grande. Contate o suporte para aumentar o limite.' : (e?.response?.data?.error || e?.message || 'Erro ao enviar arquivo');
+      setUploadError(msg);
     } finally {
       setUploading(null);
+      setUploadProgress(0);
     }
   };
 
@@ -588,7 +601,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                     <DropZone accept="image/jpeg,image/png,image/webp,image/gif"
                       multiple={form.type === 'carrossel'}
                       label={form.type === 'carrossel' ? 'Adicionar imagens ao carrossel' : 'Subir imagem'}
-                      icon={ImageIcon} uploading={uploading === 'images'}
+                      icon={ImageIcon} uploading={uploading === 'images'} progress={uploading === 'images' ? uploadProgress : 0}
                       onFiles={files => uploadFiles(files, 'images')} />
                   )}
                   {form.type === 'estatico' && carouselImages.length > 0 && (
@@ -607,17 +620,25 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                       onRemoveVideo={removeVideoForReels} onRemoveCover={removeCoverForReels} />
                   ) : (
                     <DropZone accept="video/mp4,video/quicktime,video/webm" multiple={false}
-                      label="Subir vídeo do Reels" icon={Video} uploading={uploading === 'video'}
+                      label="Subir vídeo do Reels" icon={Video} uploading={uploading === 'video'} progress={uploading === 'video' ? uploadProgress : 0}
                       onFiles={files => uploadFiles(files, 'video')} />
                   )}
                   {!reelsCover && (
                     <DropZone accept="image/jpeg,image/png,image/webp" multiple={false}
-                      label="Capa do Reels (opcional)" icon={ImageIcon} uploading={uploading === 'cover'}
+                      label="Capa do Reels (opcional)" icon={ImageIcon} uploading={uploading === 'cover'} progress={uploading === 'cover' ? uploadProgress : 0}
                       onFiles={files => uploadFiles(files, 'cover')} />
                   )}
                 </div>
               )}
             </div>
+
+            {uploadError && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                <AlertTriangle size={13} className="flex-shrink-0 mt-0.5" style={{ color: '#f87171' }} />
+                <p className="text-xs" style={{ color: '#f87171' }}>{uploadError}</p>
+                <button onClick={() => setUploadError(null)} className="ml-auto flex-shrink-0" style={{ color: 'rgba(248,113,113,0.5)' }}><X size={11} /></button>
+              </div>
+            )}
 
             {/* Legenda */}
             <div>
