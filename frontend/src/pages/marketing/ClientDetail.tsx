@@ -1639,10 +1639,10 @@ export default function ClientDetail() {
                             {(m.thumbnail_url || m.media_url) && (
                               <img src={m.thumbnail_url || m.media_url} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                             )}
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1"
-                              style={{ background: 'rgba(0,0,0,0.7)' }}>
-                              <p className="text-white text-[10px] font-semibold">{(m.like_count || 0).toLocaleString('pt-BR')} ❤️</p>
-                              <p className="text-white text-[10px]">{(m.comments_count || 0).toLocaleString('pt-BR')} 💬</p>
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1"
+                              style={{ background: 'rgba(0,0,0,0.75)' }}>
+                              <p className="text-white text-[10px] font-semibold">{(m.like_count || 0).toLocaleString('pt-BR')} ❤️  {(m.comments_count || 0).toLocaleString('pt-BR')} 💬</p>
+                              <p className="text-[9px] font-mono text-center break-all" style={{ color: 'rgba(255,255,255,0.5)' }}>ID: {m.id}</p>
                             </div>
                           </a>
                         ))}

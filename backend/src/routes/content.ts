@@ -419,15 +419,12 @@ router.delete('/:id', (req, res) => {
   res.json({ ok: true });
 });
 
-// Link an existing Instagram post by media ID or URL
+// Link an existing Instagram post by numeric media ID only
 router.patch('/:id/link-ig', (req, res) => {
   const existing = db.prepare('SELECT * FROM content_pieces WHERE id=? AND tenant_id=?').get(req.params.id, req.user.tenant_id) as any;
   if (!existing) return res.status(404).json({ error: 'Post não encontrado' });
-  let { ig_media_id } = req.body as { ig_media_id: string };
-  // Accept full permalink URL and extract ID
-  const match = ig_media_id?.match(/\/p\/([A-Za-z0-9_-]+)/);
-  if (match) ig_media_id = match[1]; // shortcode — still save as-is, insights use numeric ID
-  if (!ig_media_id?.trim()) return res.status(400).json({ error: 'ig_media_id obrigatório' });
+  const { ig_media_id } = req.body as { ig_media_id: string };
+  if (!ig_media_id?.trim() || !/^\d+$/.test(ig_media_id.trim())) return res.status(400).json({ error: 'Informe o ID numérico do post (ex: 18012345678901234)' });
   db.prepare("UPDATE content_pieces SET ig_media_id=?, status='publicado', updated_at=datetime('now') WHERE id=? AND tenant_id=?")
     .run(ig_media_id.trim(), req.params.id, req.user.tenant_id);
   res.json(db.prepare('SELECT * FROM content_pieces WHERE id=?').get(req.params.id));

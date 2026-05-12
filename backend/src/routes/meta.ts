@@ -186,6 +186,14 @@ async function httpsPost(url: string, body: Record<string, string>): Promise<any
   });
 }
 
+const APP_URL = process.env.APP_URL || 'https://app.lunacomunica.com';
+
+function toAbsoluteUrl(url: string): string {
+  if (!url) return url;
+  if (url.startsWith('http')) return url;
+  return `${APP_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
 // Core publish function — reusable by endpoint and cron
 export async function publishToInstagram(tenantId: number, contentId: number): Promise<{ ig_media_id: string; ig_permalink: string }> {
   const token = (db.prepare("SELECT value FROM settings WHERE tenant_id=? AND key='meta_user_token'").get(tenantId) as any)?.value;
@@ -197,7 +205,8 @@ export async function publishToInstagram(tenantId: number, contentId: number): P
 
   const igId = piece.instagram_user_id;
   const caption = piece.caption || piece.copy_text || piece.title || '';
-  const mediaFiles: { url: string; type: string }[] = JSON.parse(piece.media_files || '[]');
+  const mediaFiles: { url: string; type: string }[] = JSON.parse(piece.media_files || '[]')
+    .map((f: any) => ({ ...f, url: toAbsoluteUrl(f.url) }));
 
   let creationId: string;
 
@@ -239,7 +248,7 @@ export async function publishToInstagram(tenantId: number, contentId: number): P
   } else {
     // Single image
     const imageFile = mediaFiles.find(f => f.type === 'image') || mediaFiles[0];
-    const imageUrl = imageFile?.url || piece.media_url;
+    const imageUrl = imageFile?.url || toAbsoluteUrl(piece.media_url);
     if (!imageUrl) throw new Error('Nenhuma imagem encontrada');
     const container = await httpsPost(`https://graph.facebook.com/v19.0/${igId}/media`, {
       image_url: imageUrl, caption, access_token: token,
