@@ -460,6 +460,7 @@ const migrations = [
     due_date TEXT DEFAULT NULL,
     created_at TEXT DEFAULT (datetime('now'))
   )`,
+  "ALTER TABLE agency_clients ADD COLUMN squad TEXT DEFAULT NULL",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

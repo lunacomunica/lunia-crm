@@ -28,6 +28,7 @@ export interface AgencyClient {
   pending_approvals?: number;
   ceo_message?: string | null;
   modules?: string | null;
+  squad?: string | null;
   owner_name?: string | null;
   owner_avatar?: string | null;
   owner_job_title?: string | null;

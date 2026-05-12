@@ -5,7 +5,9 @@ import { agencyClientsApi, uploadAnyApi } from '../../api/client';
 import { AgencyClient } from '../../types';
 import { useAuth } from '../../context/AuthContext';
 
-const emptyForm = { name: '', segment: '', contact_name: '', contact_email: '', instagram_handle: '', logo: '' };
+const SQUADS = ['Squad 1', 'Squad 2', 'Squad 3', 'Squad 4'];
+
+const emptyForm = { name: '', segment: '', contact_name: '', contact_email: '', instagram_handle: '', logo: '', squad: '' };
 
 export default function MarketingClients() {
   const { user } = useAuth();
@@ -20,6 +22,7 @@ export default function MarketingClients() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [segmentFilter, setSegmentFilter] = useState('todos');
+  const [squadFilter, setSquadFilter] = useState('todos');
 
   const load = () => { setLoading(true); agencyClientsApi.list().then(r => { setClients(r.data); setLoading(false); }); };
   useEffect(() => { load(); }, []);
@@ -27,7 +30,7 @@ export default function MarketingClients() {
   const openCreate = () => { setEditing(null); setForm(emptyForm); setModal(true); };
   const openEdit = (c: AgencyClient) => {
     setEditing(c);
-    setForm({ name: c.name, segment: c.segment || '', contact_name: c.contact_name || '', contact_email: c.contact_email || '', instagram_handle: c.instagram_handle || '', logo: c.logo || '' });
+    setForm({ name: c.name, segment: c.segment || '', contact_name: c.contact_name || '', contact_email: c.contact_email || '', instagram_handle: c.instagram_handle || '', logo: c.logo || '', squad: c.squad || '' });
     setModal(true);
   };
 
@@ -74,22 +77,50 @@ export default function MarketingClients() {
 
       {!loading && clients.length > 0 && (() => {
         const segments = ['todos', ...Array.from(new Set(clients.map(c => c.segment).filter((s): s is string => !!s))).sort()];
-        return segments.length > 2 ? (
-          <div className="flex gap-2 mb-6 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
-            {segments.map(s => (
-              <button key={s} onClick={() => setSegmentFilter(s)}
-                className="text-xs px-3 py-1.5 rounded-xl transition-all font-medium whitespace-nowrap flex-shrink-0"
-                style={segmentFilter === s
-                  ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }
-                  : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                {s === 'todos' ? 'Todos' : s}
-                <span className="ml-1.5 opacity-50">
-                  {s === 'todos' ? clients.length : clients.filter(c => c.segment === s).length}
-                </span>
-              </button>
-            ))}
+        const activeSquads = SQUADS.filter(sq => clients.some(c => c.squad === sq));
+        const showFilters = segments.length > 2 || activeSquads.length > 0;
+        if (!showFilters) return null;
+        return (
+          <div className="flex items-center gap-3 mb-6 flex-wrap">
+            {segments.length > 2 && (
+              <div className="flex gap-2 overflow-x-auto pb-0.5 flex-1 min-w-0" style={{ scrollbarWidth: 'none' }}>
+                {segments.map(s => (
+                  <button key={s} onClick={() => setSegmentFilter(s)}
+                    className="text-xs px-3 py-1.5 rounded-xl transition-all font-medium whitespace-nowrap flex-shrink-0"
+                    style={segmentFilter === s
+                      ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }
+                      : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {s === 'todos' ? 'Todos' : s}
+                    <span className="ml-1.5 opacity-50">
+                      {s === 'todos' ? clients.length : clients.filter(c => c.segment === s).length}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {activeSquads.length > 0 && (
+              <div className="flex gap-2 flex-shrink-0">
+                <button onClick={() => setSquadFilter('todos')}
+                  className="text-xs px-3 py-1.5 rounded-xl transition-all font-medium whitespace-nowrap"
+                  style={squadFilter === 'todos'
+                    ? { background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }
+                    : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  Todos squads
+                </button>
+                {activeSquads.map(sq => (
+                  <button key={sq} onClick={() => setSquadFilter(sq)}
+                    className="text-xs px-3 py-1.5 rounded-xl transition-all font-medium whitespace-nowrap"
+                    style={squadFilter === sq
+                      ? { background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.3)' }
+                      : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    {sq}
+                    <span className="ml-1.5 opacity-50">{clients.filter(c => c.squad === sq).length}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
-        ) : null;
+        );
       })()}
 
       {loading ? (
@@ -105,7 +136,7 @@ export default function MarketingClients() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {clients.filter(c => segmentFilter === 'todos' || c.segment === segmentFilter).map(c => (
+          {clients.filter(c => (segmentFilter === 'todos' || c.segment === segmentFilter) && (squadFilter === 'todos' || c.squad === squadFilter)).map(c => (
             <div key={c.id} onClick={() => navigate(`/marketing/clients/${c.id}`)}
               className="card p-5 cursor-pointer group transition-all duration-200 hover:border-blue-500/20"
               style={{ borderColor: c.active ? 'rgba(59,130,246,0.1)' : 'rgba(100,116,139,0.06)' }}>
@@ -149,13 +180,20 @@ export default function MarketingClients() {
                 )}
               </div>
 
-              {c.instagram_handle && (
-                <div className="flex items-center gap-1.5 mb-4">
-                  <Instagram size={11} style={{ color: 'rgba(236,72,153,0.6)' }} />
-                  <span className="text-xs" style={{ color: 'rgba(236,72,153,0.6)' }}>@{c.instagram_handle}</span>
-                </div>
-              )}
-
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                {c.instagram_handle && (
+                  <div className="flex items-center gap-1.5">
+                    <Instagram size={11} style={{ color: 'rgba(236,72,153,0.6)' }} />
+                    <span className="text-xs" style={{ color: 'rgba(236,72,153,0.6)' }}>@{c.instagram_handle}</span>
+                  </div>
+                )}
+                {c.squad && (
+                  <span className="text-[10px] font-medium px-2 py-0.5 rounded-full ml-auto"
+                    style={{ background: 'rgba(167,139,250,0.1)', color: '#a78bfa', border: '1px solid rgba(167,139,250,0.2)' }}>
+                    {c.squad}
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2 pt-3" style={{ borderTop: '1px solid rgba(255,255,255,0.04)' }}>
                 {(c as any).current_feed_name ? (
                   <div className="flex items-center gap-1.5 min-w-0">
@@ -233,6 +271,15 @@ export default function MarketingClients() {
                   <label className="label-dark">Segmento</label>
                   <input value={form.segment} onChange={e => setForm({ ...form, segment: e.target.value })} className="input-dark" placeholder="Ex: Moda, Gastronomia" />
                 </div>
+                <div>
+                  <label className="label-dark">Squad</label>
+                  <select value={form.squad} onChange={e => setForm({ ...form, squad: e.target.value })} className="input-dark" style={{ cursor: 'pointer' }}>
+                    <option value="">Sem squad</option>
+                    {SQUADS.map(sq => <option key={sq} value={sq}>{sq}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="label-dark">Instagram</label>
                   <div className="relative">

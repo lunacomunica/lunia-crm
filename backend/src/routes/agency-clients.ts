@@ -61,9 +61,9 @@ router.get('/:id', (req, res) => {
 
 router.post('/', (req, res) => {
   if (req.user.role === 'team') return res.status(403).json({ error: 'Sem permissão' });
-  const { name, segment = '', contact_name = '', contact_email = '', instagram_handle = '', logo = '' } = req.body;
+  const { name, segment = '', contact_name = '', contact_email = '', instagram_handle = '', logo = '', squad = null } = req.body;
   if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
-  const r = db.prepare(`INSERT INTO agency_clients (tenant_id, name, segment, contact_name, contact_email, instagram_handle, logo) VALUES (?, ?, ?, ?, ?, ?, ?)`).run(req.user.tenant_id, name, segment, contact_name, contact_email, instagram_handle, logo);
+  const r = db.prepare(`INSERT INTO agency_clients (tenant_id, name, segment, contact_name, contact_email, instagram_handle, logo, squad) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(req.user.tenant_id, name, segment, contact_name, contact_email, instagram_handle, logo, squad);
   res.status(201).json(db.prepare('SELECT * FROM agency_clients WHERE id = ?').get(r.lastInsertRowid));
 });
 
@@ -71,11 +71,12 @@ router.put('/:id', (req, res) => {
   if (req.user.role === 'team') return res.status(403).json({ error: 'Sem permissão' });
   const existing = db.prepare('SELECT * FROM agency_clients WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id) as any;
   if (!existing) return res.status(404).json({ error: 'Cliente não encontrado' });
-  const { name, segment, contact_name, contact_email, instagram_handle, logo, active } = req.body;
-  db.prepare(`UPDATE agency_clients SET name=?, segment=?, contact_name=?, contact_email=?, instagram_handle=?, logo=?, active=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?`).run(
+  const { name, segment, contact_name, contact_email, instagram_handle, logo, active, squad } = req.body;
+  db.prepare(`UPDATE agency_clients SET name=?, segment=?, contact_name=?, contact_email=?, instagram_handle=?, logo=?, active=?, squad=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?`).run(
     name ?? existing.name, segment ?? existing.segment, contact_name ?? existing.contact_name,
     contact_email ?? existing.contact_email, instagram_handle ?? existing.instagram_handle,
     logo ?? existing.logo, active !== undefined ? (active ? 1 : 0) : existing.active,
+    squad !== undefined ? (squad || null) : existing.squad,
     req.params.id, req.user.tenant_id
   );
   res.json(db.prepare('SELECT * FROM agency_clients WHERE id = ?').get(req.params.id));
