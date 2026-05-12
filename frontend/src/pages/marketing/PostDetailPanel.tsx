@@ -941,14 +941,14 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                     <div className="rounded-2xl p-5 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
                       <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Vincular post já publicado</p>
                       <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                        Cole o <strong style={{ color: 'rgba(148,163,184,0.7)' }}>ID numérico</strong> do post (ex: 18012345678901234). Você encontra na aba Performance do cliente, passando o mouse sobre o post.
+                        Cole o link do post do Instagram para conectar os insights.
                       </p>
                       <div className="flex gap-2">
                         <input
                           value={linkInput}
                           onChange={e => setLinkInput(e.target.value)}
-                          placeholder="18012345678901234"
-                          className="flex-1 rounded-xl px-3 py-2 text-xs font-mono outline-none"
+                          placeholder="https://www.instagram.com/p/DYCezzcIMbH/"
+                          className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
                           style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }}
                         />
                         <button
@@ -956,7 +956,8 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                             if (!linkInput.trim()) return;
                             setLinking(true);
                             try {
-                              const r = await metaApi.linkMediaId(post.id, linkInput.trim());
+                              const clientId = (post as any).agency_client_id;
+                              const r = await metaApi.linkIg(clientId, post.id, linkInput.trim());
                               onUpdated(r.data);
                             } catch (e: any) {
                               setPublishError(e.response?.data?.error || 'Erro ao vincular');
@@ -966,7 +967,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                           disabled={linking || !linkInput.trim()}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-40 flex-shrink-0"
                           style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                          <Link size={12} /> {linking ? 'Vinculando…' : 'Vincular'}
+                          <Link size={12} /> {linking ? 'Buscando…' : 'Vincular'}
                         </button>
                       </div>
                     </div>

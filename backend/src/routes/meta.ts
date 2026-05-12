@@ -289,6 +289,54 @@ router.post('/publish/:clientId/:contentId', async (req, res) => {
   }
 });
 
+// POST /meta/link-ig/:clientId/:contentId — link existing post by URL or numeric ID
+router.post('/link-ig/:clientId/:contentId', async (req, res) => {
+  const token = getAgencyToken(req.user.tenant_id);
+  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
+
+  const client = db.prepare('SELECT instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?')
+    .get(req.params.clientId, req.user.tenant_id) as any;
+  if (!client?.instagram_user_id) return res.status(400).json({ error: 'Conta do Instagram não configurada' });
+
+  let { value } = req.body as { value: string };
+  if (!value?.trim()) return res.status(400).json({ error: 'URL ou ID obrigatório' });
+  value = value.trim();
+
+  let mediaId: string;
+
+  if (/^\d+$/.test(value)) {
+    // Already a numeric ID
+    mediaId = value;
+  } else {
+    // Extract shortcode from URL
+    const match = value.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+    if (!match) return res.status(400).json({ error: 'URL inválida — use o link do post do Instagram' });
+    const shortcode = match[1];
+
+    // Search in account media for matching shortcode
+    try {
+      let found: string | null = null;
+      let url = `https://graph.facebook.com/v19.0/${client.instagram_user_id}/media?fields=id,shortcode,permalink&limit=50&access_token=${token}`;
+      while (url && !found) {
+        const page: any = await httpsGet(url);
+        for (const m of page.data || []) {
+          if (m.shortcode === shortcode || m.permalink?.includes(shortcode)) { found = m.id; break; }
+        }
+        url = page.paging?.next || null;
+        if (!found && !page.paging?.next) break;
+      }
+      if (!found) return res.status(404).json({ error: 'Post não encontrado na conta. Verifique se é da conta correta.' });
+      mediaId = found;
+    } catch (e: any) {
+      return res.status(500).json({ error: e.message });
+    }
+  }
+
+  db.prepare("UPDATE content_pieces SET ig_media_id=?, status='publicado', updated_at=datetime('now') WHERE id=? AND tenant_id=?")
+    .run(mediaId, req.params.contentId, req.user.tenant_id);
+  res.json(db.prepare('SELECT * FROM content_pieces WHERE id=?').get(req.params.contentId));
+});
+
 // Disconnect IG for a client
 router.delete('/instagram-status/:clientId', (req, res) => {
   db.prepare("UPDATE agency_clients SET instagram_token=NULL, instagram_user_id=NULL, instagram_token_expires=NULL WHERE id=? AND tenant_id=?")
