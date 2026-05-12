@@ -160,7 +160,7 @@ app.get('/privacy', (_req, res) => {
   <p class="subtitle">Última atualização: ${new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
 
   <h2>1. Quem somos</h2>
-  <p>O <strong style="color:#fff">Lun.ia</strong> é um sistema de gestão (ERP) desenvolvido pela <strong style="color:#fff">Agência Luna Comunicação</strong> para uso interno e de seus clientes. Nosso site é <a href="https://app.lunacomunica.co">app.lunacomunica.co</a>.</p>
+  <p>O <strong style="color:#fff">Lun.ia</strong> é um sistema de gestão (ERP) desenvolvido pela <strong style="color:#fff">Agência Luna Comunicação</strong> para uso interno e de seus clientes. Nosso site é <a href="https://app.lunacomunica.com">app.lunacomunica.com</a>.</p>
 
   <h2>2. Dados coletados</h2>
   <p>Coletamos dados necessários para o funcionamento do sistema, incluindo: nome, e-mail e telefone de contatos; mensagens trocadas via Instagram Direct e WhatsApp Business; dados de leads gerados por anúncios no Meta Ads; métricas de desempenho de publicações e campanhas.</p>
@@ -178,10 +178,10 @@ app.get('/privacy', (_req, res) => {
   <p>Os dados são armazenados em servidor seguro com acesso restrito por autenticação (e-mail e senha). Todo acesso à plataforma requer login individual com credenciais únicas.</p>
 
   <h2>7. Seus direitos</h2>
-  <p>Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento entrando em contato pelo Instagram <a href="https://instagram.com/lunacomunica" target="_blank">@lunacomunica</a> ou pelo e-mail <a href="mailto:vanessaraeski@gmail.com">vanessaraeski@gmail.com</a>.</p>
+  <p>Você pode solicitar acesso, correção ou exclusão dos seus dados a qualquer momento entrando em contato pelo Instagram <a href="https://instagram.com/lunacomunica" target="_blank">@lunacomunica</a> ou pelo e-mail <a href="mailto:contato@lunacomunica.com">contato@lunacomunica.com</a>.</p>
 
   <h2>8. Contato</h2>
-  <p>Dúvidas sobre esta política: <a href="https://instagram.com/lunacomunica" target="_blank">@lunacomunica</a> · <a href="mailto:vanessaraeski@gmail.com">vanessaraeski@gmail.com</a></p>
+  <p>Dúvidas sobre esta política: <a href="https://instagram.com/lunacomunica" target="_blank">@lunacomunica</a> · <a href="mailto:contato@lunacomunica.com">contato@lunacomunica.com</a></p>
 
   <div class="footer">© ${new Date().getFullYear()} Agência Luna Comunicação · Todos os direitos reservados</div>
 </div>
