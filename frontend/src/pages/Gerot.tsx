@@ -1554,15 +1554,39 @@ function InfoCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function getThumb(p: any): string | null {
+  try {
+    const files = JSON.parse(p.media_files || '[]');
+    const img = files.find((f: any) => f.type === 'image');
+    if (img?.url) return img.url;
+  } catch {}
+  return p.media_url || null;
+}
+
 function TaskForm({ form, setForm, clients, users, onSubmit, onCancel, saving }: any) {
+  const [batches, setBatches] = useState<any[]>([]);
+  const [selectedBatch, setSelectedBatch] = useState('');
   const [pieces, setPieces] = useState<any[]>([]);
   const [campaigns, setCampaigns] = useState<any[]>([]);
+  const [showPostPicker, setShowPostPicker] = useState(false);
 
   useEffect(() => {
-    if (!form.agency_client_id) { setPieces([]); setCampaigns([]); return; }
-    contentApi.list({ client_id: form.agency_client_id }).then(r => setPieces(r.data));
+    if (!form.agency_client_id) { setBatches([]); setSelectedBatch(''); setPieces([]); setCampaigns([]); return; }
+    contentApi.listBatches({ client_id: form.agency_client_id }).then(r => {
+      const bs = r.data || [];
+      setBatches(bs);
+      // default to most recent batch
+      if (bs.length > 0) setSelectedBatch(String(bs[bs.length - 1].id));
+    });
     campaignsApi.list({ client_id: form.agency_client_id }).then(r => setCampaigns(r.data));
   }, [form.agency_client_id]);
+
+  useEffect(() => {
+    if (!selectedBatch) { setPieces([]); return; }
+    contentApi.list({ batch_id: selectedBatch }).then(r => setPieces(r.data || []));
+  }, [selectedBatch]);
+
+  const selectedPost = pieces.find((p: any) => String(p.id) === String(form.content_piece_id)) || null;
 
   return (
     <div className="space-y-4">
@@ -1618,14 +1642,100 @@ function TaskForm({ form, setForm, clients, users, onSubmit, onCancel, saving }:
         )}
       </div>
       {form.agency_client_id && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-3">
+          {/* Post relacionado */}
           <div>
             <label className="label-dark">Post relacionado</label>
-            <select value={form.content_piece_id} onChange={e => setForm((f: any) => ({ ...f, content_piece_id: e.target.value }))} className="input-dark w-full mt-1 text-sm">
-              <option value="">Nenhum</option>
-              {pieces.map((p: any) => <option key={p.id} value={p.id}>{p.title}</option>)}
-            </select>
+            {/* Feed selector */}
+            {batches.length > 0 && (
+              <div className="flex gap-1.5 mt-1 mb-2 flex-wrap">
+                {batches.map((b: any) => (
+                  <button key={b.id} type="button"
+                    onClick={() => { setSelectedBatch(String(b.id)); setShowPostPicker(true); setForm((f: any) => ({ ...f, content_piece_id: '' })); }}
+                    className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                    style={{
+                      background: selectedBatch === String(b.id) ? 'rgba(59,130,246,0.15)' : 'rgba(255,255,255,0.04)',
+                      border: selectedBatch === String(b.id) ? '1px solid rgba(59,130,246,0.35)' : '1px solid rgba(255,255,255,0.07)',
+                      color: selectedBatch === String(b.id) ? '#60a5fa' : 'rgba(148,163,184,0.6)',
+                    }}>
+                    {b.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Selected post preview */}
+            {selectedPost ? (
+              <div className="flex items-center gap-3 p-2 rounded-xl mt-1 cursor-pointer"
+                onClick={() => setShowPostPicker(p => !p)}
+                style={{ background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                <div className="w-10 rounded-lg overflow-hidden flex-shrink-0" style={{ aspectRatio: '1080/1350', background: 'rgba(59,130,246,0.05)' }}>
+                  {getThumb(selectedPost)
+                    ? <img src={getThumb(selectedPost)!} className="w-full h-full object-cover" alt="" />
+                    : <div className="w-full h-full flex items-center justify-center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="rgba(59,130,246,0.3)" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+                  }
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-white truncate">{selectedPost.title}</p>
+                  {selectedPost.scheduled_date && (
+                    <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      {format(new Date(selectedPost.scheduled_date + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
+                    </p>
+                  )}
+                </div>
+                <button type="button" onClick={e => { e.stopPropagation(); setForm((f: any) => ({ ...f, content_piece_id: '' })); setShowPostPicker(false); }}
+                  className="p-1 rounded-lg flex-shrink-0" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+            ) : (
+              <button type="button" onClick={() => setShowPostPicker(p => !p)}
+                className="w-full mt-1 px-3 py-2 rounded-xl text-sm text-left transition-all"
+                style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(100,116,139,0.5)' }}>
+                {batches.length === 0 ? 'Nenhum feed encontrado' : 'Selecionar post…'}
+              </button>
+            )}
+
+            {/* Post grid picker */}
+            {showPostPicker && pieces.length > 0 && (
+              <div className="mt-2 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.15)', background: 'rgba(5,5,15,0.8)' }}>
+                <div className="grid grid-cols-3 gap-0.5 p-0.5" style={{ maxHeight: '220px', overflowY: 'auto' }}>
+                  {pieces.map((p: any) => {
+                    const thumb = getThumb(p);
+                    const isSelected = String(form.content_piece_id) === String(p.id);
+                    return (
+                      <button key={p.id} type="button"
+                        onClick={() => { setForm((f: any) => ({ ...f, content_piece_id: p.id })); setShowPostPicker(false); }}
+                        className="relative overflow-hidden rounded-lg group"
+                        style={{ aspectRatio: '1080/1350', background: 'rgba(59,130,246,0.04)', outline: isSelected ? '2px solid #3b82f6' : undefined }}>
+                        {thumb
+                          ? <img src={thumb} className="w-full h-full object-cover" alt={p.title} />
+                          : <div className="w-full h-full flex items-center justify-center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="rgba(59,130,246,0.2)" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+                        }
+                        {/* Hover overlay with title + date */}
+                        <div className="absolute inset-0 flex flex-col justify-end p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                          style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)' }}>
+                          <p className="text-white text-[8px] font-medium leading-tight line-clamp-2">{p.title}</p>
+                          {p.scheduled_date && (
+                            <p className="text-[7px] mt-0.5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                              {format(new Date(p.scheduled_date + 'T12:00:00'), "d MMM", { locale: ptBR })}
+                            </p>
+                          )}
+                        </div>
+                        {isSelected && (
+                          <div className="absolute inset-0 flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.3)' }}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="3"><polyline points="20 6 9 17 4 12"/></svg>
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
+
+          {/* Campanha relacionada */}
           <div>
             <label className="label-dark">Campanha relacionada</label>
             <select value={form.campaign_id} onChange={e => setForm((f: any) => ({ ...f, campaign_id: e.target.value }))} className="input-dark w-full mt-1 text-sm">
