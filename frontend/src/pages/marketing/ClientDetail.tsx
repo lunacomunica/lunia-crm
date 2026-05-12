@@ -474,7 +474,9 @@ export default function ClientDetail() {
     setLoadingPerfPosts(true);
     contentApi.list({ client_id: String(cid) }).then(r => {
       const all = r.data as any[];
-      setPerfPosts(all.filter((p: any) => p.ig_media_id || p.status === 'publicado' || p.status === 'agendado'));
+      const filtered = all.filter((p: any) => p.ig_media_id || p.status === 'publicado' || p.status === 'agendado');
+      filtered.sort((a: any, b: any) => new Date(b.scheduled_date || b.created_at).getTime() - new Date(a.scheduled_date || a.created_at).getTime());
+      setPerfPosts(filtered);
     }).finally(() => setLoadingPerfPosts(false));
   }, [tab, cid]);
 
@@ -1659,7 +1661,9 @@ export default function ClientDetail() {
                 setLoadingPerfPosts(true);
                 contentApi.list({ client_id: String(cid) }).then(r => {
                   const all = r.data as any[];
-                  setPerfPosts(all.filter((p: any) => p.ig_media_id || p.status === 'publicado' || p.status === 'agendado'));
+                  const filtered = all.filter((p: any) => p.ig_media_id || p.status === 'publicado' || p.status === 'agendado');
+                  filtered.sort((a: any, b: any) => new Date(b.scheduled_date || b.created_at).getTime() - new Date(a.scheduled_date || a.created_at).getTime());
+                  setPerfPosts(filtered);
                 }).finally(() => setLoadingPerfPosts(false));
               }} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                 <RotateCcw size={11} className={loadingPerfPosts ? 'animate-spin' : ''} />
@@ -1677,13 +1681,13 @@ export default function ClientDetail() {
               <div className="grid grid-cols-3 gap-2.5">
                 {perfPosts.map((p: any) => {
                   const cfg = STATUS_CFG[p.status as ContentStatus];
-                  const thumb = p.medias?.[0]?.url || null;
+                  const thumb = getPostThumbnail(p);
                   return (
                     <button key={p.id} onClick={() => { setPanelInitialTab('insights'); setPanelPost(p); }}
-                      className="relative group rounded-xl overflow-hidden text-left transition-all hover:ring-1"
+                      className="relative group rounded-xl overflow-hidden text-left transition-all"
                       style={{ aspectRatio: '3/4', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
                       {thumb ? (
-                        <img src={thumb} className="w-full h-full object-cover" />
+                        <img src={thumb} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
                           <span className="text-2xl opacity-20">🖼️</span>
