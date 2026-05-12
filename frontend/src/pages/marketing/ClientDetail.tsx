@@ -263,6 +263,9 @@ export default function ClientDetail() {
   const [selectedPosts, setSelectedPosts] = useState<Set<number>>(new Set());
   const [deletingBulk, setDeletingBulk] = useState(false);
   const [panelPost, setPanelPost] = useState<any | null>(null);
+  const [panelInitialTab, setPanelInitialTab] = useState<'post' | 'insights'>('post');
+  const [perfPosts, setPerfPosts] = useState<any[]>([]);
+  const [loadingPerfPosts, setLoadingPerfPosts] = useState(false);
 
   // Batch workflow modal
   const [batchWorkflowModal, setBatchWorkflowModal] = useState(false);
@@ -418,6 +421,7 @@ export default function ClientDetail() {
     const defaultDate = `${navMonth.year}-${String(navMonth.month).padStart(2, '0')}-01`;
     const r = await contentApi.create({ title: newPostTitle.trim(), type: 'post', agency_client_id: cid, batch_id: selectedBatchId, status: 'em_criacao', scheduled_date: defaultDate });
     setCreatingPost(false); setShowNewPostModal(false);
+    setPanelInitialTab('post');
     setPanelPost(r.data);
     const pr = await contentApi.list({ batch_id: String(selectedBatchId) });
     setPosts(pr.data); reloadBatches();
@@ -464,6 +468,15 @@ export default function ClientDetail() {
     }
   }, [searchParams]);
   useEffect(() => { if (tab === 'operacao' && batches.length === 0 && !loadingBatches) loadOp(); }, [tab]);
+
+  useEffect(() => {
+    if (tab !== 'performance' || !cid) return;
+    setLoadingPerfPosts(true);
+    contentApi.list({ client_id: String(cid) }).then(r => {
+      const all = r.data as any[];
+      setPerfPosts(all.filter((p: any) => p.ig_media_id || p.status === 'publicado' || p.status === 'agendado'));
+    }).finally(() => setLoadingPerfPosts(false));
+  }, [tab, cid]);
 
   const connectInstagram = async () => {
     setIgConnecting(true);
@@ -955,7 +968,7 @@ export default function ClientDetail() {
                                   <StatusDropdown current={p.status} onChange={s => handleStatusChange(p.id, s)} />
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                  <button onClick={() => setPanelPost(p)}
+                                  <button onClick={() => { setPanelInitialTab('post'); setPanelPost(p); }}
                                     className="p-1.5 rounded-lg transition-all" style={{ color: 'rgba(100,116,139,0.5)' }}
                                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
@@ -1001,7 +1014,7 @@ export default function ClientDetail() {
                                     {dp.map((p: any) => {
                                       const color = STATUS_CFG[p.status as ContentStatus]?.color || '#94a3b8';
                                       return (
-                                        <div key={p.id} onClick={() => setPanelPost(p)}
+                                        <div key={p.id} onClick={() => { setPanelInitialTab('post'); setPanelPost(p); }}
                                           className="flex items-center gap-0.5 px-1 py-0.5 rounded cursor-pointer text-[9px] truncate hover:opacity-80 transition-opacity mb-0.5"
                                           style={{ background: `${color}18`, border: `1px solid ${color}28`, color }}>
                                           <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: color }} />{p.title}
@@ -1033,7 +1046,7 @@ export default function ClientDetail() {
                                 const cfg = STATUS_CFG[p.status as ContentStatus];
                                 return (
                                   <div key={p.id} className="relative group cursor-pointer overflow-hidden" style={{ aspectRatio: '1080/1350', background: 'rgba(255,255,255,0.03)' }}
-                                    onClick={() => setPanelPost(p)}>
+                                    onClick={() => { setPanelInitialTab('post'); setPanelPost(p); }}>
                                     {getPostThumbnail(p) ? (
                                       <img src={getPostThumbnail(p)!} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                                     ) : (
@@ -1629,32 +1642,66 @@ export default function ClientDetail() {
                     {statCard('Alcance (30d)', accountInsights.reach, '#60a5fa')}
                     {statCard('Impressões (30d)', accountInsights.impressions, '#a78bfa')}
                   </div>
-                  {media.length > 0 && (
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>Posts recentes</p>
-                      <div className="grid grid-cols-4 gap-1.5">
-                        {media.slice(0, 12).map((m: any) => (
-                          <a key={m.id} href={m.permalink} target="_blank" rel="noopener noreferrer"
-                            className="relative group overflow-hidden rounded-lg" style={{ aspectRatio: '1080/1350' }}>
-                            {(m.thumbnail_url || m.media_url) && (
-                              <img src={m.thumbnail_url || m.media_url} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                            )}
-                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 p-1"
-                              style={{ background: 'rgba(0,0,0,0.75)' }}>
-                              <p className="text-white text-[10px] font-semibold">{(m.like_count || 0).toLocaleString('pt-BR')} ❤️  {(m.comments_count || 0).toLocaleString('pt-BR')} 💬</p>
-                              <p className="text-[9px] font-mono text-center break-all" style={{ color: 'rgba(255,255,255,0.5)' }}>ID: {m.id}</p>
-                            </div>
-                          </a>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               );
             })()}
 
             {igConnected && !igInsights && !igInsightsLoading && (
               <p className="text-xs text-center py-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Clique em "Carregar insights" para ver as métricas do Instagram</p>
+            )}
+          </div>
+
+          {/* Posts gerenciados pelo app */}
+          <div className="rounded-2xl p-5 space-y-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Posts via lun.ia</p>
+              <button onClick={() => {
+                setLoadingPerfPosts(true);
+                contentApi.list({ client_id: String(cid) }).then(r => {
+                  const all = r.data as any[];
+                  setPerfPosts(all.filter((p: any) => p.ig_media_id || p.status === 'publicado' || p.status === 'agendado'));
+                }).finally(() => setLoadingPerfPosts(false));
+              }} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <RotateCcw size={11} className={loadingPerfPosts ? 'animate-spin' : ''} />
+              </button>
+            </div>
+            {loadingPerfPosts ? (
+              <div className="flex justify-center py-8">
+                <RotateCcw size={14} className="animate-spin" style={{ color: 'rgba(100,116,139,0.3)' }} />
+              </div>
+            ) : perfPosts.length === 0 ? (
+              <div className="text-center py-8">
+                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.35)' }}>Nenhum post publicado ou agendado via lun.ia ainda.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-2.5">
+                {perfPosts.map((p: any) => {
+                  const cfg = STATUS_CFG[p.status as ContentStatus];
+                  const thumb = p.medias?.[0]?.url || null;
+                  return (
+                    <button key={p.id} onClick={() => { setPanelInitialTab('insights'); setPanelPost(p); }}
+                      className="relative group rounded-xl overflow-hidden text-left transition-all hover:ring-1"
+                      style={{ aspectRatio: '3/4', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      {thumb ? (
+                        <img src={thumb} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-2xl opacity-20">🖼️</span>
+                        </div>
+                      )}
+                      <div className="absolute inset-0 flex flex-col justify-end p-2" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)' }}>
+                        <p className="text-[10px] font-medium text-white truncate">{p.title}</p>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ color: cfg?.color, background: `${cfg?.color}22` }}>
+                            {cfg?.label}
+                          </span>
+                          {p.ig_media_id && <span className="text-[9px] px-1 py-0.5 rounded-full" style={{ color: '#34d399', background: 'rgba(52,211,153,0.15)' }}>📊</span>}
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             )}
           </div>
         </div>
@@ -1934,14 +1981,17 @@ export default function ClientDetail() {
       {panelPost && (
         <PostDetailPanel
           post={panelPost}
-          onClose={() => setPanelPost(null)}
+          initialTab={panelInitialTab}
+          onClose={() => { setPanelPost(null); setPanelInitialTab('post'); }}
           onUpdated={updated => {
             setPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
+            setPerfPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
             setPanelPost(updated);
             reloadBatches();
           }}
           onDeleted={() => {
             setPosts(prev => prev.filter(p => p.id !== panelPost.id));
+            setPerfPosts(prev => prev.filter(p => p.id !== panelPost.id));
             setPanelPost(null);
             reloadBatches();
           }}

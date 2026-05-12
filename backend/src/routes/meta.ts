@@ -144,14 +144,35 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
   if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
 
   try {
-    const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink&access_token=${token}`);
+    const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink,caption,thumbnail_url,media_url&access_token=${token}`);
     let insights: any = {};
     try {
-      const metric = basic.media_type === 'VIDEO' ? 'impressions,reach,plays,saved,shares' : 'impressions,reach,saved,shares,engagement';
-      const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&access_token=${token}`);
+      const isVideo = basic.media_type === 'VIDEO' || basic.media_type === 'REELS';
+      const metric = isVideo
+        ? 'impressions,reach,plays,saved,shares,likes,comments,total_interactions,ig_reels_avg_watch_time,ig_reels_video_view_total_time'
+        : 'impressions,reach,saved,shares,likes,comments,total_interactions,profile_visits,follows';
+      const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&period=lifetime&access_token=${token}`);
       for (const m of ins.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
+    } catch (e1) {
+      // Fallback to legacy metrics
+      try {
+        const metric2 = basic.media_type === 'VIDEO' ? 'impressions,reach,plays,saved,shares' : 'impressions,reach,saved,shares,engagement';
+        const ins2 = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric2}&access_token=${token}`);
+        for (const m of ins2.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
+      } catch {}
+    }
+    // Fill likes/comments from basic if insights doesn't have them
+    if (!insights.likes) insights.likes = basic.like_count ?? 0;
+    if (!insights.comments) insights.comments = basic.comments_count ?? 0;
+
+    // Fetch comments list
+    let commentsList: any[] = [];
+    try {
+      const commentsRes = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/comments?fields=id,text,timestamp,username,like_count,replies{id,text,timestamp,username}&limit=30&access_token=${token}`);
+      commentsList = commentsRes.data || [];
     } catch {}
-    res.json({ ...basic, insights });
+
+    res.json({ ...basic, insights, comments_list: commentsList });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
