@@ -75,10 +75,10 @@ export default function MarketingClients() {
       {!loading && clients.length > 0 && (() => {
         const segments = ['todos', ...Array.from(new Set(clients.map(c => c.segment).filter((s): s is string => !!s))).sort()];
         return segments.length > 2 ? (
-          <div className="flex gap-2 flex-wrap mb-6">
+          <div className="flex gap-2 mb-6 overflow-x-auto pb-1" style={{ scrollbarWidth: 'none' }}>
             {segments.map(s => (
               <button key={s} onClick={() => setSegmentFilter(s)}
-                className="text-xs px-3 py-1.5 rounded-xl transition-all font-medium"
+                className="text-xs px-3 py-1.5 rounded-xl transition-all font-medium whitespace-nowrap flex-shrink-0"
                 style={segmentFilter === s
                   ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }
                   : { background: 'transparent', color: 'rgba(100,116,139,0.5)', border: '1px solid rgba(255,255,255,0.06)' }}>
