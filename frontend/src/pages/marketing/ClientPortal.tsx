@@ -7,7 +7,7 @@ import {
   TrendingUp, MousePointer, DollarSign, BarChart3, Target, Pencil,
   Plus, Trash2, ChevronRight, ChevronLeft, Zap, Users, Star, BookOpen, Briefcase,
   ArrowLeft, LayoutDashboard, Menu, Phone, UserPlus, Kanban, Settings, Search,
-  List, CalendarDays
+  List, CalendarDays, ExternalLink
 } from 'lucide-react';
 import { contentApi, agencyClientsApi, campaignsApi, clientPortalApi, clientCrmApi, conversationsApi, profileApi, contentIdeasApi, metaApi } from '../../api/client';
 import { ContentPiece, ContentStatus, AgencyClient, Campaign } from '../../types';
@@ -388,6 +388,8 @@ export default function ClientPortal() {
   const [phoneFrame, setPhoneFrame] = useState(true);
   const [igInsights, setIgInsights] = useState<any>(null);
   const [igInsightsLoading, setIgInsightsLoading] = useState(false);
+  const [detailInsights, setDetailInsights] = useState<any>(null);
+  const [detailInsightsLoading, setDetailInsightsLoading] = useState(false);
 
   const cid = Number(clientId);
 
@@ -439,6 +441,20 @@ export default function ClientPortal() {
     } catch {}
     setIgInsightsLoading(false);
   };
+
+  useEffect(() => {
+    const igId = (detail as any)?.ig_media_id;
+    if (igId && cid) {
+      setDetailInsights(null);
+      setDetailInsightsLoading(true);
+      metaApi.getMediaInsights(cid, igId)
+        .then(r => setDetailInsights(r.data))
+        .catch(() => {})
+        .finally(() => setDetailInsightsLoading(false));
+    } else {
+      setDetailInsights(null);
+    }
+  }, [detail?.id]);
 
   useEffect(() => {
     if (page === 'performance' && !igInsights && !igInsightsLoading) {
@@ -2898,6 +2914,70 @@ export default function ClientPortal() {
                   </div>
                 </div>
               )}
+              {/* Métricas do Instagram */}
+              {(detail as any).ig_media_id && (
+                <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Métricas do post</p>
+                    {detailInsightsLoading && <RotateCcw size={11} className="animate-spin" style={{ color: 'rgba(100,116,139,0.4)' }} />}
+                    {(detailInsights as any)?.permalink && (
+                      <a href={(detailInsights as any).permalink} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                        <ExternalLink size={9} /> Ver no Instagram
+                      </a>
+                    )}
+                  </div>
+                  {detailInsightsLoading ? (
+                    <p className="text-xs py-2" style={{ color: 'rgba(100,116,139,0.35)' }}>Carregando métricas…</p>
+                  ) : detailInsights ? (() => {
+                    const ins = detailInsights.insights || {};
+                    const reach = ins.reach ?? 0;
+                    const impressions = ins.impressions ?? 0;
+                    const likes = ins.likes ?? detailInsights.like_count ?? 0;
+                    const comments = ins.comments ?? detailInsights.comments_count ?? 0;
+                    const saved = ins.saved ?? 0;
+                    const shares = ins.shares ?? 0;
+                    const totalInteractions = ins.total_interactions ?? (likes + comments + saved + shares);
+                    const engRate = reach > 0 ? ((totalInteractions / reach) * 100).toFixed(1) : '—';
+                    const isReel = detailInsights.media_type === 'VIDEO';
+                    const plays = ins.plays ?? 0;
+                    return (
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="rounded-xl p-3" style={{ background: 'linear-gradient(145deg,rgba(59,130,246,0.08),rgba(99,102,241,0.05))', border: '1px solid rgba(59,130,246,0.15)' }}>
+                            <p className="text-xl font-bold text-white">{reach.toLocaleString('pt-BR')}</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.55)' }}>Alcance</p>
+                            <p className="text-[9px] mt-1" style={{ color: 'rgba(100,116,139,0.35)' }}>{impressions.toLocaleString('pt-BR')} impressões</p>
+                          </div>
+                          <div className="rounded-xl p-3" style={{ background: 'linear-gradient(145deg,rgba(52,211,153,0.08),rgba(16,185,129,0.05))', border: '1px solid rgba(52,211,153,0.15)' }}>
+                            <p className="text-xl font-bold" style={{ color: '#34d399' }}>{engRate}%</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.55)' }}>Engajamento</p>
+                            <p className="text-[9px] mt-1" style={{ color: 'rgba(100,116,139,0.35)' }}>{totalInteractions.toLocaleString('pt-BR')} interações</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[
+                            { label: 'Curtidas',  value: likes,    color: '#ec4899', icon: '❤️' },
+                            { label: 'Coment.',   value: comments, color: '#f59e0b', icon: '💬' },
+                            { label: 'Salvos',    value: saved,    color: '#a78bfa', icon: '🔖' },
+                            { label: 'Compart.',  value: shares,   color: '#22d3ee', icon: '↗️' },
+                            ...(isReel ? [{ label: 'Reprod.', value: plays, color: '#60a5fa', icon: '▶️' }] : []),
+                          ].map(m => (
+                            <div key={m.label} className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                              <p className="text-sm">{m.icon}</p>
+                              <p className="text-sm font-semibold leading-none mt-1" style={{ color: m.color }}>{m.value.toLocaleString('pt-BR')}</p>
+                              <p className="text-[9px] mt-0.5" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })() : (
+                    <p className="text-xs py-1" style={{ color: 'rgba(100,116,139,0.35)' }}>Métricas ainda não disponíveis.</p>
+                  )}
+                </div>
+              )}
+
               {detail.status === 'aguardando_aprovacao' && (
                 <div className="space-y-3">
                   <p className="label-dark">Sua decisão</p>
