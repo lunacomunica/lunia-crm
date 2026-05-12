@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Key, Copy, CheckCircle2, AlertCircle, ExternalLink, RefreshCw, Zap, MessageSquare, Instagram, Shield, Users, Plus, Trash2, X, User, Camera, Building2, AlertTriangle, Eye, Pencil, Tag } from 'lucide-react';
-import { settingsApi, usersApi, profileApi, agencyClientsApi, taskCategoriesApi } from '../api/client';
+import { settingsApi, usersApi, profileApi, agencyClientsApi, taskCategoriesApi, uploadAnyApi } from '../api/client';
 import { useAuth } from '../context/AuthContext';
 
 function Field({ label, id, value, onChange, placeholder, type = 'text', hint, mono = false }: {
@@ -204,9 +204,11 @@ function UsersTab() {
   const [loading, setLoading] = useState(true);
   const [modal, setModal] = useState(false);
   const [editingUser, setEditingUser] = useState<any | null>(null);
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '', avatar: '' });
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarRef = useRef<HTMLInputElement>(null);
   const [clientModal, setClientModal] = useState<any | null>(null);
   const [clientPerms, setClientPerms] = useState<number[]>([]);
   const [savingPerms, setSavingPerms] = useState(false);
@@ -228,16 +230,26 @@ function UsersTab() {
     setClientModal(null);
   };
 
+  const handleAvatarUpload = async (file: File) => {
+    setUploadingAvatar(true);
+    try {
+      const r = await uploadAnyApi.files([file]);
+      setForm(f => ({ ...f, avatar: r.data.files[0].url }));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
   const openCreate = () => {
     setEditingUser(null);
-    setForm({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '' });
+    setForm({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '', avatar: '' });
     setError('');
     setModal(true);
   };
 
   const openEdit = (u: any) => {
     setEditingUser(u);
-    setForm({ name: u.name, email: u.email, password: '', role: u.role, agency_client_id: u.agency_client_id ? String(u.agency_client_id) : '', job_title: u.job_title || '' });
+    setForm({ name: u.name, email: u.email, password: '', role: u.role, agency_client_id: u.agency_client_id ? String(u.agency_client_id) : '', job_title: u.job_title || '', avatar: u.avatar || '' });
     setError('');
     setModal(true);
   };
@@ -247,7 +259,7 @@ function UsersTab() {
     if (!editingUser && !form.password) { setError('Senha é obrigatória para novo usuário'); return; }
     setSaving(true); setError('');
     try {
-      const payload: any = { name: form.name, email: form.email, role: form.role, job_title: form.job_title, agency_client_id: form.agency_client_id || null };
+      const payload: any = { name: form.name, email: form.email, role: form.role, job_title: form.job_title, agency_client_id: form.agency_client_id || null, avatar: form.avatar || null };
       if (form.password) payload.password = form.password;
       if (editingUser) {
         await usersApi.update(editingUser.id, payload);
@@ -300,10 +312,14 @@ function UsersTab() {
                 <tr key={u.id} className="tr group">
                   <td className="td">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                        style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
-                        {u.name.charAt(0).toUpperCase()}
-                      </div>
+                      {u.avatar ? (
+                        <img src={u.avatar} alt={u.name} className="w-8 h-8 rounded-full object-cover flex-shrink-0" style={{ border: '1px solid rgba(59,130,246,0.2)' }} />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                          style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                          {u.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
                       <div>
                         <p className="text-sm font-medium text-white">{u.name}</p>
                         {u.job_title && <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{u.job_title}</p>}
@@ -413,6 +429,33 @@ function UsersTab() {
                 className="p-1.5 rounded-lg hover:text-white transition-colors"><X size={18} /></button>
             </div>
             <div className="p-6 space-y-4">
+              {/* Avatar upload */}
+              <div className="flex justify-center">
+                <input ref={avatarRef} type="file" accept="image/*" className="hidden"
+                  onChange={e => { const f = e.target.files?.[0]; if (f) handleAvatarUpload(f); e.target.value = ''; }} />
+                <button onClick={() => avatarRef.current?.click()}
+                  className="relative w-20 h-20 rounded-full overflow-hidden transition-all group"
+                  style={{ background: 'rgba(59,130,246,0.08)', border: '2px dashed rgba(59,130,246,0.25)' }}>
+                  {uploadingAvatar ? (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="w-5 h-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+                    </div>
+                  ) : form.avatar ? (
+                    <>
+                      <img src={form.avatar} alt="avatar" className="w-full h-full object-cover" />
+                      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                        style={{ background: 'rgba(0,0,0,0.5)' }}>
+                        <Camera size={16} color="white" />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center gap-1">
+                      <Camera size={18} style={{ color: 'rgba(59,130,246,0.6)' }} />
+                      <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>Foto</span>
+                    </div>
+                  )}
+                </button>
+              </div>
               <Field label="Nome" id="u-name" value={form.name} onChange={v => setForm({ ...form, name: v })} placeholder="Ex: João Silva" />
               <Field label="E-mail" id="u-email" value={form.email} onChange={v => setForm({ ...form, email: v })} placeholder="joao@empresa.com" type="email" />
               <Field label={editingUser ? 'Nova senha (deixe em branco para manter)' : 'Senha'} id="u-pass" value={form.password} onChange={v => setForm({ ...form, password: v })} placeholder={editingUser ? 'Opcional' : 'Mínimo 6 caracteres'} type="password" />

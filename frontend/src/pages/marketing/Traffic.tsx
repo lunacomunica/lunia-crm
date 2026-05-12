@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { Plus, X, Trash2, ChevronDown, ExternalLink, TrendingUp, MousePointerClick, Eye, Target, DollarSign, Pencil, Image, Video, LayoutGrid, Users, Link, FileText, ChevronRight, Play, Pause, CheckCircle2 } from 'lucide-react';
-import { campaignsApi, agencyClientsApi } from '../../api/client';
+import { campaignsApi, agencyClientsApi, contentApi } from '../../api/client';
 import { Campaign, CampaignCreative, CampaignPlatform, CampaignStatus, CampaignObjective, CreativeType, CreativeStatus, AgencyClient } from '../../types';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -8,10 +8,11 @@ import { ptBR } from 'date-fns/locale';
 // ── Config ──────────────────────────────────────────────────────────────────
 
 const PLATFORM: Record<CampaignPlatform, { label: string; color: string; bg: string }> = {
-  meta:     { label: 'Meta Ads',     color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
-  google:   { label: 'Google Ads',   color: '#f87171', bg: 'rgba(239,68,68,0.12)' },
-  tiktok:   { label: 'TikTok Ads',   color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
-  linkedin: { label: 'LinkedIn Ads', color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
+  meta:            { label: 'Meta Ads',          color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
+  google:          { label: 'Google Ads',         color: '#f87171', bg: 'rgba(239,68,68,0.12)' },
+  tiktok:          { label: 'TikTok Ads',         color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  linkedin:        { label: 'LinkedIn Ads',       color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
+  instagram_boost: { label: 'Turbinar Instagram', color: '#ec4899', bg: 'rgba(236,72,153,0.12)' },
 };
 
 const STATUS: Record<CampaignStatus, { label: string; color: string; bg: string; border: string }> = {
@@ -66,7 +67,18 @@ const emptyCreativeForm = {
   title: '', type: 'image' as CreativeType, media_url: '', headline: '', description: '',
   cta: '', status: 'ativo' as CreativeStatus, utm_link: '',
   impressions: '', clicks: '', conversions: '', spend: '',
+  content_piece_id: '' as string | number,
 };
+
+function getBoostThumb(p: any): string {
+  if (p.media_files) {
+    try {
+      const files = typeof p.media_files === 'string' ? JSON.parse(p.media_files) : p.media_files;
+      if (Array.isArray(files) && files.length > 0) return files[0].url || '';
+    } catch {}
+  }
+  return p.media_url || '';
+}
 
 // ── Components ───────────────────────────────────────────────────────────────
 
@@ -179,6 +191,10 @@ export default function Traffic() {
   const [editingCreative, setEditingCreative] = useState<CampaignCreative | null>(null);
   const [creativeForm, setCreativeForm] = useState(emptyCreativeForm);
   const [savingCreative, setSavingCreative] = useState(false);
+  const [boostBatches, setBoostBatches] = useState<any[]>([]);
+  const [boostSelectedBatch, setBoostSelectedBatch] = useState<number | null>(null);
+  const [boostPosts, setBoostPosts] = useState<any[]>([]);
+  const [boostSelectedPost, setBoostSelectedPost] = useState<any | null>(null);
 
   const load = () => {
     setLoading(true);
@@ -190,6 +206,20 @@ export default function Traffic() {
   };
   useEffect(() => { load(); }, [filterClient, filterStatus, filterPlatform]);
   useEffect(() => { agencyClientsApi.list().then(r => setClients(r.data)); }, []);
+
+  useEffect(() => {
+    if (creativeModal && detail?.platform === 'instagram_boost' && detail?.agency_client_id) {
+      setBoostBatches([]); setBoostSelectedBatch(null); setBoostPosts([]); setBoostSelectedPost(null);
+      contentApi.listBatches({ client_id: String(detail.agency_client_id) }).then(r => setBoostBatches(r.data));
+    }
+  }, [creativeModal]);
+
+  useEffect(() => {
+    if (boostSelectedBatch) {
+      setBoostPosts([]);
+      contentApi.list({ batch_id: String(boostSelectedBatch) }).then(r => setBoostPosts(r.data));
+    }
+  }, [boostSelectedBatch]);
 
   const openCreate = () => {
     setEditing(null);
@@ -241,7 +271,10 @@ export default function Traffic() {
     load();
   };
 
-  const openAddCreative = () => { setEditingCreative(null); setCreativeForm(emptyCreativeForm); setCreativeModal(true); };
+  const openAddCreative = () => {
+    setEditingCreative(null); setCreativeForm(emptyCreativeForm);
+    setBoostSelectedPost(null); setCreativeModal(true);
+  };
   const openEditCreative = (cr: CampaignCreative) => {
     setEditingCreative(cr);
     setCreativeForm({
@@ -250,18 +283,24 @@ export default function Traffic() {
       utm_link: (cr as any).utm_link || '',
       impressions: String(cr.impressions), clicks: String(cr.clicks),
       conversions: String(cr.conversions), spend: String(cr.spend),
+      content_piece_id: (cr as any).content_piece_id || '',
     });
-    setCreativeModal(true);
+    setBoostSelectedPost(null); setCreativeModal(true);
   };
 
   const handleSaveCreative = async () => {
     if (!detail || !creativeForm.title.trim()) return;
     setSavingCreative(true);
-    const payload = {
+    const payload: any = {
       ...creativeForm,
       impressions: Number(creativeForm.impressions) || 0, clicks: Number(creativeForm.clicks) || 0,
       conversions: Number(creativeForm.conversions) || 0, spend: Number(creativeForm.spend) || 0,
     };
+    if (boostSelectedPost) {
+      payload.content_piece_id = boostSelectedPost.id;
+      const thumb = getBoostThumb(boostSelectedPost);
+      if (thumb && !payload.media_url) payload.media_url = thumb;
+    }
     if (editingCreative) await campaignsApi.updateCreative(detail.id, editingCreative.id, payload);
     else await campaignsApi.addCreative(detail.id, payload);
     setSavingCreative(false); setCreativeModal(false);
@@ -636,10 +675,73 @@ export default function Traffic() {
                     {(Object.keys(CREATIVE_STATUS) as CreativeStatus[]).map(s => <option key={s} value={s}>{CREATIVE_STATUS[s].label}</option>)}
                   </select>
                 </div>
-                <div className="col-span-2">
-                  <label className="label-dark">URL da mídia</label>
-                  <input value={creativeForm.media_url} onChange={e => setCreativeForm({ ...creativeForm, media_url: e.target.value })} className="input-dark" placeholder="Link da imagem ou vídeo" />
-                </div>
+                {detail?.platform === 'instagram_boost' ? (
+                  <div className="col-span-2">
+                    <label className="label-dark">Post do feed</label>
+                    {boostSelectedPost ? (
+                      <div className="flex items-center gap-3 p-3 rounded-xl" style={{ background: 'rgba(236,72,153,0.06)', border: '1px solid rgba(236,72,153,0.2)' }}>
+                        {getBoostThumb(boostSelectedPost) ? (
+                          <img src={getBoostThumb(boostSelectedPost)} alt="" className="w-12 rounded-lg object-cover flex-shrink-0" style={{ aspectRatio: '1080/1350' }} />
+                        ) : (
+                          <div className="w-12 rounded-lg flex-shrink-0" style={{ aspectRatio: '1080/1350', background: 'rgba(255,255,255,0.05)' }} />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium text-white truncate">{boostSelectedPost.title || 'Post sem título'}</p>
+                          {boostSelectedPost.scheduled_date && <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>{boostSelectedPost.scheduled_date}</p>}
+                        </div>
+                        <button onClick={() => setBoostSelectedPost(null)} style={{ color: 'rgba(100,116,139,0.5)', flexShrink: 0 }}><X size={14} /></button>
+                      </div>
+                    ) : (
+                      <>
+                        {boostBatches.length > 0 && (
+                          <div className="flex flex-wrap gap-2 mb-3">
+                            {boostBatches.map((b: any) => (
+                              <button key={b.id} onClick={() => setBoostSelectedBatch(b.id)}
+                                className="text-xs px-3 py-1 rounded-full transition-all"
+                                style={boostSelectedBatch === b.id
+                                  ? { background: 'rgba(236,72,153,0.2)', color: '#ec4899', border: '1px solid rgba(236,72,153,0.35)' }
+                                  : { background: 'rgba(255,255,255,0.04)', color: 'rgba(148,163,184,0.6)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                {b.name}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {boostSelectedBatch && (
+                          boostPosts.length === 0 ? (
+                            <p className="text-xs text-center py-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum post neste feed</p>
+                          ) : (
+                            <div className="grid grid-cols-4 gap-2">
+                              {boostPosts.map((p: any) => {
+                                const thumb = getBoostThumb(p);
+                                return (
+                                  <button key={p.id} onClick={() => setBoostSelectedPost(p)}
+                                    className="relative rounded-lg overflow-hidden group transition-all"
+                                    style={{ aspectRatio: '1080/1350', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                                    {thumb ? (
+                                      <img src={thumb} alt="" className="w-full h-full object-cover" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center" style={{ color: 'rgba(100,116,139,0.3)', fontSize: 10 }}>sem mídia</div>
+                                    )}
+                                    <div className="absolute inset-0 flex items-end p-1.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                      style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, transparent 50%)' }}>
+                                      <p className="text-[9px] text-white truncate w-full">{p.title || '—'}</p>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )
+                        )}
+                        {boostBatches.length === 0 && <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum feed encontrado para este cliente</p>}
+                      </>
+                    )}
+                  </div>
+                ) : (
+                  <div className="col-span-2">
+                    <label className="label-dark">URL da mídia</label>
+                    <input value={creativeForm.media_url} onChange={e => setCreativeForm({ ...creativeForm, media_url: e.target.value })} className="input-dark" placeholder="Link da imagem ou vídeo" />
+                  </div>
+                )}
                 <div className="col-span-2">
                   <label className="label-dark">Headline</label>
                   <input value={creativeForm.headline} onChange={e => setCreativeForm({ ...creativeForm, headline: e.target.value })} className="input-dark" placeholder="Título do anúncio" />

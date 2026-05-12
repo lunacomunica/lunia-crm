@@ -110,10 +110,11 @@ function StatusDropdown({ current, onChange }: { current: ContentStatus; onChang
 }
 
 const CAMP_PLATFORM: Record<CampaignPlatform, { label: string; color: string; bg: string }> = {
-  meta:     { label: 'Meta Ads',     color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
-  google:   { label: 'Google Ads',   color: '#f87171', bg: 'rgba(239,68,68,0.12)' },
-  tiktok:   { label: 'TikTok Ads',   color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
-  linkedin: { label: 'LinkedIn Ads', color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
+  meta:            { label: 'Meta Ads',          color: '#60a5fa', bg: 'rgba(59,130,246,0.12)' },
+  google:          { label: 'Google Ads',         color: '#f87171', bg: 'rgba(239,68,68,0.12)' },
+  tiktok:          { label: 'TikTok Ads',         color: '#a78bfa', bg: 'rgba(167,139,250,0.12)' },
+  linkedin:        { label: 'LinkedIn Ads',       color: '#38bdf8', bg: 'rgba(56,189,248,0.12)' },
+  instagram_boost: { label: 'Turbinar Instagram', color: '#ec4899', bg: 'rgba(236,72,153,0.12)' },
 };
 
 const CAMP_STATUS: Record<CampaignStatus, { label: string; color: string; bg: string; border: string }> = {
@@ -1094,7 +1095,7 @@ export default function ClientDetail() {
                     const typeColor = type === 'conteudo' ? '#34d399' : type === 'trafego' ? '#60a5fa' : '#a78bfa';
                     return (
                       <div key={t.id} onClick={() => setOpenTaskId(t.id)}
-                        className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all hover:brightness-110"
+                        className="group flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all hover:brightness-110"
                         style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
                         {(() => { const I = statusIcon; return <I size={15} style={{ color: statusColor, flexShrink: 0 }} />; })()}
                         <div className="flex-1 min-w-0">
@@ -1120,6 +1121,13 @@ export default function ClientDetail() {
                             <Calendar size={9} />{t.due_date}
                           </span>
                         )}
+                        <button onClick={async e => { e.stopPropagation(); await tasksApi.delete(t.id); setTasks(prev => prev.filter((x: any) => x.id !== t.id)); }}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all flex-shrink-0"
+                          style={{ color: 'rgba(100,116,139,0.5)' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                          <Trash2 size={13} />
+                        </button>
                       </div>
                     );
                   })}

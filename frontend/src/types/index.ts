@@ -153,7 +153,7 @@ export interface Activity {
   created_at: string;
 }
 
-export type CampaignPlatform = 'meta' | 'google' | 'tiktok' | 'linkedin';
+export type CampaignPlatform = 'meta' | 'google' | 'tiktok' | 'linkedin' | 'instagram_boost';
 export type CampaignStatus = 'rascunho' | 'ativa' | 'pausada' | 'encerrada';
 export type CampaignObjective = 'conversao' | 'trafego' | 'reconhecimento' | 'leads' | 'vendas';
 export type CreativeType = 'image' | 'video' | 'carousel';
