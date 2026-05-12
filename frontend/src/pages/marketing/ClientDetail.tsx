@@ -380,7 +380,8 @@ export default function ClientDetail() {
   const createNewPost = async () => {
     if (!newPostTitle.trim() || !selectedBatchId) return;
     setCreatingPost(true);
-    const r = await contentApi.create({ title: newPostTitle.trim(), type: 'post', agency_client_id: cid, batch_id: selectedBatchId, status: 'em_criacao' });
+    const defaultDate = `${navMonth.year}-${String(navMonth.month).padStart(2, '0')}-01`;
+    const r = await contentApi.create({ title: newPostTitle.trim(), type: 'post', agency_client_id: cid, batch_id: selectedBatchId, status: 'em_criacao', scheduled_date: defaultDate });
     setCreatingPost(false); setShowNewPostModal(false);
     setPanelPost(r.data);
     const pr = await contentApi.list({ batch_id: String(selectedBatchId) });
