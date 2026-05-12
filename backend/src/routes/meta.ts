@@ -43,6 +43,61 @@ router.get('/instagram-status/:clientId', (req, res) => {
   });
 });
 
+// Account insights + recent media for a client
+router.get('/insights/:clientId', async (req, res) => {
+  const client = db.prepare('SELECT instagram_token, instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?')
+    .get(req.params.clientId, req.user.tenant_id) as any;
+  if (!client?.instagram_token) return res.status(400).json({ error: 'Instagram não conectado' });
+
+  const token = client.instagram_token;
+  const igId = client.instagram_user_id;
+
+  try {
+    const since = Math.floor((Date.now() - 30 * 24 * 60 * 60 * 1000) / 1000);
+    const until = Math.floor(Date.now() / 1000);
+
+    const [profile, media] = await Promise.all([
+      httpsGet(`https://graph.facebook.com/v19.0/${igId}?fields=followers_count,media_count,name,biography,profile_picture_url&access_token=${token}`),
+      httpsGet(`https://graph.facebook.com/v19.0/${igId}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=24&access_token=${token}`),
+    ]);
+
+    // Account insights
+    let accountInsights: any = {};
+    try {
+      const ins = await httpsGet(`https://graph.facebook.com/v19.0/${igId}/insights?metric=reach,impressions,profile_views&period=day&since=${since}&until=${until}&access_token=${token}`);
+      for (const m of ins.data || []) {
+        const total = (m.values || []).reduce((s: number, v: any) => s + (v.value || 0), 0);
+        accountInsights[m.name] = total;
+      }
+    } catch {}
+
+    if (profile.error) return res.status(400).json({ error: profile.error.message });
+    res.json({ profile, accountInsights, media: media.data || [] });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Individual media insights
+router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
+  const client = db.prepare('SELECT instagram_token FROM agency_clients WHERE id=? AND tenant_id=?')
+    .get(req.params.clientId, req.user.tenant_id) as any;
+  if (!client?.instagram_token) return res.status(400).json({ error: 'Instagram não conectado' });
+
+  try {
+    const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink&access_token=${client.instagram_token}`);
+    let insights: any = {};
+    try {
+      const metric = basic.media_type === 'VIDEO' ? 'impressions,reach,plays,saved,shares' : 'impressions,reach,saved,shares,engagement';
+      const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&access_token=${client.instagram_token}`);
+      for (const m of ins.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
+    } catch {}
+    res.json({ ...basic, insights });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Test Instagram token for a client
 router.get('/test-instagram/:clientId', async (req, res) => {
   const client = db.prepare('SELECT instagram_token, instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?')

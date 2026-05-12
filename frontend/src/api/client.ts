@@ -62,6 +62,8 @@ export const metaApi = {
   getIgStatus: (clientId: number) => api.get(`/meta/instagram-status/${clientId}`),
   disconnectIg: (clientId: number) => api.delete(`/meta/instagram-status/${clientId}`),
   testInstagram: (clientId: number) => api.get(`/meta/test-instagram/${clientId}`),
+  getInsights: (clientId: number) => api.get(`/meta/insights/${clientId}`),
+  getMediaInsights: (clientId: number, mediaId: string) => api.get(`/meta/media-insights/${clientId}/${mediaId}`),
 };
 
 export const notificationsApi = {

@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Trash2, ChevronDown, FileImage, Calendar, Clock, CheckCircle2, RotateCcw, Send, Eye, Plus, Zap, Check, Upload, ChevronLeft, ChevronRight, Play, Pause, Image as ImageIcon, Video, AlertTriangle, Link, ExternalLink } from 'lucide-react';
-import { contentApi, usersApi, uploadApi, tasksApi } from '../../api/client';
+import { contentApi, usersApi, uploadApi, tasksApi, metaApi } from '../../api/client';
 import TaskDetailDrawer from './TaskDetailDrawer';
 import { ContentPiece, ContentStatus } from '../../types';
 
@@ -268,7 +268,9 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
   const [newTask, setNewTask] = useState({ title: '', assigned_to: '', due_date: '', priority: 'alta', is_rework: false });
   const [savingTask, setSavingTask] = useState(false);
   const [openTaskId, setOpenTaskId] = useState<number | null>(null);
-  const [panelTab, setPanelTab] = useState<'post' | 'planejamento' | 'producao'>('post');
+  const [panelTab, setPanelTab] = useState<'post' | 'planejamento' | 'producao' | 'insights'>('post');
+  const [mediaInsights, setMediaInsights] = useState<any>(null);
+  const [loadingInsights, setLoadingInsights] = useState(false);
 
   useEffect(() => {
     contentApi.getTasks(post.id).then(r => setTasks(r.data || []));
@@ -493,6 +495,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
             { id: 'post',        label: 'Post' },
             { id: 'planejamento',label: 'Planejamento' },
             { id: 'producao',    label: 'Produção Interna' },
+            ...((post as any).ig_media_id || post.status === 'publicado' ? [{ id: 'insights' as const, label: '📊 Insights' }] : []),
           ] as const).map(t => (
             <button key={t.id} onClick={() => setPanelTab(t.id)}
               className="px-5 py-3 text-sm font-medium transition-all relative"
@@ -883,6 +886,65 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
               )}
             </div>
           )}
+
+          {/* ── INSIGHTS TAB ── */}
+          {panelTab === 'insights' && (() => {
+            const igId = (post as any).ig_media_id;
+            const clientId = (post as any).agency_client_id;
+            const load = async () => {
+              if (!igId || !clientId) return;
+              setLoadingInsights(true);
+              try { const r = await metaApi.getMediaInsights(clientId, igId); setMediaInsights(r.data); } catch {}
+              setLoadingInsights(false);
+            };
+            const metric = (key: string, label: string, color = '#60a5fa', emoji = '') => (
+              <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <p className="text-2xl font-semibold" style={{ color }}>{emoji} {(mediaInsights?.insights?.[key] ?? mediaInsights?.[key] ?? '—').toLocaleString?.('pt-BR') ?? '—'}</p>
+                <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>{label}</p>
+              </div>
+            );
+            return (
+              <div className="space-y-5">
+                {!igId ? (
+                  <div className="text-center py-10 space-y-2">
+                    <p className="text-sm" style={{ color: 'rgba(148,163,184,0.5)' }}>Este post ainda não foi publicado via lun.ia</p>
+                    <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Após publicar pelo sistema, os insights aparecerão aqui automaticamente</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Métricas do post</p>
+                      <button onClick={load} disabled={loadingInsights}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium disabled:opacity-40"
+                        style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                        <RotateCcw size={10} className={loadingInsights ? 'animate-spin' : ''} />
+                        {mediaInsights ? 'Atualizar' : 'Carregar'}
+                      </button>
+                    </div>
+                    {mediaInsights ? (
+                      <div className="grid grid-cols-2 gap-3">
+                        {metric('impressions', 'Impressões', '#a78bfa')}
+                        {metric('reach', 'Alcance', '#60a5fa')}
+                        {metric('engagement', 'Engajamento', '#34d399')}
+                        {metric('saved', 'Salvamentos', '#f59e0b')}
+                        {metric('shares', 'Compartilhamentos', '#22d3ee')}
+                        {metric('like_count', 'Curtidas', '#ec4899')}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-center py-6" style={{ color: 'rgba(100,116,139,0.4)' }}>Clique em "Carregar" para buscar as métricas</p>
+                    )}
+                    {mediaInsights?.permalink && (
+                      <a href={mediaInsights.permalink} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1.5 text-xs"
+                        style={{ color: '#60a5fa' }}>
+                        <ExternalLink size={11} /> Ver no Instagram
+                      </a>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })()}
 
           </div>{/* /max-w-2xl */}
         </div>{/* /overflow-y-auto */}

@@ -294,6 +294,10 @@ export default function ClientDetail() {
   // Client data form
   const [dataForm, setDataForm] = useState({ name: '', segment: '', instagram_handle: '', contact_name: '', contact_email: '', logo: '' });
 
+  // Instagram insights
+  const [igInsights, setIgInsights] = useState<any>(null);
+  const [igInsightsLoading, setIgInsightsLoading] = useState(false);
+
   // Instagram connection
   const [igConnected, setIgConnected] = useState(false);
   const [igConnecting, setIgConnecting] = useState(false);
@@ -434,6 +438,12 @@ export default function ClientDetail() {
   const toggleSelectAll = () => setSelectedPosts(
     selectedPosts.size === posts.length ? new Set() : new Set(posts.map((p: any) => p.id))
   );
+
+  const loadIgInsights = async () => {
+    setIgInsightsLoading(true);
+    try { const r = await metaApi.getInsights(cid); setIgInsights(r.data); } catch {}
+    setIgInsightsLoading(false);
+  };
 
   useEffect(() => { load(); }, [cid]);
   useEffect(() => {
@@ -1440,6 +1450,82 @@ export default function ClientDetail() {
       {/* ──────────────────── DADOS ──────────────────── */}
       {tab === 'dados' && (
         <>
+
+        {/* Instagram Performance */}
+        {igConnected && (
+          <div className="rounded-2xl p-6 space-y-5 mb-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,rgba(236,72,153,0.15),rgba(168,85,247,0.15))', border: '1px solid rgba(236,72,153,0.2)' }}>
+                  <Instagram size={15} style={{ color: '#ec4899' }} />
+                </div>
+                <p className="text-sm font-semibold text-white">Performance Orgânica — Instagram</p>
+              </div>
+              <button onClick={loadIgInsights} disabled={igInsightsLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
+                style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                <RotateCcw size={11} className={igInsightsLoading ? 'animate-spin' : ''} />
+                {igInsights ? 'Atualizar' : 'Carregar insights'}
+              </button>
+            </div>
+
+            {igInsights && (() => {
+              const { profile, accountInsights, media } = igInsights;
+              const statCard = (label: string, value: any, color = '#60a5fa') => (
+                <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <p className="text-xl font-semibold" style={{ color }}>{(value ?? 0).toLocaleString('pt-BR')}</p>
+                  <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>{label}</p>
+                </div>
+              );
+              return (
+                <div className="space-y-5">
+                  {/* Profile header */}
+                  <div className="flex items-center gap-3">
+                    {profile.profile_picture_url && <img src={profile.profile_picture_url} className="w-10 h-10 rounded-full object-cover" />}
+                    <div>
+                      <p className="text-sm font-medium text-white">{profile.name}</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{profile.media_count} publicações</p>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="grid grid-cols-3 gap-3">
+                    {statCard('Seguidores', profile.followers_count, '#ec4899')}
+                    {statCard('Alcance (30d)', accountInsights.reach, '#60a5fa')}
+                    {statCard('Impressões (30d)', accountInsights.impressions, '#a78bfa')}
+                  </div>
+
+                  {/* Recent media grid */}
+                  {media.length > 0 && (
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wider mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>Posts recentes</p>
+                      <div className="grid grid-cols-4 gap-1.5">
+                        {media.slice(0, 12).map((m: any) => (
+                          <a key={m.id} href={m.permalink} target="_blank" rel="noopener noreferrer"
+                            className="relative group overflow-hidden rounded-lg" style={{ aspectRatio: '1080/1350' }}>
+                            {(m.thumbnail_url || m.media_url) && (
+                              <img src={m.thumbnail_url || m.media_url} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                            )}
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1"
+                              style={{ background: 'rgba(0,0,0,0.7)' }}>
+                              <p className="text-white text-[10px] font-semibold">{(m.like_count || 0).toLocaleString('pt-BR')} ❤️</p>
+                              <p className="text-white text-[10px]">{(m.comments_count || 0).toLocaleString('pt-BR')} 💬</p>
+                            </div>
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
+            {!igInsights && !igInsightsLoading && (
+              <p className="text-xs text-center py-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Clique em "Carregar insights" para ver as métricas do Instagram</p>
+            )}
+          </div>
+        )}
+
         <Section title="Dados do Cliente">
           <div className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
