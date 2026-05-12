@@ -395,6 +395,11 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
     setSavingTask(false);
   };
 
+  const handleDeleteTask = async (id: number) => {
+    await tasksApi.delete(id);
+    setTasks(prev => prev.filter((t: any) => t.id !== id));
+  };
+
   const handleTaskAction = async (id: number, action: 'start' | 'pause' | 'complete') => {
     if (action === 'start') await tasksApi.start(id);
     else if (action === 'pause') await tasksApi.pause(id);
@@ -744,9 +749,8 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                           {t.priority && t.priority !== 'media' && (
                             <AlertTriangle size={9} style={{ color: pColor, flexShrink: 0 }} />
                           )}
-                          {!isDone && (
-                            <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
-                              {isRunning ? (
+                          <div className="flex items-center gap-1 flex-shrink-0" onClick={e => e.stopPropagation()}>
+                              {!isDone && (isRunning ? (
                                 <button onClick={() => handleTaskAction(t.id, 'pause')} title="Pausar"
                                   className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
                                   style={{ background: 'rgba(245,158,11,0.12)', color: '#f59e0b' }}>
@@ -758,14 +762,22 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted }:
                                   style={{ background: 'rgba(96,165,250,0.12)', color: '#60a5fa' }}>
                                   <Play size={9} />
                                 </button>
+                              ))}
+                              {!isDone && (
+                                <button onClick={() => handleTaskAction(t.id, 'complete')} title="Concluir"
+                                  className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
+                                  style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
+                                  <Check size={9} />
+                                </button>
                               )}
-                              <button onClick={() => handleTaskAction(t.id, 'complete')} title="Concluir"
-                                className="w-6 h-6 rounded-md flex items-center justify-center transition-all"
-                                style={{ background: 'rgba(52,211,153,0.12)', color: '#34d399' }}>
-                                <Check size={9} />
+                              <button onClick={() => handleDeleteTask(t.id)} title="Apagar task"
+                                className="w-6 h-6 rounded-md flex items-center justify-center transition-all opacity-0 group-hover:opacity-100"
+                                style={{ background: 'rgba(239,68,68,0.08)', color: 'rgba(248,113,113,0.5)' }}
+                                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.18)'; (e.currentTarget as HTMLElement).style.color = '#f87171'; }}
+                                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.08)'; (e.currentTarget as HTMLElement).style.color = 'rgba(248,113,113,0.5)'; }}>
+                                <Trash2 size={9} />
                               </button>
                             </div>
-                          )}
                         </div>
                         <div className="mt-1.5 flex items-center gap-2 ml-3.5" onClick={e => e.stopPropagation()}>
                           <select value={t.assigned_to || ''}
