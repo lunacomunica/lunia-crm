@@ -55,7 +55,7 @@ interface Props {
   onClose: () => void;
   onUpdated: (p: ContentPiece) => void;
   onDeleted: () => void;
-  initialTab?: 'post' | 'planejamento' | 'producao' | 'insights';
+  initialTab?: 'copy' | 'post' | 'gerot';
 }
 
 function StatusDropdown({ current, onChange }: { current: ContentStatus; onChange: (s: ContentStatus) => void }) {
@@ -96,7 +96,7 @@ function StatusDropdown({ current, onChange }: { current: ContentStatus; onChang
 }
 
 // ── Carousel viewer ──────────────────────────────────────────────────────────
-function CarouselViewer({ images, onRemove }: { images: MediaFile[]; onRemove: (i: number) => void }) {
+function CarouselViewer({ images, onRemove, readOnly }: { images: MediaFile[]; onRemove: (i: number) => void; readOnly?: boolean }) {
   const [idx, setIdx] = useState(0);
   if (!images.length) return null;
   const prev = () => setIdx(i => Math.max(0, i - 1));
@@ -105,11 +105,11 @@ function CarouselViewer({ images, onRemove }: { images: MediaFile[]; onRemove: (
     <div className="relative rounded-2xl overflow-hidden" style={{ aspectRatio: '1080/1350', background: '#000' }}>
       <img src={images[idx].url} alt="" className="w-full h-full object-cover" />
       {/* Remove button */}
-      <button onClick={() => onRemove(idx)}
+      {!readOnly && <button onClick={() => onRemove(idx)}
         className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
         style={{ background: 'rgba(0,0,0,0.65)', color: 'white' }}>
         <X size={12} />
-      </button>
+      </button>}
       {/* Position badge */}
       <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold"
         style={{ background: 'rgba(0,0,0,0.55)', color: 'white' }}>
@@ -143,7 +143,7 @@ function CarouselViewer({ images, onRemove }: { images: MediaFile[]; onRemove: (
 }
 
 // ── Reels viewer ─────────────────────────────────────────────────────────────
-function ReelsViewer({ video, cover, onRemoveVideo, onRemoveCover }: { video: MediaFile; cover?: MediaFile; onRemoveVideo: () => void; onRemoveCover: () => void }) {
+function ReelsViewer({ video, cover, onRemoveVideo, onRemoveCover, readOnly }: { video: MediaFile; cover?: MediaFile; onRemoveVideo: () => void; onRemoveCover: () => void; readOnly?: boolean }) {
   return (
     <div className="space-y-2">
       {/* Video */}
@@ -151,11 +151,11 @@ function ReelsViewer({ video, cover, onRemoveVideo, onRemoveCover }: { video: Me
         <video src={video.url} controls poster={cover?.url}
           className="w-full h-full object-contain"
           style={{ maxHeight: 360 }} />
-        <button onClick={onRemoveVideo}
+        {!readOnly && <button onClick={onRemoveVideo}
           className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
           style={{ background: 'rgba(0,0,0,0.65)', color: 'white' }}>
           <X size={12} />
-        </button>
+        </button>}
       </div>
       {/* Cover */}
       {cover && (
@@ -166,7 +166,7 @@ function ReelsViewer({ video, cover, onRemoveVideo, onRemoveCover }: { video: Me
             <p className="text-xs text-white truncate">{cover.name}</p>
             <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>Capa do Reels</p>
           </div>
-          <button onClick={onRemoveCover} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={12} /></button>
+          {!readOnly && <button onClick={onRemoveCover} style={{ color: 'rgba(100,116,139,0.5)' }}><X size={12} /></button>}
         </div>
       )}
     </div>
@@ -269,7 +269,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
   const [newTask, setNewTask] = useState({ title: '', assigned_to: '', due_date: '', priority: 'alta', is_rework: false });
   const [savingTask, setSavingTask] = useState(false);
   const [openTaskId, setOpenTaskId] = useState<number | null>(null);
-  const [panelTab, setPanelTab] = useState<'post' | 'planejamento' | 'producao' | 'insights'>(initialTab || 'post');
+  const [panelTab, setPanelTab] = useState<'copy' | 'post' | 'gerot'>(initialTab || 'copy');
   const [mediaInsights, setMediaInsights] = useState<any>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
   const [publishing, setPublishing] = useState(false);
@@ -286,7 +286,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
   useEffect(() => {
     const igId = (post as any).ig_media_id;
     const clientId = (post as any).agency_client_id;
-    if (panelTab === 'insights' && igId && clientId && !mediaInsights && !loadingInsights) {
+    if (panelTab === 'post' && igId && clientId && !mediaInsights && !loadingInsights) {
       setLoadingInsights(true);
       metaApi.getMediaInsights(clientId, igId)
         .then(r => setMediaInsights(r.data))
@@ -510,10 +510,9 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
         <div className="flex-shrink-0 flex px-6 gap-1"
           style={{ borderBottom: '1px solid rgba(59,130,246,0.08)', background: 'rgba(7,7,26,0.95)' }}>
           {([
-            { id: 'post',        label: 'Post' },
-            { id: 'planejamento',label: 'Planejamento' },
-            { id: 'producao',    label: 'Produção Interna' },
-            ...((post as any).ig_media_id || post.status === 'publicado' ? [{ id: 'insights' as const, label: '📊 Insights' }] : []),
+            { id: 'copy',  label: 'Copy' },
+            { id: 'post',  label: 'Post' },
+            { id: 'gerot', label: 'Gerot' },
           ] as const).map(t => (
             <button key={t.id} onClick={() => setPanelTab(t.id)}
               className="px-5 py-3 text-sm font-medium transition-all relative"
@@ -531,8 +530,8 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-2xl mx-auto px-6 py-6 space-y-5">
 
-          {/* ── POST TAB ── */}
-          {panelTab === 'post' && (<>
+          {/* ── COPY TAB ── */}
+          {panelTab === 'copy' && (<>
 
             {/* Title */}
             <div>
@@ -541,35 +540,35 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                 className={inputCls} style={inputStyle} placeholder="Título do post" />
             </div>
 
-            {/* Type */}
-            <div>
-              <label className={labelCls} style={labelStyle}>Tipo</label>
-              <div className="flex rounded-xl overflow-hidden"
-                style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
-                {POST_TYPES.map(t => (
-                  <button key={t.value}
-                    onClick={() => { setForm(f => ({ ...f, type: t.value })); setMediaFiles([]); }}
-                    className="flex-1 py-2 text-xs font-medium transition-all"
-                    style={{ color: form.type === t.value ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: form.type === t.value ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
-                    {t.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Date + Time */}
+            {/* Type + Date/Time */}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls} style={labelStyle}>Data prevista</label>
-                <input type="date" value={form.scheduled_date}
-                  onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
-                  className={inputCls} style={inputStyle} />
+                <label className={labelCls} style={labelStyle}>Tipo</label>
+                <div className="flex rounded-xl overflow-hidden"
+                  style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'rgba(255,255,255,0.02)' }}>
+                  {POST_TYPES.map(t => (
+                    <button key={t.value}
+                      onClick={() => { setForm(f => ({ ...f, type: t.value })); setMediaFiles([]); }}
+                      className="flex-1 py-2 text-xs font-medium transition-all"
+                      style={{ color: form.type === t.value ? '#e2e8f0' : 'rgba(100,116,139,0.5)', background: form.type === t.value ? 'rgba(59,130,246,0.15)' : 'transparent' }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div>
-                <label className={labelCls} style={labelStyle}>Horário</label>
-                <input type="time" value={form.scheduled_time}
-                  onChange={e => setForm(f => ({ ...f, scheduled_time: e.target.value }))}
-                  className={inputCls} style={inputStyle} />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className={labelCls} style={labelStyle}>Data</label>
+                  <input type="date" value={form.scheduled_date}
+                    onChange={e => setForm(f => ({ ...f, scheduled_date: e.target.value }))}
+                    className={inputCls} style={inputStyle} />
+                </div>
+                <div>
+                  <label className={labelCls} style={labelStyle}>Horário</label>
+                  <input type="time" value={form.scheduled_time}
+                    onChange={e => setForm(f => ({ ...f, scheduled_time: e.target.value }))}
+                    className={inputCls} style={inputStyle} />
+                </div>
               </div>
             </div>
 
@@ -620,7 +619,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
               )}
             </div>
 
-            {/* Caption */}
+            {/* Legenda */}
             <div>
               <label className={labelCls} style={labelStyle}>Legenda</label>
               <textarea ref={captionRef} value={form.caption}
@@ -632,14 +631,10 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                 rows={4} className={inputCls} style={{ ...inputStyle, resize: 'none', overflow: 'hidden', minHeight: '96px' }}
                 placeholder="Texto do post para publicação…" />
             </div>
-          </>)}
 
-          {/* ── PLANEJAMENTO TAB ── */}
-          {panelTab === 'planejamento' && (<>
-
-            {/* Objective */}
+            {/* Objetivo */}
             <div>
-              <label className={labelCls} style={labelStyle}>Objetivo</label>
+              <label className={labelCls} style={labelStyle}>Objetivo estratégico</label>
               <select value={form.objective} onChange={e => setForm(f => ({ ...f, objective: e.target.value }))}
                 className={inputCls} style={{ ...inputStyle, cursor: 'pointer' }}>
                 <option value="">Selecionar objetivo</option>
@@ -647,10 +642,10 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
               </select>
             </div>
 
-            {/* Copy */}
+            {/* Estrutura copy */}
             <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(59,130,246,0.1)' }}>
               <div className="px-4 py-2.5" style={{ background: 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
-                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(59,130,246,0.7)' }}>Copy</span>
+                <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(59,130,246,0.7)' }}>Estrutura do copy</span>
               </div>
               <div className="p-4 space-y-3">
                 <div>
@@ -717,8 +712,243 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
             </div>
           </>)}
 
-          {/* ── PRODUÇÃO INTERNA TAB ── */}
-          {panelTab === 'producao' && (
+          {/* ── POST TAB ── preview + publish + insights */}
+          {panelTab === 'post' && (() => {
+            const igId = (post as any).ig_media_id;
+            const clientId = (post as any).agency_client_id;
+            const ins = mediaInsights?.insights || {};
+            const reach = ins.reach ?? mediaInsights?.reach ?? 0;
+            const impressions = ins.impressions ?? mediaInsights?.impressions ?? 0;
+            const engagement = ins.engagement ?? mediaInsights?.engagement ?? 0;
+            const saved = ins.saved ?? mediaInsights?.saved ?? 0;
+            const shares = ins.shares ?? mediaInsights?.shares ?? 0;
+            const plays = ins.plays ?? mediaInsights?.plays ?? 0;
+            const likes = ins.likes ?? mediaInsights?.like_count ?? 0;
+            const comments = ins.comments ?? mediaInsights?.comments_count ?? 0;
+            const engRate = reach > 0 ? ((( ins.total_interactions ?? engagement) / reach) * 100).toFixed(1) : '—';
+            const isReel = mediaInsights?.media_type === 'VIDEO' || post.type === 'reels';
+            const totalInteractions = ins.total_interactions ?? engagement;
+            const profileVisits = ins.profile_visits ?? 0;
+            const follows = ins.follows ?? 0;
+            const avgWatchTime = ins.ig_reels_avg_watch_time ?? 0;
+            const commentsList: any[] = mediaInsights?.comments_list || [];
+
+            const reload = async () => {
+              if (!igId || !clientId) return;
+              setLoadingInsights(true);
+              try { const r = await metaApi.getMediaInsights(clientId, igId); setMediaInsights(r.data); } catch {}
+              setLoadingInsights(false);
+            };
+
+            return (
+              <div className="space-y-5">
+                {/* Preview como o cliente vê */}
+                <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.06)', background: 'rgba(255,255,255,0.02)' }}>
+                  <div className="px-4 py-2.5 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Visualização do cliente</span>
+                    {post.scheduled_date && (
+                      <span className="text-[10px] flex items-center gap-1" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                        <Calendar size={9} />
+                        {new Date(post.scheduled_date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                        {(post as any).scheduled_time ? ` às ${(post as any).scheduled_time.slice(0,5)}` : ''}
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-4 space-y-3">
+                    {carouselImages.length > 0 && (
+                      <CarouselViewer images={carouselImages} onRemove={() => {}} readOnly />
+                    )}
+                    {reelsVideo && (
+                      <ReelsViewer video={reelsVideo} cover={reelsCover ?? undefined} onRemoveVideo={() => {}} onRemoveCover={() => {}} readOnly />
+                    )}
+                    {form.caption && (
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: 'rgba(148,163,184,0.8)' }}>{form.caption}</p>
+                    )}
+                    {!carouselImages.length && !reelsVideo && !form.caption && (
+                      <p className="text-xs text-center py-4" style={{ color: 'rgba(100,116,139,0.3)' }}>Sem mídia ou legenda ainda</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Publicação — apenas agência */}
+                {!igId && (
+                  <div className="space-y-3">
+                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.12)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(52,211,153,0.6)' }}>Publicar no Instagram</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Publica agora usando as mídias e legenda cadastradas.</p>
+                      <button onClick={async () => {
+                        setPublishing(true); setPublishError(null);
+                        try {
+                          const r = await metaApi.publish(clientId, post.id);
+                          onUpdated({ ...post, status: 'publicado', ig_media_id: r.data.ig_media_id } as any);
+                        } catch (e: any) { setPublishError(e.response?.data?.error || 'Erro ao publicar'); }
+                        setPublishing(false);
+                      }} disabled={publishing}
+                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+                        style={{ color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        <Send size={13} className={publishing ? 'animate-pulse' : ''} />
+                        {publishing ? 'Publicando…' : 'Publicar agora'}
+                      </button>
+                      {publishError && <p className="text-xs text-red-400">{publishError}</p>}
+                    </div>
+                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Vincular post já publicado</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Cole o link do post do Instagram para conectar os insights.</p>
+                      <div className="flex gap-2">
+                        <input value={linkInput} onChange={e => setLinkInput(e.target.value)}
+                          placeholder="https://www.instagram.com/p/…"
+                          className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }} />
+                        <button onClick={async () => {
+                          if (!linkInput.trim()) return;
+                          setLinking(true);
+                          try { const r = await metaApi.linkIg(clientId, post.id, linkInput.trim()); onUpdated(r.data); }
+                          catch (e: any) { setPublishError(e.response?.data?.error || 'Erro ao vincular'); }
+                          setLinking(false);
+                        }} disabled={linking || !linkInput.trim()}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-40 flex-shrink-0"
+                          style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                          <Link size={12} /> {linking ? 'Buscando…' : 'Vincular'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Insights */}
+                {igId && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.4)' }}>Métricas do post</p>
+                      <div className="flex items-center gap-2">
+                        {mediaInsights?.permalink && (
+                          <a href={mediaInsights.permalink} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all"
+                            style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                            <ExternalLink size={10} /> Ver no Instagram
+                          </a>
+                        )}
+                        <button onClick={reload} disabled={loadingInsights}
+                          className="p-1.5 rounded-lg transition-all disabled:opacity-40"
+                          style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <RotateCcw size={11} className={loadingInsights ? 'animate-spin' : ''} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {loadingInsights ? (
+                      <div className="flex items-center justify-center py-10 gap-2">
+                        <RotateCcw size={14} className="animate-spin" style={{ color: 'rgba(100,116,139,0.4)' }} />
+                        <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Carregando métricas…</p>
+                      </div>
+                    ) : !mediaInsights ? (
+                      <div className="text-center py-8">
+                        <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma métrica ainda — o post pode ser muito recente.</p>
+                      </div>
+                    ) : (
+                      <>
+                        {mediaInsights.timestamp && (
+                          <p className="text-xs" style={{ color: 'rgba(100,116,139,0.35)' }}>
+                            Publicado em {new Date(mediaInsights.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        )}
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,rgba(59,130,246,0.1),rgba(99,102,241,0.06))', border: '1px solid rgba(59,130,246,0.18)' }}>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(99,102,241,0.7)' }}>Contas alcançadas</p>
+                            <p className="text-3xl font-bold text-white">{reach.toLocaleString('pt-BR')}</p>
+                            <div className="mt-3 h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
+                              <div className="h-full rounded-full" style={{ width: impressions > 0 ? `${Math.min((reach / impressions) * 100, 100).toFixed(0)}%` : '0%', background: 'linear-gradient(90deg,#6366f1,#3b82f6)' }} />
+                            </div>
+                            <p className="text-[10px] mt-1" style={{ color: 'rgba(100,116,139,0.45)' }}>{impressions.toLocaleString('pt-BR')} impressões</p>
+                          </div>
+                          <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,rgba(52,211,153,0.1),rgba(16,185,129,0.06))', border: '1px solid rgba(52,211,153,0.18)' }}>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(52,211,153,0.7)' }}>Taxa de engajamento</p>
+                            <p className="text-3xl font-bold" style={{ color: '#34d399' }}>{engRate}%</p>
+                            <p className="text-[10px] mt-4" style={{ color: 'rgba(100,116,139,0.45)' }}>{totalInteractions.toLocaleString('pt-BR')} interações totais</p>
+                          </div>
+                        </div>
+                        <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Engajamento</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {[
+                              { label: 'Curtidas',     value: likes,    color: '#ec4899', icon: '❤️' },
+                              { label: 'Comentários',  value: comments, color: '#f59e0b', icon: '💬' },
+                              { label: 'Salvamentos',  value: saved,    color: '#a78bfa', icon: '🔖' },
+                              { label: 'Compart.',     value: shares,   color: '#22d3ee', icon: '↗️' },
+                              ...(isReel ? [
+                                { label: 'Reproduções',     value: plays,                          color: '#60a5fa', icon: '▶️' },
+                                { label: 'Tempo médio (s)', value: Math.round(avgWatchTime / 1000), color: '#818cf8', icon: '⏱️' },
+                              ] : []),
+                              ...(profileVisits > 0 ? [{ label: 'Visitas ao perfil',  value: profileVisits, color: '#34d399', icon: '👤' }] : []),
+                              ...(follows > 0        ? [{ label: 'Novos seguidores',  value: follows,       color: '#10b981', icon: '➕' }] : []),
+                            ].map(m => (
+                              <div key={m.label} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
+                                <span className="text-sm">{m.icon}</span>
+                                <div>
+                                  <p className="text-sm font-semibold leading-none" style={{ color: m.color }}>{m.value.toLocaleString('pt-BR')}</p>
+                                  <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>{m.label}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div className="flex items-center justify-between">
+                            <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Comentários ({comments.toLocaleString('pt-BR')})</p>
+                            {mediaInsights?.permalink && (
+                              <a href={mediaInsights.permalink} target="_blank" rel="noopener noreferrer"
+                                className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>Ver todos</a>
+                            )}
+                          </div>
+                          {commentsList.length === 0 ? (
+                            <p className="text-xs py-2" style={{ color: 'rgba(100,116,139,0.35)' }}>
+                              {comments > 0 ? 'Carregando comentários…' : 'Nenhum comentário ainda.'}
+                            </p>
+                          ) : (
+                            <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
+                              {commentsList.map((c: any) => (
+                                <div key={c.id}>
+                                  <div className="flex gap-2.5">
+                                    <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
+                                      style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8' }}>
+                                      {(c.username || '?')[0].toUpperCase()}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-baseline gap-1.5">
+                                        <span className="text-xs font-semibold" style={{ color: 'rgba(148,163,184,0.8)' }}>@{c.username}</span>
+                                        <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.35)' }}>
+                                          {new Date(c.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
+                                        </span>
+                                        {c.like_count > 0 && <span className="text-[10px]" style={{ color: 'rgba(236,72,153,0.5)' }}>❤️ {c.like_count}</span>}
+                                      </div>
+                                      <p className="text-xs mt-0.5 break-words" style={{ color: 'rgba(148,163,184,0.65)' }}>{c.text}</p>
+                                      {c.replies?.data?.length > 0 && (
+                                        <div className="mt-1.5 ml-2 space-y-1.5 pl-2" style={{ borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+                                          {c.replies.data.slice(0, 2).map((r: any) => (
+                                            <div key={r.id} className="flex gap-2">
+                                              <span className="text-[10px] font-semibold" style={{ color: 'rgba(148,163,184,0.6)' }}>@{r.username}</span>
+                                              <p className="text-[10px] break-words" style={{ color: 'rgba(148,163,184,0.5)' }}>{r.text}</p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── GEROT TAB ── */}
+          {panelTab === 'gerot' && (
             <div>
               <div className="flex items-center justify-between mb-3">
                 <label className={labelCls} style={{ ...labelStyle, marginBottom: 0 }}>Tarefas</label>
@@ -905,217 +1135,6 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
             </div>
           )}
 
-          {/* ── INSIGHTS TAB ── */}
-          {panelTab === 'insights' && (() => {
-            const igId = (post as any).ig_media_id;
-            const clientId = (post as any).agency_client_id;
-            const ins = mediaInsights?.insights || {};
-            const reach = ins.reach ?? mediaInsights?.reach ?? 0;
-            const impressions = ins.impressions ?? mediaInsights?.impressions ?? 0;
-            const engagement = ins.engagement ?? mediaInsights?.engagement ?? 0;
-            const saved = ins.saved ?? mediaInsights?.saved ?? 0;
-            const shares = ins.shares ?? mediaInsights?.shares ?? 0;
-            const plays = ins.plays ?? mediaInsights?.plays ?? 0;
-            const likes = mediaInsights?.like_count ?? 0;
-            const comments = mediaInsights?.comments_count ?? 0;
-            const engRate = reach > 0 ? ((engagement / reach) * 100).toFixed(1) : '—';
-            const isReel = mediaInsights?.media_type === 'VIDEO' || post.type === 'reels';
-
-            const reload = async () => {
-              if (!igId || !clientId) return;
-              setLoadingInsights(true);
-              try { const r = await metaApi.getMediaInsights(clientId, igId); setMediaInsights(r.data); } catch {}
-              setLoadingInsights(false);
-            };
-
-            if (!igId) return (
-              <div className="space-y-4">
-                <div className="rounded-2xl p-5 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Publicar no Instagram</p>
-                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Publica agora usando as mídias e legenda cadastradas no post.</p>
-                  <button onClick={async () => {
-                    setPublishing(true); setPublishError(null);
-                    try {
-                      const r = await metaApi.publish(clientId, post.id);
-                      onUpdated({ ...post, status: 'publicado', ig_media_id: r.data.ig_media_id } as any);
-                    } catch (e: any) { setPublishError(e.response?.data?.error || 'Erro ao publicar'); }
-                    setPublishing(false);
-                  }} disabled={publishing}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
-                    style={{ color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                    <Send size={13} className={publishing ? 'animate-pulse' : ''} />
-                    {publishing ? 'Publicando…' : 'Publicar agora'}
-                  </button>
-                  {publishError && <p className="text-xs text-red-400">{publishError}</p>}
-                </div>
-                <div className="rounded-2xl p-5 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.5)' }}>Vincular post já publicado</p>
-                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Cole o link do post do Instagram para conectar os insights.</p>
-                  <div className="flex gap-2">
-                    <input value={linkInput} onChange={e => setLinkInput(e.target.value)}
-                      placeholder="https://www.instagram.com/p/…"
-                      className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }} />
-                    <button onClick={async () => {
-                      if (!linkInput.trim()) return;
-                      setLinking(true);
-                      try { const r = await metaApi.linkIg(clientId, post.id, linkInput.trim()); onUpdated(r.data); }
-                      catch (e: any) { setPublishError(e.response?.data?.error || 'Erro ao vincular'); }
-                      setLinking(false);
-                    }} disabled={linking || !linkInput.trim()}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-40 flex-shrink-0"
-                      style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
-                      <Link size={12} /> {linking ? 'Buscando…' : 'Vincular'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-
-            if (loadingInsights) return (
-              <div className="flex items-center justify-center py-16 gap-2">
-                <RotateCcw size={14} className="animate-spin" style={{ color: 'rgba(100,116,139,0.4)' }} />
-                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Carregando métricas…</p>
-              </div>
-            );
-
-            const totalInteractions = ins.total_interactions ?? engagement;
-            const profileVisits = ins.profile_visits ?? 0;
-            const follows = ins.follows ?? 0;
-            const avgWatchTime = ins.ig_reels_avg_watch_time ?? 0;
-            const commentsList: any[] = mediaInsights?.comments_list || [];
-
-            return (
-              <div className="space-y-4">
-                {/* Header */}
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.4)' }}>Insights do post</p>
-                  <div className="flex items-center gap-2">
-                    {mediaInsights?.permalink && (
-                      <a href={mediaInsights.permalink} target="_blank" rel="noopener noreferrer"
-                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs transition-all"
-                        style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                        <ExternalLink size={10} /> Ver no Instagram
-                      </a>
-                    )}
-                    <button onClick={reload} disabled={loadingInsights}
-                      className="p-1.5 rounded-lg transition-all disabled:opacity-40"
-                      style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <RotateCcw size={11} className={loadingInsights ? 'animate-spin' : ''} />
-                    </button>
-                  </div>
-                </div>
-
-                {!mediaInsights ? (
-                  <div className="text-center py-8">
-                    <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma métrica ainda — o post pode ser muito recente.</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Published info */}
-                    {mediaInsights.timestamp && (
-                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.35)' }}>
-                        Publicado em {new Date(mediaInsights.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                      </p>
-                    )}
-
-                    {/* Alcance + Impressões — hero metrics */}
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,rgba(59,130,246,0.1),rgba(99,102,241,0.06))', border: '1px solid rgba(59,130,246,0.18)' }}>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(99,102,241,0.7)' }}>Contas alcançadas</p>
-                        <p className="text-3xl font-bold text-white">{reach.toLocaleString('pt-BR')}</p>
-                        <div className="mt-3 h-0.5 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.07)' }}>
-                          <div className="h-full rounded-full" style={{ width: impressions > 0 ? `${Math.min((reach / impressions) * 100, 100).toFixed(0)}%` : '0%', background: 'linear-gradient(90deg,#6366f1,#3b82f6)' }} />
-                        </div>
-                        <p className="text-[10px] mt-1" style={{ color: 'rgba(100,116,139,0.45)' }}>{impressions.toLocaleString('pt-BR')} impressões</p>
-                      </div>
-                      <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,rgba(52,211,153,0.1),rgba(16,185,129,0.06))', border: '1px solid rgba(52,211,153,0.18)' }}>
-                        <p className="text-[10px] font-semibold uppercase tracking-wider mb-1" style={{ color: 'rgba(52,211,153,0.7)' }}>Taxa de engajamento</p>
-                        <p className="text-3xl font-bold" style={{ color: '#34d399' }}>{engRate}%</p>
-                        <p className="text-[10px] mt-4" style={{ color: 'rgba(100,116,139,0.45)' }}>{totalInteractions.toLocaleString('pt-BR')} interações totais</p>
-                      </div>
-                    </div>
-
-                    {/* Engajamento — métricas detalhadas */}
-                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Engajamento</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { label: 'Curtidas',     value: likes,    color: '#ec4899', icon: '❤️' },
-                          { label: 'Comentários',  value: comments, color: '#f59e0b', icon: '💬' },
-                          { label: 'Salvamentos',  value: saved,    color: '#a78bfa', icon: '🔖' },
-                          { label: 'Compart.',     value: shares,   color: '#22d3ee', icon: '↗️' },
-                          ...(isReel ? [
-                            { label: 'Reproduções',    value: plays,        color: '#60a5fa', icon: '▶️' },
-                            { label: 'Tempo médio (s)', value: Math.round(avgWatchTime / 1000), color: '#818cf8', icon: '⏱️' },
-                          ] : []),
-                          ...(profileVisits > 0 ? [{ label: 'Visitas ao perfil', value: profileVisits, color: '#34d399', icon: '👤' }] : []),
-                          ...(follows > 0 ? [{ label: 'Novos seguidores', value: follows, color: '#10b981', icon: '➕' }] : []),
-                        ].map(m => (
-                          <div key={m.label} className="flex items-center gap-3 rounded-xl px-3 py-2.5" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                            <span className="text-sm">{m.icon}</span>
-                            <div>
-                              <p className="text-sm font-semibold leading-none" style={{ color: m.color }}>{m.value.toLocaleString('pt-BR')}</p>
-                              <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>{m.label}</p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Comentários */}
-                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <div className="flex items-center justify-between">
-                        <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Comentários ({comments.toLocaleString('pt-BR')})</p>
-                        {mediaInsights?.permalink && (
-                          <a href={mediaInsights.permalink} target="_blank" rel="noopener noreferrer"
-                            className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>Ver todos</a>
-                        )}
-                      </div>
-                      {commentsList.length === 0 ? (
-                        <p className="text-xs py-2" style={{ color: 'rgba(100,116,139,0.35)' }}>
-                          {comments > 0 ? 'Carregando comentários…' : 'Nenhum comentário ainda.'}
-                        </p>
-                      ) : (
-                        <div className="space-y-2 max-h-64 overflow-y-auto pr-1">
-                          {commentsList.map((c: any) => (
-                            <div key={c.id}>
-                              <div className="flex gap-2.5">
-                                <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 text-[10px] font-bold"
-                                  style={{ background: 'rgba(99,102,241,0.15)', color: '#818cf8' }}>
-                                  {(c.username || '?')[0].toUpperCase()}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-baseline gap-1.5">
-                                    <span className="text-xs font-semibold" style={{ color: 'rgba(148,163,184,0.8)' }}>@{c.username}</span>
-                                    <span className="text-[10px]" style={{ color: 'rgba(100,116,139,0.35)' }}>
-                                      {new Date(c.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })}
-                                    </span>
-                                    {c.like_count > 0 && <span className="text-[10px]" style={{ color: 'rgba(236,72,153,0.5)' }}>❤️ {c.like_count}</span>}
-                                  </div>
-                                  <p className="text-xs mt-0.5 break-words" style={{ color: 'rgba(148,163,184,0.65)' }}>{c.text}</p>
-                                  {c.replies?.data?.length > 0 && (
-                                    <div className="mt-1.5 ml-2 space-y-1.5 pl-2" style={{ borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
-                                      {c.replies.data.slice(0, 2).map((r: any) => (
-                                        <div key={r.id} className="flex gap-2">
-                                          <span className="text-[10px] font-semibold" style={{ color: 'rgba(148,163,184,0.6)' }}>@{r.username}</span>
-                                          <p className="text-[10px] break-words" style={{ color: 'rgba(148,163,184,0.5)' }}>{r.text}</p>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            );
-          })()}
 
           </div>{/* /max-w-2xl */}
         </div>{/* /overflow-y-auto */}

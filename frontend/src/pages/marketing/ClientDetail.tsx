@@ -263,7 +263,7 @@ export default function ClientDetail() {
   const [selectedPosts, setSelectedPosts] = useState<Set<number>>(new Set());
   const [deletingBulk, setDeletingBulk] = useState(false);
   const [panelPost, setPanelPost] = useState<any | null>(null);
-  const [panelInitialTab, setPanelInitialTab] = useState<'post' | 'insights'>('post');
+  const [panelInitialTab, setPanelInitialTab] = useState<'copy' | 'post' | 'gerot'>('copy');
   const [perfPosts, setPerfPosts] = useState<any[]>([]);
   const [loadingPerfPosts, setLoadingPerfPosts] = useState(false);
 
@@ -421,7 +421,7 @@ export default function ClientDetail() {
     const defaultDate = `${navMonth.year}-${String(navMonth.month).padStart(2, '0')}-01`;
     const r = await contentApi.create({ title: newPostTitle.trim(), type: 'post', agency_client_id: cid, batch_id: selectedBatchId, status: 'em_criacao', scheduled_date: defaultDate });
     setCreatingPost(false); setShowNewPostModal(false);
-    setPanelInitialTab('post');
+    setPanelInitialTab('copy');
     setPanelPost(r.data);
     const pr = await contentApi.list({ batch_id: String(selectedBatchId) });
     setPosts(pr.data); reloadBatches();
@@ -970,7 +970,7 @@ export default function ClientDetail() {
                                   <StatusDropdown current={p.status} onChange={s => handleStatusChange(p.id, s)} />
                                 </div>
                                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                                  <button onClick={() => { setPanelInitialTab('post'); setPanelPost(p); }}
+                                  <button onClick={() => { setPanelInitialTab('copy'); setPanelPost(p); }}
                                     className="p-1.5 rounded-lg transition-all" style={{ color: 'rgba(100,116,139,0.5)' }}
                                     onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}
                                     onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.5)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
@@ -1016,7 +1016,7 @@ export default function ClientDetail() {
                                     {dp.map((p: any) => {
                                       const color = STATUS_CFG[p.status as ContentStatus]?.color || '#94a3b8';
                                       return (
-                                        <div key={p.id} onClick={() => { setPanelInitialTab('post'); setPanelPost(p); }}
+                                        <div key={p.id} onClick={() => { setPanelInitialTab('copy'); setPanelPost(p); }}
                                           className="flex items-center gap-0.5 px-1 py-0.5 rounded cursor-pointer text-[9px] truncate hover:opacity-80 transition-opacity mb-0.5"
                                           style={{ background: `${color}18`, border: `1px solid ${color}28`, color }}>
                                           <div className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: color }} />{p.title}
@@ -1048,7 +1048,7 @@ export default function ClientDetail() {
                                 const cfg = STATUS_CFG[p.status as ContentStatus];
                                 return (
                                   <div key={p.id} className="relative group cursor-pointer overflow-hidden" style={{ aspectRatio: '1080/1350', background: 'rgba(255,255,255,0.03)' }}
-                                    onClick={() => { setPanelInitialTab('post'); setPanelPost(p); }}>
+                                    onClick={() => { setPanelInitialTab('copy'); setPanelPost(p); }}>
                                     {getPostThumbnail(p) ? (
                                       <img src={getPostThumbnail(p)!} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
                                     ) : (
@@ -1683,7 +1683,7 @@ export default function ClientDetail() {
                   const cfg = STATUS_CFG[p.status as ContentStatus];
                   const thumb = getPostThumbnail(p);
                   return (
-                    <button key={p.id} onClick={() => { setPanelInitialTab('insights'); setPanelPost(p); }}
+                    <button key={p.id} onClick={() => { setPanelInitialTab('post'); setPanelPost(p); }}
                       className="relative group rounded-xl overflow-hidden text-left transition-all"
                       style={{ aspectRatio: '3/4', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
                       {thumb ? (
@@ -1986,7 +1986,7 @@ export default function ClientDetail() {
         <PostDetailPanel
           post={panelPost}
           initialTab={panelInitialTab}
-          onClose={() => { setPanelPost(null); setPanelInitialTab('post'); }}
+          onClose={() => { setPanelPost(null); setPanelInitialTab('copy'); }}
           onUpdated={updated => {
             setPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
             setPerfPosts(prev => prev.map(p => p.id === updated.id ? updated : p));
