@@ -281,6 +281,8 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
   const [insightsError, setInsightsError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
+  const [showPublishConfirm, setShowPublishConfirm] = useState(false);
+  const [publishConfirmText, setPublishConfirmText] = useState('');
   const [linkInput, setLinkInput] = useState('');
   const [linking, setLinking] = useState(false);
   const [scheduling, setScheduling] = useState(false);
@@ -349,9 +351,9 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
           onUploadProgress: e => { if (e.total) setUploadProgress(Math.round((e.loaded / e.total) * 100)); },
         })
       );
-      const newFiles: MediaFile[] = r.data.files;
+      const newFiles: MediaFile[] = (r.data.files || []);
       setMediaFiles(prev => {
-        if (kind === 'video') return [...prev.filter(f => f.type === 'image'), ...newFiles];
+        if (kind === 'video') return [...prev.filter(f => f.type === 'image'), ...newFiles.map(f => ({ ...f, type: 'video' as const }))];
         if (kind === 'cover') return [...prev.filter(f => f.type === 'video'), ...newFiles.map(f => ({ ...f, type: 'image' as const }))];
         return [...prev, ...newFiles.map(f => ({ ...f, type: 'image' as const }))];
       });
@@ -838,18 +840,12 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                     {/* PUBLICAR AGORA — secundário */}
                     <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(16,185,129,0.03)', border: '1px solid rgba(16,185,129,0.1)' }}>
                       <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(52,211,153,0.5)' }}>Publicar agora</p>
-                      <button onClick={async () => {
-                        setPublishing(true); setPublishError(null);
-                        try {
-                          const r = await metaApi.publish(clientId, post.id);
-                          onUpdated({ ...post, status: 'publicado', ig_media_id: r.data.ig_media_id } as any);
-                        } catch (e: any) { setPublishError(e.response?.data?.error || 'Erro ao publicar'); }
-                        setPublishing(false);
-                      }} disabled={publishing}
+                      <button onClick={() => { setShowPublishConfirm(true); setPublishConfirmText(''); setPublishError(null); }}
+                        disabled={publishing}
                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
                         style={{ color: '#10b981', background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.15)' }}>
-                        <Send size={13} className={publishing ? 'animate-pulse' : ''} />
-                        {publishing ? 'Publicando…' : 'Publicar agora'}
+                        <Send size={13} />
+                        Publicar agora
                       </button>
                     </div>
 
@@ -917,8 +913,14 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                     ) : (
                       <>
                         {mediaInsights.insights_warning && (
-                          <div className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
-                            Insights parciais: {mediaInsights.insights_warning}
+                          <div className="px-3 py-3 rounded-xl text-xs space-y-1" style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
+                            <p className="font-semibold">Sem permissão para ler insights</p>
+                            <p style={{ color: 'rgba(251,191,36,0.75)' }}>{mediaInsights.insights_warning}</p>
+                          </div>
+                        )}
+                        {!mediaInsights.insights_warning && reach === 0 && impressions === 0 && likes === 0 && (
+                          <div className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(100,116,139,0.06)', border: '1px solid rgba(100,116,139,0.12)', color: 'rgba(100,116,139,0.6)' }}>
+                            Métricas ainda zeradas — podem demorar até 24h após a publicação. Se o post foi publicado há mais tempo, tente reconectar via OAuth na aba Integração.
                           </div>
                         )}
                         {mediaInsights.timestamp && (
@@ -1287,6 +1289,71 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
             setTasks(prev => prev.map(t => t.id === updated.id ? { ...t, ...updated } : t));
           }}
         />
+      )}
+
+      {/* ── Publish confirmation modal ── */}
+      {showPublishConfirm && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-6 space-y-5" style={{ background: '#0f0f23', border: '1px solid rgba(239,68,68,0.25)' }}>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)' }}>
+                <AlertTriangle size={18} style={{ color: '#f87171' }} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">Confirmar publicação</p>
+                <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.7)' }}>
+                  Isso vai publicar <span className="text-white font-medium">"{post.title}"</span> agora no Instagram. Essa ação não pode ser desfeita.
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <p className="text-xs" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                Digite <span className="font-bold tracking-widest" style={{ color: '#f87171' }}>POSTAR</span> para confirmar
+              </p>
+              <input
+                autoFocus
+                value={publishConfirmText}
+                onChange={e => setPublishConfirmText(e.target.value)}
+                onKeyDown={async e => {
+                  if (e.key === 'Enter' && publishConfirmText === 'POSTAR') {
+                    setShowPublishConfirm(false);
+                    setPublishing(true); setPublishError(null);
+                    try {
+                      const r = await metaApi.publish((post as any).agency_client_id, post.id);
+                      onUpdated({ ...post, status: 'publicado', ig_media_id: r.data.ig_media_id } as any);
+                    } catch (err: any) { setPublishError(err.response?.data?.error || 'Erro ao publicar'); }
+                    setPublishing(false);
+                  }
+                }}
+                placeholder="POSTAR"
+                className="w-full px-3 py-2.5 rounded-xl text-sm font-mono tracking-widest outline-none focus:ring-1 focus:ring-red-500/30 transition-all"
+                style={{ background: 'rgba(239,68,68,0.05)', border: `1px solid ${publishConfirmText === 'POSTAR' ? 'rgba(239,68,68,0.5)' : 'rgba(239,68,68,0.2)'}`, color: 'white', caretColor: '#f87171' }}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setShowPublishConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.8)' }}>
+                Cancelar
+              </button>
+              <button
+                disabled={publishConfirmText !== 'POSTAR'}
+                onClick={async () => {
+                  setShowPublishConfirm(false);
+                  setPublishing(true); setPublishError(null);
+                  try {
+                    const r = await metaApi.publish((post as any).agency_client_id, post.id);
+                    onUpdated({ ...post, status: 'publicado', ig_media_id: r.data.ig_media_id } as any);
+                  } catch (err: any) { setPublishError(err.response?.data?.error || 'Erro ao publicar'); }
+                  setPublishing(false);
+                }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-30"
+                style={{ background: publishConfirmText === 'POSTAR' ? 'rgba(239,68,68,0.15)' : 'rgba(239,68,68,0.06)', border: '1px solid rgba(239,68,68,0.4)', color: '#f87171' }}>
+                {publishing ? 'Publicando…' : 'Publicar'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>,
     document.body
