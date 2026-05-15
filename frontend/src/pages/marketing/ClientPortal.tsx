@@ -2351,57 +2351,118 @@ export default function ClientPortal() {
   }
 
   function PageCrmContatos() {
+    const [contactSearch, setContactSearch] = useState('');
+    const filtered = crmContacts.filter(c =>
+      !contactSearch || c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+      (c.email || '').toLowerCase().includes(contactSearch.toLowerCase()) ||
+      (c.phone || '').includes(contactSearch)
+    );
+    const SRC_LABEL: Record<string, string> = { manual: 'Manual', instagram: 'Instagram', instagram_dm: 'Instagram DM', instagram_comment: 'Comentário', whatsapp: 'WhatsApp', ads: 'Anúncio' };
+    const SRC_COLOR: Record<string, string> = { manual: 'rgba(100,116,139,0.7)', instagram: '#e879f9', instagram_dm: '#e879f9', instagram_comment: '#c084fc', whatsapp: '#34d399', ads: '#a78bfa' };
+
     if (crmLoading) return <CrmSpinner />;
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-2xl font-semibold text-white mb-1">Contatos</h2>
-            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>{crmContacts.length} contatos no seu CRM</p>
+            <p className="section-label mb-1">Comercial</p>
+            <h1 className="text-3xl font-extralight text-white tracking-tight" style={{ textShadow: '0 0 30px rgba(59,130,246,0.2)' }}>Contatos</h1>
+            <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.7)' }}>{crmContacts.length} contatos cadastrados</p>
           </div>
-          <button onClick={openNewContact}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white flex-shrink-0"
-            style={{ background: 'rgba(59,130,246,0.15)', border: '1px solid rgba(59,130,246,0.2)' }}>
-            <UserPlus size={14} /> Novo contato
+          <button onClick={openNewContact} className="btn-primary flex-shrink-0">
+            <UserPlus size={14} /> Novo Contato
           </button>
         </div>
-        {crmContacts.length === 0 ? (
-          <div className="text-center py-16 rounded-2xl" style={{ border: '1px dashed rgba(255,255,255,0.06)' }}>
-            <Users size={32} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.3)' }} />
-            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhum contato ainda</p>
-            <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.25)' }}>Adicione manualmente ou eles virão do marketing</p>
+
+        <div className="flex gap-3 flex-wrap">
+          <div className="relative flex-1 min-w-0" style={{ minWidth: 200 }}>
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2" style={{ color: 'rgba(59,130,246,0.4)' }} />
+            <input value={contactSearch} onChange={e => setContactSearch(e.target.value)}
+              placeholder="Buscar por nome, e-mail ou telefone…" className="input-dark pl-9" />
           </div>
-        ) : (
-          <div className="space-y-2">
-            {crmContacts.map(c => {
-              const cfg = stageCfg(c.stage);
-              return (
-                <div key={c.id} className="flex items-center gap-4 px-4 py-3 rounded-xl group"
-                  style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold text-white"
-                    style={{ background: 'rgba(255,255,255,0.06)' }}>
-                    {c.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">{c.name}</p>
-                    <p className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                      {[c.email, c.phone].filter(Boolean).join(' · ') || 'sem contato'}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <select value={c.stage} onChange={e => updateContactStage(c.id, e.target.value)}
-                      className="text-xs px-2 py-1 rounded-md outline-none cursor-pointer"
-                      style={{ background: `${cfg.color}15`, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
-                      {STAGES_CRM.map(s => <option key={s.id} value={s.id} style={{ background: '#0d0d22', color: s.color }}>{s.label}</option>)}
-                    </select>
-                    <button onClick={() => openEditContact(c)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}><Pencil size={13} /></button>
-                    <button onClick={() => deleteContact(c.id)} className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 rounded-lg" style={{ color: 'rgba(248,113,113,0.6)' }}><Trash2 size={13} /></button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+        </div>
+
+        <div className="card overflow-hidden overflow-x-auto">
+          <table className="w-full" style={{ minWidth: 480 }}>
+            <thead>
+              <tr>
+                <th className="th">Contato</th>
+                <th className="th hidden md:table-cell">Telefone</th>
+                <th className="th hidden sm:table-cell">Fonte</th>
+                <th className="th">Estágio</th>
+                <th className="th hidden lg:table-cell">Criado</th>
+                <th className="th w-16" />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-20 text-center text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                    {contactSearch ? 'Nenhum contato encontrado' : 'Nenhum contato ainda'}
+                  </td>
+                </tr>
+              ) : filtered.map(c => {
+                const cfg = stageCfg(c.stage);
+                const srcKey = c.source_platform || c.source || 'manual';
+                const srcLabel = SRC_LABEL[srcKey] || srcKey;
+                const srcColor = SRC_COLOR[srcKey] || 'rgba(100,116,139,0.7)';
+                const avatarBg = AVATAR_COLORS[(c.name || '?').charCodeAt(0) % AVATAR_COLORS.length];
+                const ini = (c.name || '?').split(' ').slice(0, 2).map((n: string) => n[0]).join('').toUpperCase();
+                return (
+                  <tr key={c.id} className="tr group">
+                    <td className="td">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                          style={{ background: avatarBg, boxShadow: '0 0 10px rgba(59,130,246,0.2)' }}>{ini}</div>
+                        <div>
+                          <p className="text-sm font-medium text-white">{c.name}</p>
+                          {c.email && <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.6)' }}>{c.email}</p>}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="td hidden md:table-cell">
+                      {c.phone
+                        ? <span className="flex items-center gap-1.5 text-xs" style={{ color: 'rgba(148,163,184,0.7)' }}><Phone size={11} />{c.phone}</span>
+                        : <span style={{ color: 'rgba(100,116,139,0.4)' }}>—</span>}
+                    </td>
+                    <td className="td hidden sm:table-cell">
+                      <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                        style={{ background: `${srcColor}18`, color: srcColor, border: `1px solid ${srcColor}30` }}>
+                        {srcLabel}
+                      </span>
+                    </td>
+                    <td className="td">
+                      <select value={c.stage} onChange={e => updateContactStage(c.id, e.target.value)}
+                        className="text-xs px-2 py-1 rounded-md outline-none cursor-pointer"
+                        style={{ background: `${cfg.color}15`, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
+                        {STAGES_CRM.map(s => <option key={s.id} value={s.id} style={{ background: '#0d0d22', color: s.color }}>{s.label}</option>)}
+                      </select>
+                    </td>
+                    <td className="td hidden lg:table-cell text-xs" style={{ color: 'rgba(100,116,139,0.55)' }}>
+                      {c.created_at ? format(new Date(c.created_at), 'd MMM yyyy', { locale: ptBR }) : '—'}
+                    </td>
+                    <td className="td">
+                      <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button onClick={() => openEditContact(c)} className="p-1.5 rounded-lg transition-all"
+                          style={{ color: 'rgba(100,116,139,0.6)' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#60a5fa'; (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.1)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                          <Pencil size={13} />
+                        </button>
+                        <button onClick={() => deleteContact(c.id)} className="p-1.5 rounded-lg transition-all"
+                          style={{ color: 'rgba(100,116,139,0.6)' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f87171'; (e.currentTarget as HTMLElement).style.background = 'rgba(239,68,68,0.1)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     );
   }
