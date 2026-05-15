@@ -48,6 +48,8 @@ export const conversationsApi = {
   getMessages: (id: number) => api.get(`/conversations/${id}/messages`),
   sendMessage: (id: number, content: string) => api.post(`/conversations/${id}/messages`, { content }),
   markRead: (id: number) => api.patch(`/conversations/${id}/read`),
+  sendIgReply: (convId: number, igUserId: string, recipientId: string, text: string) =>
+    api.post(`/conversations/${convId}/ig-reply`, { ig_user_id: igUserId, recipient_id: recipientId, text }),
 };
 
 export const dashboardApi = {

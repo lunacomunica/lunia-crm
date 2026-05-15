@@ -153,8 +153,81 @@ app.get('/api/meta/webhook', (req, res) => {
 app.post('/api/meta/webhook', (req, res) => {
   res.sendStatus(200);
   const body = req.body;
-  console.log('[webhook] evento recebido:', JSON.stringify(body));
   if (!body?.object) return;
+
+  // ── Instagram DMs + Comments ──────────────────────────────────────────
+  if (body.object === 'instagram') {
+    for (const entry of body.entry || []) {
+      const igId = String(entry.id); // Instagram Business Account ID
+      const clientRow = db.prepare('SELECT id, tenant_id FROM agency_clients WHERE instagram_user_id = ?').get(igId) as any;
+      const tid = clientRow?.tenant_id || 1;
+      const agencyClientId = clientRow?.id || null;
+
+      // Instagram DMs (entry.messaging)
+      for (const m of entry.messaging || []) {
+        if (!m.message) continue;
+        const senderId = String(m.sender.id);
+        if (senderId === igId) continue; // skip own messages echoed back
+        const content = m.message.text || (m.message.attachments ? '[mídia]' : '[mensagem]');
+        const msgId = m.message.mid;
+
+        let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, senderId) as any;
+        if (!contact) {
+          const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id) VALUES (?, ?, 'instagram', ?)`).run(tid, senderId, senderId);
+          contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
+        }
+
+        const convKey = agencyClientId ? `ig_dm_${agencyClientId}_${senderId}` : `ig_dm_${senderId}`;
+        let conv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
+        if (!conv) {
+          const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type) VALUES (?, ?, 'instagram', ?, ?, 'dm')`).run(tid, contact.id, convKey, agencyClientId);
+          conv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
+        }
+
+        const dup = db.prepare('SELECT id FROM messages WHERE external_id=?').get(msgId);
+        if (!dup) {
+          db.prepare(`INSERT INTO messages (conversation_id, content, direction, external_id) VALUES (?, ?, 'inbound', ?)`).run(conv.id, content, msgId);
+          db.prepare("UPDATE conversations SET last_message_at=datetime('now'), unread_count=unread_count+1 WHERE id=?").run(conv.id);
+        }
+      }
+
+      // Instagram Comments (entry.changes)
+      for (const change of entry.changes || []) {
+        if (change.field === 'comments') {
+          const v = change.value;
+          const commentId = v.id;
+          const text = v.text || '[comentário]';
+          const fromId = String(v.from?.id || 'unknown');
+          const fromUsername = v.from?.username || fromId;
+          const mediaId = v.media?.id;
+
+          let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, fromId) as any;
+          if (!contact) {
+            const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id) VALUES (?, ?, 'instagram', ?)`).run(tid, `@${fromUsername}`, fromId);
+            contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
+          }
+
+          // One conversation thread per post
+          const convKey = agencyClientId ? `ig_comment_${agencyClientId}_${mediaId || 'unknown'}` : `ig_comment_${mediaId || 'unknown'}`;
+          let conv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
+          if (!conv) {
+            const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type) VALUES (?, ?, 'instagram', ?, ?, 'comment')`).run(tid, contact.id, convKey, agencyClientId);
+            conv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
+          }
+
+          const dup = db.prepare('SELECT id FROM messages WHERE external_id=?').get(commentId);
+          if (!dup) {
+            const label = contact.name !== fromId ? `@${fromUsername}: ${text}` : text;
+            db.prepare(`INSERT INTO messages (conversation_id, content, direction, external_id) VALUES (?, ?, 'inbound', ?)`).run(conv.id, label, commentId);
+            db.prepare("UPDATE conversations SET last_message_at=datetime('now'), unread_count=unread_count+1 WHERE id=?").run(conv.id);
+          }
+        }
+      }
+    }
+    return;
+  }
+
+  // ── WhatsApp ──────────────────────────────────────────────────────────
   const tid = 1;
   for (const entry of body.entry || []) {
     for (const change of entry.changes || []) {

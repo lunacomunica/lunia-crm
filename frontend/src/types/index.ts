@@ -112,8 +112,12 @@ export interface Conversation {
   contact_phone?: string;
   avatar_url?: string | null;
   platform: 'whatsapp' | 'instagram';
+  conv_type?: 'dm' | 'comment' | null;
   external_id: string;
   status: 'active' | 'archived';
+  agency_client_id?: number | null;
+  agency_client_name?: string | null;
+  agency_client_logo?: string | null;
   last_message: string | null;
   last_message_time: string | null;
   last_message_at: string;

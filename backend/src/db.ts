@@ -340,6 +340,8 @@ const migrations = [
   "ALTER TABLE contacts ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
   "ALTER TABLE deals ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
   "ALTER TABLE conversations ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
+  "ALTER TABLE conversations ADD COLUMN agency_client_id INTEGER REFERENCES agency_clients(id) ON DELETE SET NULL",
+  "ALTER TABLE conversations ADD COLUMN conv_type TEXT DEFAULT 'dm'",
   "ALTER TABLE activities ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
   "ALTER TABLE instagram_leads ADD COLUMN tenant_id INTEGER NOT NULL DEFAULT 1",
   "ALTER TABLE users ADD COLUMN avatar TEXT",
