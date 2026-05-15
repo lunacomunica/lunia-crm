@@ -185,6 +185,7 @@ app.post('/api/meta/webhook', (req, res) => {
         if (!m.message) continue;
         const senderId = String(m.sender.id);
         if (senderId === igId) continue; // skip own messages echoed back
+        const senderName = senderId;
         const content = m.message.text || (m.message.attachments ? '[mídia]' : '[mensagem]');
         const msgId = m.message.mid;
 
