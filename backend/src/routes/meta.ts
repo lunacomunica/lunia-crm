@@ -16,6 +16,39 @@ function httpsGet(url: string): Promise<any> {
   });
 }
 
+// GET /meta/oauth-pages/:clientId — return pending page selection from session
+router.get('/oauth-pages/:clientId', (req, res) => {
+  const session = db.prepare("SELECT value FROM settings WHERE tenant_id=? AND key=?")
+    .get(req.user.tenant_id, `oauth_session_${req.params.clientId}`) as any;
+  if (!session?.value) return res.status(404).json({ error: 'Sessão não encontrada ou expirada' });
+  const data = JSON.parse(session.value);
+  res.json({ pages: data.pages });
+});
+
+// POST /meta/oauth-select/:clientId — save chosen page
+router.post('/oauth-select/:clientId', (req, res) => {
+  const { pageId } = req.body as { pageId: string };
+  if (!pageId) return res.status(400).json({ error: 'pageId obrigatório' });
+
+  const session = db.prepare("SELECT value FROM settings WHERE tenant_id=? AND key=?")
+    .get(req.user.tenant_id, `oauth_session_${req.params.clientId}`) as any;
+  if (!session?.value) return res.status(404).json({ error: 'Sessão não encontrada ou expirada' });
+
+  const data = JSON.parse(session.value);
+  const chosen = data.pages.find((p: any) => p.pageId === pageId);
+  if (!chosen) return res.status(400).json({ error: 'Página não encontrada na sessão' });
+
+  db.prepare(
+    "UPDATE agency_clients SET instagram_token=?, instagram_user_id=?, instagram_token_expires=?, facebook_page_id=?, facebook_page_token=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?"
+  ).run(data.token, chosen.igId, data.expires_at, chosen.pageId, chosen.pageToken, req.params.clientId, req.user.tenant_id);
+
+  // Clean up session
+  db.prepare("DELETE FROM settings WHERE tenant_id=? AND key=?")
+    .run(req.user.tenant_id, `oauth_session_${req.params.clientId}`);
+
+  res.json({ ok: true });
+});
+
 // Generate Meta OAuth URL for a specific agency client
 router.get('/auth', (req, res) => {
   const clientId = req.query.client_id as string;

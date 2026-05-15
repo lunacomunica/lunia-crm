@@ -59,6 +59,8 @@ export const metaApi = {
   convertLead: (id: number) => api.post(`/meta/instagram-leads/${id}/convert`),
   deleteLead: (id: number) => api.delete(`/meta/instagram-leads/${id}`),
   getAuthUrl: (clientId: number) => api.get(`/meta/auth?client_id=${clientId}`),
+  getOAuthPages: (clientId: number) => api.get(`/meta/oauth-pages/${clientId}`),
+  selectOAuthPage: (clientId: number, pageId: string) => api.post(`/meta/oauth-select/${clientId}`, { pageId }),
   getAgencyToken: () => api.get('/meta/agency-token'),
   saveAgencyToken: (token: string) => api.post('/meta/agency-token', { token }),
   exchangeToken: (token: string) => api.post('/meta/agency-token/exchange', { token }),

@@ -326,6 +326,9 @@ export default function ClientDetail() {
   const [agencyTokenResult, setAgencyTokenResult] = useState<{ success: boolean; message: string } | null>(null);
   const [igOAuthSuccess, setIgOAuthSuccess] = useState(false);
   const [igOAuthError, setIgOAuthError] = useState<string | null>(null);
+  const [igPageSelectModal, setIgPageSelectModal] = useState(false);
+  const [igPageOptions, setIgPageOptions] = useState<any[]>([]);
+  const [igPageSelecting, setIgPageSelecting] = useState(false);
 
   // Modules (flywheel)
   const [modules, setModules] = useState({ posicionamento: false, marketing_conteudo: false, marketing_trafego: false, comercial: false });
@@ -489,11 +492,23 @@ export default function ClientDetail() {
   useEffect(() => {
     const connected = searchParams.get('ig_connected') === '1' || searchParams.get('meta_connected') === '1';
     const errMsg = searchParams.get('ig_error') || searchParams.get('meta_error');
-    if (connected || errMsg) {
+    const selectPage = searchParams.get('select_ig_page') === '1';
+
+    if (selectPage) {
+      navigate(`/marketing/clients/${cid}`, { replace: true });
+      setTab('integracao');
+      metaApi.getOAuthPages(cid).then(r => {
+        setIgPageOptions(r.data.pages || []);
+        setIgPageSelectModal(true);
+      }).catch(() => {
+        setIgOAuthError('Erro ao carregar páginas. Tente reconectar.');
+        setTimeout(() => setIgOAuthError(null), 8000);
+      });
+    } else if (connected || errMsg) {
       navigate(`/marketing/clients/${cid}`, { replace: true });
       if (connected) {
         setIgOAuthSuccess(true);
-        load(); // reload client data to reflect new token
+        load();
         setTimeout(() => setIgOAuthSuccess(false), 5000);
       }
       if (errMsg) {
@@ -2403,6 +2418,56 @@ export default function ClientDetail() {
             reloadBatches();
           }}
         />
+      )}
+
+      {/* Instagram Page Selection Modal */}
+      {igPageSelectModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(8px)' }}>
+          <div className="w-full max-w-sm rounded-2xl p-6 space-y-4" style={{ background: '#0d0d22', border: '1px solid rgba(255,255,255,0.08)' }}>
+            <div>
+              <h3 className="text-base font-semibold text-white">Selecionar conta do Instagram</h3>
+              <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.5)' }}>Encontramos múltiplas contas vinculadas ao seu Facebook. Escolha qual conectar para este cliente.</p>
+            </div>
+            <div className="space-y-2">
+              {igPageOptions.map((p: any) => (
+                <button key={p.pageId} disabled={igPageSelecting}
+                  onClick={async () => {
+                    setIgPageSelecting(true);
+                    try {
+                      await metaApi.selectOAuthPage(cid, p.pageId);
+                      setIgPageSelectModal(false);
+                      setIgOAuthSuccess(true);
+                      load();
+                      setTimeout(() => setIgOAuthSuccess(false), 5000);
+                    } catch (e: any) {
+                      setIgOAuthError(e?.response?.data?.error || 'Erro ao salvar');
+                      setIgPageSelectModal(false);
+                      setTimeout(() => setIgOAuthError(null), 8000);
+                    }
+                    setIgPageSelecting(false);
+                  }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all disabled:opacity-50"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}
+                  onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(59,130,246,0.4)')}
+                  onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)')}>
+                  {p.igPicture
+                    ? <img src={p.igPicture} className="w-10 h-10 rounded-full object-cover flex-shrink-0" />
+                    : <div className="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: 'rgba(236,72,153,0.15)', border: '1px solid rgba(236,72,153,0.2)' }}><Instagram size={16} style={{ color: '#ec4899' }} /></div>
+                  }
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">@{p.igUsername || p.igName}</p>
+                    <p className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>{p.pageName}</p>
+                  </div>
+                  {igPageSelecting && <RotateCcw size={13} className="animate-spin flex-shrink-0" style={{ color: 'rgba(100,116,139,0.4)' }} />}
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setIgPageSelectModal(false)} className="w-full py-2 rounded-xl text-xs transition-all"
+              style={{ color: 'rgba(100,116,139,0.5)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
       )}
 
       {/* Meta Ads Campaign Panel */}

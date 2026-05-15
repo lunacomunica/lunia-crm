@@ -96,40 +96,45 @@ app.get('/api/meta/callback', async (req, res) => {
     const expiresIn = llData.expires_in || 5184000;
     const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    // Get Facebook Page token via /me/accounts — try to match client's existing instagram_user_id
-    const pages = await httpsGet(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longToken}`);
-    let igUserId: string | null = null;
-    let fbPageId: string | null = null;
-    let fbPageToken: string | null = null;
+    // Get all Facebook Pages with linked Instagram accounts
+    const pagesRes = await httpsGet(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,name,username,profile_picture_url}&access_token=${longToken}`);
+    const candidates = (pagesRes.data || []).filter((p: any) => p.instagram_business_account?.id);
 
-    // Look for the page whose IG account matches what's already saved for this client
-    const existing = db.prepare('SELECT instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?').get(clientId, tenantId) as any;
-    const existingIgId = existing?.instagram_user_id;
-
-    const candidates = (pages.data || []).filter((p: any) => p.instagram_business_account?.id);
-    const matched = existingIgId
-      ? candidates.find((p: any) => p.instagram_business_account.id === existingIgId)
-      : null;
-
-    if (matched) {
-      // Perfect match — also update ig user id (same value) + FB page
-      igUserId = matched.instagram_business_account.id;
-      fbPageId = matched.id;
-      fbPageToken = matched.access_token || longToken;
-    } else if (!existingIgId && candidates[0]) {
-      // No existing IG ID set — use first found (first-time setup)
-      igUserId = candidates[0].instagram_business_account.id;
-      fbPageId = candidates[0].id;
-      fbPageToken = candidates[0].access_token || longToken;
+    if (candidates.length === 0) {
+      // No pages with IG — just save token, no page info
+      db.prepare(
+        "UPDATE agency_clients SET instagram_token=?, instagram_token_expires=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?"
+      ).run(longToken, expiresAt, clientId, tenantId);
+      return res.redirect(`/marketing/clients/${clientId}?ig_connected=1`);
     }
-    // If existingIgId is set but no match found, we only save the token (don't touch instagram_user_id)
 
-    // Save token. Only update instagram_user_id if we found a value to set.
-    db.prepare(
-      "UPDATE agency_clients SET instagram_token=?, instagram_user_id=COALESCE(?, instagram_user_id), instagram_token_expires=?, facebook_page_id=COALESCE(?, facebook_page_id), facebook_page_token=COALESCE(?, facebook_page_token), updated_at=datetime('now') WHERE id=? AND tenant_id=?"
-    ).run(longToken, igUserId, expiresAt, fbPageId, fbPageToken, clientId, tenantId);
+    if (candidates.length === 1) {
+      // Only one option — auto-connect without asking
+      const p = candidates[0];
+      db.prepare(
+        "UPDATE agency_clients SET instagram_token=?, instagram_user_id=?, instagram_token_expires=?, facebook_page_id=?, facebook_page_token=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?"
+      ).run(longToken, p.instagram_business_account.id, expiresAt, p.id, p.access_token || longToken, clientId, tenantId);
+      return res.redirect(`/marketing/clients/${clientId}?ig_connected=1`);
+    }
 
-    res.redirect(`/marketing/clients/${clientId}?ig_connected=1`);
+    // Multiple pages — store session and let user choose
+    const sessionData = JSON.stringify({
+      token: longToken,
+      expires_at: expiresAt,
+      pages: candidates.map((p: any) => ({
+        pageId: p.id,
+        pageName: p.name,
+        pageToken: p.access_token || longToken,
+        igId: p.instagram_business_account.id,
+        igName: p.instagram_business_account.name,
+        igUsername: p.instagram_business_account.username,
+        igPicture: p.instagram_business_account.profile_picture_url,
+      })),
+    });
+    db.prepare("INSERT OR REPLACE INTO settings (tenant_id, key, value) VALUES (?, ?, ?)")
+      .run(tenantId, `oauth_session_${clientId}`, sessionData);
+
+    res.redirect(`/marketing/clients/${clientId}?select_ig_page=1`);
   } catch (err: any) {
     console.error('[meta/callback]', err.message);
     res.redirect(`/marketing/clients/${clientId}?ig_error=${encodeURIComponent(err.message)}`);
