@@ -307,6 +307,8 @@ export default function ClientDetail() {
   // Instagram connection
   const [igConnected, setIgConnected] = useState(false);
   const [igConnecting, setIgConnecting] = useState(false);
+  const [igSyncing, setIgSyncing] = useState(false);
+  const [igSyncResult, setIgSyncResult] = useState<{ dms: number; comments: number } | null>(null);
   const [igAccountId, setIgAccountId] = useState('');
   const [igSaving, setIgSaving] = useState(false);
   const [perfTab, setPerfTab] = useState<PerfTab>('conteudos');
@@ -546,6 +548,18 @@ export default function ClientDetail() {
     await metaApi.disconnectIg(cid);
     setIgConnected(false);
     setIgAccountId('');
+  };
+
+  const syncIgHistory = async () => {
+    setIgSyncing(true);
+    setIgSyncResult(null);
+    try {
+      const r = await metaApi.syncHistory(cid);
+      setIgSyncResult(r.data);
+    } catch (e: any) {
+      alert(e?.response?.data?.error || 'Erro ao sincronizar histórico');
+    }
+    setIgSyncing(false);
   };
 
   const saveIgIntegration = async () => {
@@ -2066,9 +2080,15 @@ export default function ClientDetail() {
                     <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>Específica para este cliente</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {igConnected && (
                     <>
+                      <button onClick={syncIgHistory} disabled={igSyncing}
+                        className="text-xs px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50"
+                        style={{ color: '#34d399', background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)' }}>
+                        {igSyncing ? <RotateCcw size={10} className="animate-spin" /> : <RotateCcw size={10} />}
+                        {igSyncing ? 'Sincronizando…' : 'Sincronizar histórico'}
+                      </button>
                       <button onClick={connectInstagram} disabled={igConnecting}
                         className="text-xs px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50"
                         style={{ color: '#a78bfa', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)' }}>
@@ -2083,6 +2103,11 @@ export default function ClientDetail() {
                     </>
                   )}
                 </div>
+                {igSyncResult && (
+                  <p className="text-xs mt-2" style={{ color: '#34d399' }}>
+                    ✓ Sincronizado — {igSyncResult.dms} DMs e {igSyncResult.comments} comentários importados
+                  </p>
+                )}
               </div>
 
               {/* OAuth success / error toasts */}

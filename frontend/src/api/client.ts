@@ -82,6 +82,7 @@ export const metaApi = {
   toggleCampaign: (clientId: number, campaignId: string, status: 'ACTIVE' | 'PAUSED') => api.post(`/meta/campaign/${clientId}/${campaignId}/status`, { status }),
   toggleAdset: (clientId: number, adsetId: string, status: 'ACTIVE' | 'PAUSED') => api.post(`/meta/adset/${clientId}/${adsetId}/status`, { status }),
   toggleAd: (clientId: number, adId: string, status: 'ACTIVE' | 'PAUSED') => api.post(`/meta/ad/${clientId}/${adId}/status`, { status }),
+  syncHistory: (clientId: number) => api.post(`/meta/sync-history/${clientId}`),
 };
 
 export const notificationsApi = {

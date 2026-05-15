@@ -834,4 +834,90 @@ router.post('/instagram-leads/:id/convert', (req, res) => {
   res.json(db.prepare('SELECT * FROM contacts WHERE id=?').get(result.lastInsertRowid));
 });
 
+// POST /meta/sync-history/:clientId — pull historical DMs + comments from Instagram
+router.post('/sync-history/:clientId', async (req, res) => {
+  const tid = req.user.tenant_id;
+  const client = db.prepare('SELECT * FROM agency_clients WHERE id=? AND tenant_id=?').get(req.params.clientId, tid) as any;
+  if (!client) return res.status(404).json({ error: 'Cliente não encontrado' });
+  if (!client.instagram_token) return res.status(400).json({ error: 'Cliente sem token OAuth. Reconecte o Instagram primeiro.' });
+
+  const token = client.instagram_token;
+  const igId = client.instagram_user_id;
+  const agencyClientId = client.id;
+  let dmCount = 0, commentCount = 0;
+
+  try {
+    // ── DMs ──────────────────────────────────────────────────────────────
+    const convsRes = await httpsGet(
+      `https://graph.facebook.com/v19.0/${igId}/conversations?platform=instagram&fields=id,participants,messages{message,from,created_time,id}&limit=20&access_token=${token}`
+    );
+
+    for (const conv of convsRes.data || []) {
+      const otherParticipant = (conv.participants?.data || []).find((p: any) => String(p.id) !== String(igId));
+      if (!otherParticipant) continue;
+      const senderId = String(otherParticipant.id);
+      const senderName = otherParticipant.username ? `@${otherParticipant.username}` : senderId;
+
+      let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, senderId) as any;
+      if (!contact) {
+        const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id) VALUES (?, ?, 'instagram', ?)`).run(tid, senderName, senderId);
+        contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
+      }
+
+      const convKey = `ig_dm_${agencyClientId}_${senderId}`;
+      let dbConv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
+      if (!dbConv) {
+        const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type) VALUES (?, ?, 'instagram', ?, ?, 'dm')`).run(tid, contact.id, convKey, agencyClientId);
+        dbConv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
+      }
+
+      for (const msg of (conv.messages?.data || []).reverse()) {
+        const dup = db.prepare('SELECT id FROM messages WHERE external_id=?').get(msg.id);
+        if (dup) continue;
+        const direction = String(msg.from?.id) === String(igId) ? 'outbound' : 'inbound';
+        db.prepare(`INSERT INTO messages (conversation_id, content, direction, external_id, timestamp) VALUES (?, ?, ?, ?, ?)`).run(dbConv.id, msg.message || '[mídia]', direction, msg.id, msg.created_time);
+        dmCount++;
+      }
+
+      db.prepare("UPDATE conversations SET last_message_at=datetime('now') WHERE id=?").run(dbConv.id);
+    }
+
+    // ── Comments ─────────────────────────────────────────────────────────
+    const mediaRes = await httpsGet(
+      `https://graph.facebook.com/v19.0/${igId}/media?fields=id,comments{id,text,from,timestamp}&limit=10&access_token=${token}`
+    );
+
+    for (const media of mediaRes.data || []) {
+      for (const comment of (media.comments?.data || [])) {
+        const fromId = String(comment.from?.id || 'unknown');
+        const fromUsername = comment.from?.username || fromId;
+
+        let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, fromId) as any;
+        if (!contact) {
+          const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id) VALUES (?, ?, 'instagram', ?)`).run(tid, `@${fromUsername}`, fromId);
+          contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
+        }
+
+        const convKey = `ig_comment_${agencyClientId}_${media.id}`;
+        let dbConv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
+        if (!dbConv) {
+          const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type) VALUES (?, ?, 'instagram', ?, ?, 'comment')`).run(tid, contact.id, convKey, agencyClientId);
+          dbConv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
+        }
+
+        const dup = db.prepare('SELECT id FROM messages WHERE external_id=?').get(comment.id);
+        if (!dup) {
+          db.prepare(`INSERT INTO messages (conversation_id, content, direction, external_id, timestamp) VALUES (?, ?, 'inbound', ?, ?)`).run(dbConv.id, `@${fromUsername}: ${comment.text}`, comment.id, comment.timestamp);
+          commentCount++;
+          db.prepare("UPDATE conversations SET last_message_at=datetime('now'), unread_count=unread_count+1 WHERE id=?").run(dbConv.id);
+        }
+      }
+    }
+
+    res.json({ ok: true, dms: dmCount, comments: commentCount });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 export default router;
