@@ -141,8 +141,13 @@ router.get('/ig-search', async (req, res) => {
   }
 
   try {
+    const params = new URLSearchParams({
+      fields: 'business_discovery.fields(id,name,username,profile_picture_url,followers_count)',
+      username,
+      access_token: token,
+    });
     const result = await httpsGet(
-      `https://graph.facebook.com/v19.0/${anyClient.instagram_user_id}?fields=business_discovery.fields(id,name,username,profile_picture_url,followers_count)&username=${encodeURIComponent(username)}&access_token=${token}`
+      `https://graph.facebook.com/v19.0/${anyClient.instagram_user_id}?${params}`
     );
     if (result.error) return res.status(400).json({ error: result.error.message });
     if (!result.business_discovery) return res.status(404).json({ error: `Conta @${username} não encontrada ou não é uma conta Business/Creator.` });
