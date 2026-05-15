@@ -7,7 +7,7 @@ router.get('/', (req, res) => {
   const tid = req.user.tenant_id;
   const { search, source, status, limit = '100', offset = '0' } = req.query as Record<string, string>;
 
-  let query = `SELECT c.*, r.name as referred_by_name FROM contacts c LEFT JOIN contacts r ON c.referred_by_id = r.id WHERE c.tenant_id = ?`;
+  let query = `SELECT c.*, r.name as referred_by_name FROM contacts c LEFT JOIN contacts r ON c.referred_by_id = r.id WHERE c.tenant_id = ? AND c.agency_client_id IS NULL`;
   const params: any[] = [tid];
 
   if (search) {
@@ -22,7 +22,7 @@ router.get('/', (req, res) => {
   params.push(Number(limit), Number(offset));
 
   const contacts = db.prepare(query).all(...params);
-  const total = (db.prepare('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = ?').get(tid) as any).count;
+  const total = (db.prepare('SELECT COUNT(*) as count FROM contacts WHERE tenant_id = ? AND agency_client_id IS NULL').get(tid) as any).count;
 
   res.json({ contacts, total });
 });

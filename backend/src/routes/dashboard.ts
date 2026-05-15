@@ -8,8 +8,8 @@ router.get('/', (req, res) => {
   const q = (sql: string, ...p: any[]) => (db.prepare(sql).get(...p) as any);
 
   const stats = {
-    totalContacts:    q('SELECT COUNT(*) as v FROM contacts WHERE tenant_id=?', tid).v,
-    newLeadsThisWeek: q("SELECT COUNT(*) as v FROM contacts WHERE tenant_id=? AND created_at >= datetime('now','-7 days')", tid).v,
+    totalContacts:    q('SELECT COUNT(*) as v FROM contacts WHERE tenant_id=? AND agency_client_id IS NULL', tid).v,
+    newLeadsThisWeek: q("SELECT COUNT(*) as v FROM contacts WHERE tenant_id=? AND agency_client_id IS NULL AND created_at >= datetime('now','-7 days')", tid).v,
     activeDeals:      q("SELECT COUNT(*) as v FROM deals WHERE tenant_id=? AND stage NOT IN ('won','lost')", tid).v,
     pipelineValue:    q("SELECT COALESCE(SUM(value),0) as v FROM deals WHERE tenant_id=? AND stage NOT IN ('won','lost')", tid).v,
     closingValue:     q("SELECT COALESCE(SUM(value),0) as v FROM deals WHERE tenant_id=? AND stage='closing'", tid).v,
@@ -24,7 +24,7 @@ router.get('/', (req, res) => {
     FROM deals WHERE tenant_id=? AND stage NOT IN ('won','lost') GROUP BY stage
   `).all(tid);
 
-  const leadSources = db.prepare('SELECT source, COUNT(*) as count FROM contacts WHERE tenant_id=? GROUP BY source').all(tid);
+  const leadSources = db.prepare('SELECT source, COUNT(*) as count FROM contacts WHERE tenant_id=? AND agency_client_id IS NULL GROUP BY source').all(tid);
 
   const recentActivities = db.prepare(`
     SELECT a.*, c.name as contact_name

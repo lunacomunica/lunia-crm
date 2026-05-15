@@ -875,9 +875,9 @@ router.post('/sync-history/:clientId', async (req, res) => {
       const senderName = otherParticipant.username ? `@${otherParticipant.username}` : senderId;
       const avatarUrl = otherParticipant.profile_picture_url || null;
 
-      let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, senderId) as any;
+      let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=? AND agency_client_id=?').get(tid, senderId, agencyClientId) as any;
       if (!contact) {
-        const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id, avatar_url) VALUES (?, ?, 'instagram', ?, ?)`).run(tid, senderName, senderId, avatarUrl);
+        const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id, avatar_url, agency_client_id) VALUES (?, ?, 'instagram', ?, ?, ?)`).run(tid, senderName, senderId, avatarUrl, agencyClientId);
         contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
       } else if (avatarUrl && !contact.avatar_url) {
         db.prepare('UPDATE contacts SET avatar_url=? WHERE id=?').run(avatarUrl, contact.id);
@@ -923,9 +923,9 @@ router.post('/sync-history/:clientId', async (req, res) => {
         const fromUsername = comment.from?.username || fromId;
         const avatarUrl = comment.from?.profile_picture_url || null;
 
-        let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, fromId) as any;
+        let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=? AND agency_client_id=?').get(tid, fromId, agencyClientId) as any;
         if (!contact) {
-          const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id, avatar_url) VALUES (?, ?, 'instagram', ?, ?)`).run(tid, `@${fromUsername}`, fromId, avatarUrl);
+          const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id, avatar_url, agency_client_id) VALUES (?, ?, 'instagram', ?, ?, ?)`).run(tid, `@${fromUsername}`, fromId, avatarUrl, agencyClientId);
           contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
         } else if (avatarUrl && !contact.avatar_url) {
           db.prepare('UPDATE contacts SET avatar_url=? WHERE id=?').run(avatarUrl, contact.id);

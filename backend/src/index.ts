@@ -188,9 +188,9 @@ app.post('/api/meta/webhook', (req, res) => {
         const content = m.message.text || (m.message.attachments ? '[mídia]' : '[mensagem]');
         const msgId = m.message.mid;
 
-        let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, senderId) as any;
+        let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=? AND agency_client_id IS ?').get(tid, senderId, agencyClientId) as any;
         if (!contact) {
-          const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id) VALUES (?, ?, 'instagram', ?)`).run(tid, senderId, senderId);
+          const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id, agency_client_id) VALUES (?, ?, 'instagram', ?, ?)`).run(tid, senderId, senderId, agencyClientId);
           contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
         }
 
@@ -234,9 +234,9 @@ app.post('/api/meta/webhook', (req, res) => {
           const fromUsername = v.from?.username || fromId;
           const mediaId = v.media?.id;
 
-          let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, fromId) as any;
+          let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=? AND agency_client_id IS ?').get(tid, fromId, agencyClientId) as any;
           if (!contact) {
-            const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id) VALUES (?, ?, 'instagram', ?)`).run(tid, `@${fromUsername}`, fromId);
+            const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id, agency_client_id) VALUES (?, ?, 'instagram', ?, ?)`).run(tid, `@${fromUsername}`, fromId, agencyClientId);
             contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
           }
 
