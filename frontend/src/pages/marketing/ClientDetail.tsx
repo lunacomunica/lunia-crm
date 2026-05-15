@@ -18,6 +18,7 @@ import { ptBR } from 'date-fns/locale';
 
 type Tab = 'estrategia' | 'operacao' | 'dados' | 'integracao' | 'performance';
 type OpTab = 'conteudo' | 'trafego' | 'tarefas' | 'projetos' | 'ideias';
+type PerfTab = 'conteudos' | 'anuncios';
 
 const PROJECT_STATUS: { id: string; label: string; color: string }[] = [
   { id: 'pendente',     label: 'Pendente',     color: '#94a3b8' },
@@ -307,6 +308,7 @@ export default function ClientDetail() {
   const [igConnecting, setIgConnecting] = useState(false);
   const [igAccountId, setIgAccountId] = useState('');
   const [igSaving, setIgSaving] = useState(false);
+  const [perfTab, setPerfTab] = useState<PerfTab>('conteudos');
   const [adsAccountId, setAdsAccountId] = useState('');
   const [adsSaving, setAdsSaving] = useState(false);
   const [adsData, setAdsData] = useState<any>(null);
@@ -729,7 +731,7 @@ export default function ClientDetail() {
 
   const OP_TABS: { id: OpTab; label: string; count: number }[] = [
     { id: 'conteudo',  label: 'Conteúdo',  count: batches.length },
-    { id: 'trafego',   label: 'Tráfego',   count: campaigns.length },
+    { id: 'trafego',   label: 'Anúncios',  count: campaigns.length },
     { id: 'tarefas',   label: 'Tarefas',   count: tasks.length },
     { id: 'projetos',  label: 'Projetos',  count: projects.length },
     { id: 'ideias',    label: 'Ideias',    count: ideas.length },
@@ -1241,7 +1243,7 @@ export default function ClientDetail() {
             const TYPE_FILTERS = [
               { id: 'todos',    label: 'Todos',     color: '#94a3b8', count: tasks.length },
               { id: 'conteudo', label: 'Conteúdo',  color: '#34d399', count: counts.conteudo },
-              { id: 'trafego',  label: 'Tráfego',   color: '#60a5fa', count: counts.trafego },
+              { id: 'trafego',  label: 'Anúncios',  color: '#60a5fa', count: counts.trafego },
               { id: 'geral',    label: 'Geral',      color: '#a78bfa', count: counts.geral },
             ] as const;
             return tasks.length === 0 ? (
@@ -1601,7 +1603,7 @@ export default function ClientDetail() {
               {([
                 { key: 'posicionamento',      label: 'Posicionamento',       color: '#a78bfa' },
                 { key: 'marketing_conteudo',  label: 'Marketing de Conteúdo', color: '#34d399' },
-                { key: 'marketing_trafego',   label: 'Marketing de Tráfego',  color: '#60a5fa' },
+                { key: 'marketing_trafego',   label: 'Marketing de Anúncios', color: '#60a5fa' },
                 { key: 'comercial',           label: 'Comercial',             color: '#fb923c' },
               ] as const).map(({ key, label, color }) => (
                 <button key={key}
@@ -1632,132 +1634,237 @@ export default function ClientDetail() {
 
       {/* ──────────────────── PERFORMANCE ──────────────────── */}
       {tab === 'performance' && (
-        <div className="space-y-6">
-          {/* Instagram Orgânico */}
-          <div className="rounded-2xl p-6 space-y-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,rgba(236,72,153,0.15),rgba(168,85,247,0.15))', border: '1px solid rgba(236,72,153,0.2)' }}>
-                  <Instagram size={15} style={{ color: '#ec4899' }} />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-white">Performance Orgânica — Instagram</p>
-                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>Últimos 30 dias</p>
-                </div>
-              </div>
-              {igConnected ? (
-                <button onClick={loadIgInsights} disabled={igInsightsLoading}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
-                  style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                  <RotateCcw size={11} className={igInsightsLoading ? 'animate-spin' : ''} />
-                  {igInsights ? 'Atualizar' : 'Carregar insights'}
-                </button>
-              ) : (
-                <span className="text-xs px-3 py-1.5 rounded-xl" style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  Instagram não conectado
-                </span>
-              )}
-            </div>
+        <div className="space-y-5">
+          {/* Sub-tabs */}
+          <div className="flex gap-1 p-1 rounded-2xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {([['conteudos', 'Conteúdos'], ['anuncios', 'Anúncios']] as [PerfTab, string][]).map(([id, label]) => (
+              <button key={id} onClick={() => setPerfTab(id)}
+                className="flex-1 py-2 rounded-xl text-sm font-medium transition-all"
+                style={perfTab === id
+                  ? { color: '#fff', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)' }
+                  : { color: 'rgba(100,116,139,0.5)', background: 'transparent', border: '1px solid transparent' }}>
+                {label}
+              </button>
+            ))}
+          </div>
 
-            {!igConnected && (
-              <div className="text-center py-6">
-                <Instagram size={28} className="mx-auto mb-2" style={{ color: 'rgba(100,116,139,0.2)' }} />
-                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Conecte o Instagram na aba Integração para ver as métricas</p>
-              </div>
-            )}
-
-            {igConnected && igInsights && (() => {
-              const { profile, accountInsights, media } = igInsights;
-              const statCard = (label: string, value: any, color = '#60a5fa') => (
-                <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <p className="text-xl font-semibold" style={{ color }}>{(value ?? 0).toLocaleString('pt-BR')}</p>
-                  <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>{label}</p>
-                </div>
-              );
-              return (
-                <div className="space-y-5">
+          {/* ── Conteúdos ── */}
+          {perfTab === 'conteudos' && (
+            <div className="space-y-6">
+              {/* Instagram Orgânico */}
+              <div className="rounded-2xl p-6 space-y-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {profile.profile_picture_url && <img src={profile.profile_picture_url} className="w-10 h-10 rounded-full object-cover" />}
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg,rgba(236,72,153,0.15),rgba(168,85,247,0.15))', border: '1px solid rgba(236,72,153,0.2)' }}>
+                      <Instagram size={15} style={{ color: '#ec4899' }} />
+                    </div>
                     <div>
-                      <p className="text-sm font-medium text-white">{profile.name}</p>
-                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{profile.media_count} publicações</p>
+                      <p className="text-sm font-semibold text-white">Performance Orgânica — Instagram</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>Últimos 30 dias</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
-                    {statCard('Seguidores', profile.followers_count, '#ec4899')}
-                    {statCard('Alcance (30d)', accountInsights.reach, '#60a5fa')}
-                    {statCard('Impressões (30d)', accountInsights.impressions, '#a78bfa')}
-                  </div>
+                  {igConnected ? (
+                    <button onClick={loadIgInsights} disabled={igInsightsLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
+                      style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                      <RotateCcw size={11} className={igInsightsLoading ? 'animate-spin' : ''} />
+                      {igInsights ? 'Atualizar' : 'Carregar insights'}
+                    </button>
+                  ) : (
+                    <span className="text-xs px-3 py-1.5 rounded-xl" style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      Instagram não conectado
+                    </span>
+                  )}
                 </div>
-              );
-            })()}
-
-            {igInsightsError && (
-              <div className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', color: '#f87171' }}>
-                {igInsightsError}
-              </div>
-            )}
-
-            {igConnected && !igInsights && !igInsightsLoading && !igInsightsError && (
-              <p className="text-xs text-center py-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Clique em "Carregar insights" para ver as métricas do Instagram</p>
-            )}
-          </div>
-
-          {/* Posts gerenciados pelo app */}
-          <div className="rounded-2xl p-5 space-y-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Posts via lun.ia</p>
-              <button onClick={() => {
-                setLoadingPerfPosts(true);
-                contentApi.list({ client_id: String(cid) }).then(r => {
-                  const all = r.data as any[];
-                  const filtered = all.filter((p: any) => p.ig_media_id || p.status === 'publicado' || p.status === 'agendado');
-                  filtered.sort((a: any, b: any) => new Date(b.scheduled_date || b.created_at).getTime() - new Date(a.scheduled_date || a.created_at).getTime());
-                  setPerfPosts(filtered);
-                }).finally(() => setLoadingPerfPosts(false));
-              }} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                <RotateCcw size={11} className={loadingPerfPosts ? 'animate-spin' : ''} />
-              </button>
-            </div>
-            {loadingPerfPosts ? (
-              <div className="flex justify-center py-8">
-                <RotateCcw size={14} className="animate-spin" style={{ color: 'rgba(100,116,139,0.3)' }} />
-              </div>
-            ) : perfPosts.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-xs" style={{ color: 'rgba(100,116,139,0.35)' }}>Nenhum post publicado ou agendado via lun.ia ainda.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-3 gap-2.5">
-                {perfPosts.map((p: any) => {
-                  const cfg = STATUS_CFG[p.status as ContentStatus];
-                  const thumb = getPostThumbnail(p);
+                {!igConnected && (
+                  <div className="text-center py-6">
+                    <Instagram size={28} className="mx-auto mb-2" style={{ color: 'rgba(100,116,139,0.2)' }} />
+                    <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Conecte o Instagram na aba Integração para ver as métricas</p>
+                  </div>
+                )}
+                {igConnected && igInsights && (() => {
+                  const { profile, accountInsights } = igInsights;
+                  const statCard = (label: string, value: any, color = '#60a5fa') => (
+                    <div className="rounded-xl p-4 text-center" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <p className="text-xl font-semibold" style={{ color }}>{(value ?? 0).toLocaleString('pt-BR')}</p>
+                      <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>{label}</p>
+                    </div>
+                  );
                   return (
-                    <button key={p.id} onClick={() => { setPanelInitialTab('post'); setPanelPost(p); }}
-                      className="relative group rounded-xl overflow-hidden text-left transition-all"
-                      style={{ aspectRatio: '3/4', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                      {thumb ? (
-                        <img src={thumb} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-2xl opacity-20">🖼️</span>
-                        </div>
-                      )}
-                      <div className="absolute inset-0 flex flex-col justify-end p-2" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)' }}>
-                        <p className="text-[10px] font-medium text-white truncate">{p.title}</p>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ color: cfg?.color, background: `${cfg?.color}22` }}>
-                            {cfg?.label}
-                          </span>
-                          {p.ig_media_id && <span className="text-[9px] px-1 py-0.5 rounded-full" style={{ color: '#34d399', background: 'rgba(52,211,153,0.15)' }}>📊</span>}
+                    <div className="space-y-5">
+                      <div className="flex items-center gap-3">
+                        {profile.profile_picture_url && <img src={profile.profile_picture_url} className="w-10 h-10 rounded-full object-cover" />}
+                        <div>
+                          <p className="text-sm font-medium text-white">{profile.name}</p>
+                          <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>{profile.media_count} publicações</p>
                         </div>
                       </div>
-                    </button>
+                      <div className="grid grid-cols-3 gap-3">
+                        {statCard('Seguidores', profile.followers_count, '#ec4899')}
+                        {statCard('Alcance (30d)', accountInsights.reach, '#60a5fa')}
+                        {statCard('Impressões (30d)', accountInsights.impressions, '#a78bfa')}
+                      </div>
+                    </div>
                   );
-                })}
+                })()}
+                {igInsightsError && (
+                  <div className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', color: '#f87171' }}>
+                    {igInsightsError}
+                  </div>
+                )}
+                {igConnected && !igInsights && !igInsightsLoading && !igInsightsError && (
+                  <p className="text-xs text-center py-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Clique em "Carregar insights" para ver as métricas do Instagram</p>
+                )}
               </div>
-            )}
-          </div>
+
+              {/* Posts via lun.ia */}
+              <div className="rounded-2xl p-5 space-y-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Posts via lun.ia</p>
+                  <button onClick={() => {
+                    setLoadingPerfPosts(true);
+                    contentApi.list({ client_id: String(cid) }).then(r => {
+                      const all = r.data as any[];
+                      const filtered = all.filter((p: any) => p.ig_media_id || p.status === 'publicado' || p.status === 'agendado');
+                      filtered.sort((a: any, b: any) => new Date(b.scheduled_date || b.created_at).getTime() - new Date(a.scheduled_date || a.created_at).getTime());
+                      setPerfPosts(filtered);
+                    }).finally(() => setLoadingPerfPosts(false));
+                  }} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <RotateCcw size={11} className={loadingPerfPosts ? 'animate-spin' : ''} />
+                  </button>
+                </div>
+                {loadingPerfPosts ? (
+                  <div className="flex justify-center py-8">
+                    <RotateCcw size={14} className="animate-spin" style={{ color: 'rgba(100,116,139,0.3)' }} />
+                  </div>
+                ) : perfPosts.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-xs" style={{ color: 'rgba(100,116,139,0.35)' }}>Nenhum post publicado ou agendado via lun.ia ainda.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-3 gap-2.5">
+                    {perfPosts.map((p: any) => {
+                      const cfg = STATUS_CFG[p.status as ContentStatus];
+                      const thumb = getPostThumbnail(p);
+                      return (
+                        <button key={p.id} onClick={() => { setPanelInitialTab('post'); setPanelPost(p); }}
+                          className="relative group rounded-xl overflow-hidden text-left transition-all"
+                          style={{ aspectRatio: '3/4', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                          {thumb ? (
+                            <img src={thumb} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <span className="text-2xl opacity-20">🖼️</span>
+                            </div>
+                          )}
+                          <div className="absolute inset-0 flex flex-col justify-end p-2" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%)' }}>
+                            <p className="text-[10px] font-medium text-white truncate">{p.title}</p>
+                            <div className="flex items-center gap-1 mt-0.5">
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium" style={{ color: cfg?.color, background: `${cfg?.color}22` }}>
+                                {cfg?.label}
+                              </span>
+                              {p.ig_media_id && <span className="text-[9px] px-1 py-0.5 rounded-full" style={{ color: '#34d399', background: 'rgba(52,211,153,0.15)' }}>📊</span>}
+                            </div>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* ── Anúncios ── */}
+          {perfTab === 'anuncios' && (
+            <div className="rounded-2xl p-6 space-y-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center" style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                    <Target size={15} style={{ color: '#60a5fa' }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Meta Ads</p>
+                    <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>Últimos 30 dias</p>
+                  </div>
+                </div>
+                {adsData && (
+                  <button onClick={() => {
+                    setAdsLoading(true); setAdsError(null);
+                    metaApi.getAds(cid).then(r => setAdsData(r.data)).catch((e: any) => setAdsError(e?.response?.data?.error || e?.message || 'Erro ao carregar')).finally(() => setAdsLoading(false));
+                  }} disabled={adsLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
+                    style={{ color: 'rgba(148,163,184,0.6)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
+                    <RotateCcw size={11} className={adsLoading ? 'animate-spin' : ''} />
+                    Atualizar
+                  </button>
+                )}
+              </div>
+
+              {!adsAccountId && (
+                <div className="text-center py-6">
+                  <Target size={28} className="mx-auto mb-2" style={{ color: 'rgba(100,116,139,0.2)' }} />
+                  <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Configure a conta de anúncios na aba Integração</p>
+                </div>
+              )}
+
+              {adsAccountId && adsLoading && (
+                <div className="flex items-center gap-2 text-xs justify-center py-4" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  <RotateCcw size={11} className="animate-spin" /> Carregando dados…
+                </div>
+              )}
+
+              {adsError && (
+                <div className="px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', color: '#f87171' }}>
+                  {adsError}
+                </div>
+              )}
+
+              {adsData && !adsLoading && (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: 'Gasto', value: `R$ ${adsData.insights?.spend?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}`, color: '#f87171' },
+                      { label: 'Alcance', value: (adsData.insights?.reach || 0).toLocaleString('pt-BR'), color: '#60a5fa' },
+                      { label: 'Cliques', value: (adsData.insights?.clicks || 0).toLocaleString('pt-BR'), color: '#34d399' },
+                      { label: 'CTR', value: `${adsData.insights?.ctr?.toFixed(2) || '0'}%`, color: '#a78bfa' },
+                      { label: 'CPM', value: `R$ ${adsData.insights?.cpm?.toFixed(2) || '0'}`, color: '#fbbf24' },
+                      { label: 'Leads', value: (adsData.insights?.leads || 0).toLocaleString('pt-BR'), color: '#34d399' },
+                    ].map(m => (
+                      <div key={m.label} className="px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{m.label}</p>
+                        <p className="text-base font-semibold" style={{ color: m.color }}>{m.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {(adsData.campaigns || []).length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.4)' }}>Campanhas</p>
+                      {adsData.campaigns.map((c: any) => (
+                        <div key={c.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <p className="text-xs text-white truncate flex-1">{c.name}</p>
+                          <span className="text-[10px] ml-2 px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ color: c.status === 'ACTIVE' ? '#34d399' : 'rgba(100,116,139,0.5)', background: c.status === 'ACTIVE' ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${c.status === 'ACTIVE' ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
+                            {c.status === 'ACTIVE' ? 'Ativa' : 'Pausada'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {adsAccountId && !adsData && !adsLoading && !adsError && (
+                <button onClick={() => {
+                  setAdsLoading(true); setAdsError(null);
+                  metaApi.getAds(cid).then(r => setAdsData(r.data)).catch((e: any) => setAdsError(e?.response?.data?.error || e?.message || 'Erro ao carregar')).finally(() => setAdsLoading(false));
+                }} className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
+                  style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                  Carregar dados de anúncios
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
