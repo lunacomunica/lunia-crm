@@ -199,6 +199,7 @@ const ROLE_BADGE: Record<string, string> = { owner: 'badge-blue', manager: 'badg
 
 function UsersTab() {
   const { user: me } = useAuth();
+  const [userTab, setUserTab] = useState<'team' | 'client'>('team');
   const [users, setUsers] = useState<any[]>([]);
   const [agencyClients, setAgencyClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -212,6 +213,10 @@ function UsersTab() {
   const [clientModal, setClientModal] = useState<any | null>(null);
   const [clientPerms, setClientPerms] = useState<number[]>([]);
   const [savingPerms, setSavingPerms] = useState(false);
+
+  const teamUsers = users.filter(u => u.role !== 'client');
+  const clientUsers = users.filter(u => u.role === 'client');
+  const displayed = userTab === 'team' ? teamUsers : clientUsers;
 
   const load = () => { setLoading(true); usersApi.list().then(r => { setUsers(r.data); setLoading(false); }); };
   useEffect(() => { load(); agencyClientsApi.list().then(r => setAgencyClients(r.data.filter((c: any) => c.active))); }, []);
@@ -242,7 +247,7 @@ function UsersTab() {
 
   const openCreate = () => {
     setEditingUser(null);
-    setForm({ name: '', email: '', password: '', role: 'manager', agency_client_id: '', job_title: '', avatar: '' });
+    setForm({ name: '', email: '', password: '', role: userTab === 'client' ? 'client' : 'manager', agency_client_id: '', job_title: '', avatar: '' });
     setError('');
     setModal(true);
   };
@@ -280,15 +285,33 @@ function UsersTab() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-5">
         <div>
-          <p className="section-label mb-1">Equipe</p>
           <h2 className="text-xl font-light text-white">Usuários com acesso</h2>
           <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.6)' }}>Gerencie quem pode acessar o lun.ia</p>
         </div>
         <button onClick={openCreate} className="btn-primary">
-          <Plus size={14} /> Novo Usuário
+          <Plus size={14} /> {userTab === 'client' ? 'Novo Acesso Cliente' : 'Novo Usuário'}
         </button>
+      </div>
+
+      {/* Sub-tabs */}
+      <div className="flex gap-2 mb-5">
+        {([['team', 'Equipe', teamUsers.length], ['client', 'Clientes', clientUsers.length]] as const).map(([id, label, count]) => (
+          <button key={id} onClick={() => setUserTab(id)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+            style={userTab === id
+              ? { background: 'rgba(59,130,246,0.12)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.25)' }
+              : { background: 'rgba(255,255,255,0.03)', color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            {label}
+            {count > 0 && (
+              <span className="text-[11px] px-1.5 py-0.5 rounded-full"
+                style={{ background: userTab === id ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)', color: userTab === id ? '#60a5fa' : 'rgba(100,116,139,0.5)' }}>
+                {count}
+              </span>
+            )}
+          </button>
+        ))}
       </div>
 
       <div className="card overflow-hidden">
@@ -297,18 +320,24 @@ function UsersTab() {
             <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin"
               style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
           </div>
+        ) : displayed.length === 0 ? (
+          <div className="py-16 text-center">
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>
+              {userTab === 'client' ? 'Nenhum acesso de cliente criado ainda' : 'Nenhum usuário na equipe'}
+            </p>
+          </div>
         ) : (
           <table className="w-full">
             <thead>
               <tr>
                 <th className="th">Usuário</th>
                 <th className="th">E-mail</th>
-                <th className="th">Papel</th>
+                <th className="th">{userTab === 'client' ? 'Cliente' : 'Papel'}</th>
                 <th className="th w-12" />
               </tr>
             </thead>
             <tbody>
-              {users.map(u => (
+              {displayed.map(u => (
                 <tr key={u.id} className="tr group">
                   <td className="td">
                     <div className="flex items-center gap-3">
@@ -369,6 +398,7 @@ function UsersTab() {
           </table>
         )}
       </div>
+
 
       {clientModal && (
         <div className="fixed inset-0 flex items-start justify-center z-50 p-4 pt-8 overflow-y-auto animate-fade"
