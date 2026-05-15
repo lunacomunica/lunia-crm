@@ -527,7 +527,7 @@ router.get('/ads/:clientId', async (req, res) => {
   try {
     const [accountRes, insightsRes, campaignsRes] = await Promise.all([
       httpsGet(`https://graph.facebook.com/v19.0/${actId}?fields=name,currency,account_status&access_token=${token}`),
-      httpsGet(`https://graph.facebook.com/v19.0/${actId}/insights?fields=spend,reach,impressions,clicks,ctr,cpc,cpm,actions&date_preset=last_30d&access_token=${token}`),
+      httpsGet(`https://graph.facebook.com/v19.0/${actId}/insights?fields=spend,reach,impressions,clicks,ctr,cpc,cpm,actions,action_values,purchase_roas&date_preset=last_30d&access_token=${token}`),
       httpsGet(`https://graph.facebook.com/v19.0/${actId}/campaigns?fields=id,name,status,objective,daily_budget,lifetime_budget&effective_status=["ACTIVE","PAUSED"]&limit=20&access_token=${token}`),
     ]);
 
@@ -536,11 +536,15 @@ router.get('/ads/:clientId', async (req, res) => {
     const insights = insightsRes.data?.[0] || {};
     const leads = (insights.actions || []).find((a: any) => a.action_type === 'lead')?.value || 0;
     const purchases = (insights.actions || []).find((a: any) => a.action_type === 'purchase')?.value || 0;
+    const revenue = parseFloat((insights.action_values || []).find((a: any) => a.action_type === 'purchase')?.value || '0');
+    const purchaseRoas = parseFloat((insights.purchase_roas || []).find((a: any) => a.action_type === 'purchase')?.value || '0');
+    const spend = parseFloat(insights.spend || '0');
+    const roi = spend > 0 && revenue > 0 ? ((revenue - spend) / spend) * 100 : null;
 
     res.json({
       account: accountRes,
       insights: {
-        spend: parseFloat(insights.spend || '0'),
+        spend,
         reach: parseInt(insights.reach || '0'),
         impressions: parseInt(insights.impressions || '0'),
         clicks: parseInt(insights.clicks || '0'),
@@ -549,6 +553,9 @@ router.get('/ads/:clientId', async (req, res) => {
         cpm: parseFloat(insights.cpm || '0'),
         leads: parseInt(leads),
         purchases: parseInt(purchases),
+        revenue,
+        roas: purchaseRoas,
+        roi,
       },
       campaigns: campaignsRes.data || [],
     });
@@ -568,28 +575,49 @@ router.get('/campaign/:clientId/:campaignId', async (req, res) => {
   const token = getAdsToken(req.user.tenant_id, req.params.clientId);
   if (!token) return res.status(400).json({ error: 'Token não configurado' });
   try {
-    const [campaignRes, adsetsRes] = await Promise.all([
+    const [campaignRes, adsetsRes, campInsRes] = await Promise.all([
       httpsGet(`https://graph.facebook.com/v19.0/${req.params.campaignId}?fields=id,name,status,objective,daily_budget,lifetime_budget&access_token=${token}`),
       httpsGet(`https://graph.facebook.com/v19.0/${req.params.campaignId}/adsets?fields=id,name,status,daily_budget,lifetime_budget,billing_event,optimization_goal&limit=30&access_token=${token}`),
+      httpsGet(`https://graph.facebook.com/v19.0/${req.params.campaignId}/insights?fields=spend,reach,impressions,clicks,ctr,cpm,actions,action_values,purchase_roas&date_preset=last_30d&access_token=${token}`),
     ]);
     if (campaignRes.error) return res.status(400).json({ error: campaignRes.error.message });
 
     const adsets = adsetsRes.data || [];
+    const ci = campInsRes.data?.[0] || {};
+    const ciRevenue = parseFloat((ci.action_values || []).find((a: any) => a.action_type === 'purchase')?.value || '0');
+    const ciSpend = parseFloat(ci.spend || '0');
+    const campaignInsights = {
+      spend: ciSpend,
+      reach: parseInt(ci.reach || '0'),
+      impressions: parseInt(ci.impressions || '0'),
+      clicks: parseInt(ci.clicks || '0'),
+      ctr: parseFloat(ci.ctr || '0'),
+      cpm: parseFloat(ci.cpm || '0'),
+      leads: parseInt((ci.actions || []).find((a: any) => a.action_type === 'lead')?.value || '0'),
+      purchases: parseInt((ci.actions || []).find((a: any) => a.action_type === 'purchase')?.value || '0'),
+      revenue: ciRevenue,
+      roas: parseFloat((ci.purchase_roas || []).find((a: any) => a.action_type === 'purchase')?.value || '0'),
+      roi: ciSpend > 0 && ciRevenue > 0 ? ((ciRevenue - ciSpend) / ciSpend) * 100 : null,
+    };
 
-    // Get insights per adset in one batch-style call
+    // Get insights per adset
     let adsetInsights: Record<string, any> = {};
     try {
       const ids = adsets.map((a: any) => a.id).join(',');
       if (ids) {
-        const ins = await httpsGet(`https://graph.facebook.com/v19.0/?ids=${ids}&fields=insights.date_preset(last_30d){spend,reach,impressions,clicks,ctr,cpm}&access_token=${token}`);
+        const ins = await httpsGet(`https://graph.facebook.com/v19.0/?ids=${ids}&fields=insights.date_preset(last_30d){spend,reach,impressions,clicks,ctr,cpm,action_values,purchase_roas}&access_token=${token}`);
         for (const [id, val] of Object.entries(ins)) {
-          adsetInsights[id] = (val as any).insights?.data?.[0] || {};
+          const raw = (val as any).insights?.data?.[0] || {};
+          const rev = parseFloat((raw.action_values || []).find((a: any) => a.action_type === 'purchase')?.value || '0');
+          const sp = parseFloat(raw.spend || '0');
+          adsetInsights[id] = { ...raw, revenue: rev, roas: parseFloat((raw.purchase_roas || []).find((a: any) => a.action_type === 'purchase')?.value || '0'), roi: sp > 0 && rev > 0 ? ((rev - sp) / sp) * 100 : null };
         }
       }
     } catch {}
 
     res.json({
       ...campaignRes,
+      insights: campaignInsights,
       adsets: adsets.map((a: any) => ({ ...a, insights: adsetInsights[a.id] || {} })),
     });
   } catch (e: any) { res.status(500).json({ error: e.message }); }

@@ -274,6 +274,26 @@ export default function MetaAdsCampaignPanel({ clientId, campaign, onClose }: Pr
 
           {detail && !loading && (
             <>
+              {/* ROI card — só aparece se tiver receita do Pixel */}
+              {ins.revenue > 0 && (
+                <div className="rounded-xl p-4 space-y-3" style={{ background: 'linear-gradient(135deg,rgba(52,211,153,0.07),rgba(59,130,246,0.05))', border: '1px solid rgba(52,211,153,0.2)' }}>
+                  <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(52,211,153,0.7)' }}>ROI da Campanha</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { label: 'Gasto', value: fmtR(ins.spend), color: '#f87171' },
+                      { label: 'Receita', value: fmtR(ins.revenue), color: '#34d399' },
+                      { label: 'ROAS', value: `${(ins.roas || 0).toFixed(2)}x`, color: '#60a5fa' },
+                      { label: 'ROI', value: ins.roi !== null ? `${ins.roi >= 0 ? '+' : ''}${ins.roi.toFixed(0)}%` : '—', color: ins.roi >= 0 ? '#34d399' : '#f87171' },
+                    ].map(m => (
+                      <div key={m.label} className="text-center px-2 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                        <p className="text-sm font-bold" style={{ color: m.color }}>{m.value}</p>
+                        <p className="text-[9px] mt-0.5" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Métricas gerais */}
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider mb-2.5" style={{ color: 'rgba(100,116,139,0.4)' }}>Últimos 30 dias</p>

@@ -1171,6 +1171,32 @@ export default function ClientDetail() {
 
                   {adsData && !adsLoading && (
                     <>
+                      {/* ROI card — só mostra se tiver revenue do Pixel */}
+                      {adsData.insights?.revenue > 0 && (() => {
+                        const spend = adsData.insights.spend || 0;
+                        const revenue = adsData.insights.revenue;
+                        const roi = adsData.insights.roi;
+                        const roas = adsData.insights.roas;
+                        return (
+                          <div className="rounded-xl p-4 space-y-3" style={{ background: 'linear-gradient(135deg,rgba(52,211,153,0.07),rgba(59,130,246,0.05))', border: '1px solid rgba(52,211,153,0.2)' }}>
+                            <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(52,211,153,0.7)' }}>ROI — Últimos 30 dias</p>
+                            <div className="grid grid-cols-4 gap-2">
+                              {[
+                                { label: 'Gasto', value: `R$ ${spend.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, color: '#f87171' },
+                                { label: 'Receita', value: `R$ ${revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, color: '#34d399' },
+                                { label: 'ROAS', value: `${roas.toFixed(2)}x`, color: '#60a5fa' },
+                                { label: 'ROI', value: roi !== null ? `${roi >= 0 ? '+' : ''}${roi.toFixed(0)}%` : '—', color: roi !== null && roi >= 0 ? '#34d399' : '#f87171' },
+                              ].map(m => (
+                                <div key={m.label} className="text-center">
+                                  <p className="text-sm font-bold" style={{ color: m.color }}>{m.value}</p>
+                                  <p className="text-[9px] mt-0.5" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
                       {/* Resumo de gastos */}
                       <div className="grid grid-cols-3 gap-2">
                         {[
