@@ -592,17 +592,17 @@ router.get('/campaign/:clientId/:campaignId', async (req, res) => {
     const adsets = adsetsRes.data || [];
     const campaignInsights = parseInsights(campInsRes.data?.[0] || {});
 
-    // Get insights per adset
-    let adsetInsights: Record<string, any> = {};
-    try {
-      const ids = adsets.map((a: any) => a.id).join(',');
-      if (ids) {
-        const batchRes = await httpsGet(`https://graph.facebook.com/v19.0/?ids=${ids}&fields=insights.date_preset(last_30d){spend,reach,impressions,clicks,ctr,cpm,actions,action_values,purchase_roas}&access_token=${token}`);
-        for (const [id, val] of Object.entries(batchRes)) {
-          adsetInsights[id] = parseInsights((val as any).insights?.data?.[0] || {});
-        }
-      }
-    } catch {}
+    // Get insights per adset individually (/?ids= doesn't support nested insights)
+    const adsetInsightsList = await Promise.all(
+      adsets.map(async (a: any) => {
+        try {
+          const r = await httpsGet(`https://graph.facebook.com/v19.0/${a.id}/insights?fields=spend,reach,impressions,clicks,ctr,cpm,actions,action_values,purchase_roas&date_preset=last_30d&access_token=${token}`);
+          return { id: a.id, ins: parseInsights(r.data?.[0] || {}) };
+        } catch { return { id: a.id, ins: {} }; }
+      })
+    );
+    const adsetInsights: Record<string, any> = {};
+    for (const { id, ins } of adsetInsightsList) adsetInsights[id] = ins;
 
     res.json({
       ...campaignRes,
@@ -622,17 +622,17 @@ router.get('/adset/:clientId/:adsetId', async (req, res) => {
 
     const ads = adsRes.data || [];
 
-    // Get insights per ad
-    let adInsights: Record<string, any> = {};
-    try {
-      const ids = ads.map((a: any) => a.id).join(',');
-      if (ids) {
-        const ins = await httpsGet(`https://graph.facebook.com/v19.0/?ids=${ids}&fields=insights.date_preset(last_30d){spend,reach,impressions,clicks,ctr,actions,action_values,purchase_roas}&access_token=${token}`);
-        for (const [id, val] of Object.entries(ins)) {
-          adInsights[id] = parseInsights((val as any).insights?.data?.[0] || {});
-        }
-      }
-    } catch {}
+    // Get insights per ad individually
+    const adInsightsList = await Promise.all(
+      ads.map(async (a: any) => {
+        try {
+          const r = await httpsGet(`https://graph.facebook.com/v19.0/${a.id}/insights?fields=spend,reach,impressions,clicks,ctr,actions,action_values,purchase_roas&date_preset=last_30d&access_token=${token}`);
+          return { id: a.id, ins: parseInsights(r.data?.[0] || {}) };
+        } catch { return { id: a.id, ins: {} }; }
+      })
+    );
+    const adInsights: Record<string, any> = {};
+    for (const { id, ins } of adInsightsList) adInsights[id] = ins;
 
     res.json({
       ads: ads.map((a: any) => ({ ...a, insights: adInsights[a.id] || {} })),
