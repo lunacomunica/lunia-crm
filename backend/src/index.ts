@@ -101,13 +101,21 @@ app.get('/api/meta/callback', async (req, res) => {
     let igUserId: string | null = null;
     let fbPageId: string | null = null;
     let fbPageToken: string | null = null;
-    for (const page of pages.data || []) {
-      if (page.instagram_business_account?.id) {
-        igUserId = page.instagram_business_account.id;
-        fbPageId = page.id;
-        fbPageToken = page.access_token || longToken;
-        break;
-      }
+
+    // Prefer the page that matches the instagram_user_id already saved for this client
+    const existing = db.prepare('SELECT instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?').get(clientId, tenantId) as any;
+    const existingIgId = existing?.instagram_user_id;
+
+    const candidates = (pages.data || []).filter((p: any) => p.instagram_business_account?.id);
+    const matched = existingIgId
+      ? candidates.find((p: any) => p.instagram_business_account.id === existingIgId)
+      : null;
+    const chosen = matched || candidates[0];
+
+    if (chosen) {
+      igUserId = chosen.instagram_business_account.id;
+      fbPageId = chosen.id;
+      fbPageToken = chosen.access_token || longToken;
     }
 
     // Save per-client token + Facebook Page in agency_clients
