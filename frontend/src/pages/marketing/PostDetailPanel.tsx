@@ -283,6 +283,9 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
   const [publishError, setPublishError] = useState<string | null>(null);
   const [linkInput, setLinkInput] = useState('');
   const [linking, setLinking] = useState(false);
+  const [scheduling, setScheduling] = useState(false);
+  const [schedDate, setSchedDate] = useState<string>(post.scheduled_date?.slice(0, 10) || '');
+  const [schedTime, setSchedTime] = useState<string>((post as any).scheduled_time?.slice(0, 5) || '');
 
   useEffect(() => {
     contentApi.getTasks(post.id).then(r => setTasks(r.data || []));
@@ -802,9 +805,38 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                 {/* Publicação — apenas agência */}
                 {!igId && (
                   <div className="space-y-3">
-                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(16,185,129,0.04)', border: '1px solid rgba(16,185,129,0.12)' }}>
-                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(52,211,153,0.6)' }}>Publicar no Instagram</p>
-                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Publica agora usando as mídias e legenda cadastradas.</p>
+
+                    {/* PROGRAMAR — destaque principal */}
+                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.18)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(129,140,248,0.8)' }}>Programar publicação</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.45)' }}>Define data e hora — publica automaticamente no Instagram e Facebook.</p>
+                      <div className="flex gap-2">
+                        <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)}
+                          className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }} />
+                        <input type="time" value={schedTime} onChange={e => setSchedTime(e.target.value)}
+                          className="w-28 rounded-xl px-3 py-2 text-xs outline-none"
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }} />
+                      </div>
+                      <button onClick={async () => {
+                        if (!schedDate) return;
+                        setScheduling(true); setPublishError(null);
+                        try {
+                          const r = await contentApi.update(post.id, { status: 'agendado', scheduled_date: schedDate, scheduled_time: schedTime || null });
+                          onUpdated(r.data);
+                        } catch (e: any) { setPublishError(e.response?.data?.error || 'Erro ao programar'); }
+                        setScheduling(false);
+                      }} disabled={scheduling || !schedDate}
+                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+                        style={{ color: '#818cf8', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)' }}>
+                        <Calendar size={13} className={scheduling ? 'animate-pulse' : ''} />
+                        {scheduling ? 'Agendando…' : 'Programar'}
+                      </button>
+                    </div>
+
+                    {/* PUBLICAR AGORA — secundário */}
+                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(16,185,129,0.03)', border: '1px solid rgba(16,185,129,0.1)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(52,211,153,0.5)' }}>Publicar agora</p>
                       <button onClick={async () => {
                         setPublishing(true); setPublishError(null);
                         try {
@@ -814,20 +846,23 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                         setPublishing(false);
                       }} disabled={publishing}
                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
-                        style={{ color: '#10b981', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+                        style={{ color: '#10b981', background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.15)' }}>
                         <Send size={13} className={publishing ? 'animate-pulse' : ''} />
                         {publishing ? 'Publicando…' : 'Publicar agora'}
                       </button>
-                      {publishError && <p className="text-xs text-red-400">{publishError}</p>}
                     </div>
-                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.45)' }}>Vincular post já publicado</p>
-                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Cole o link do post do Instagram para conectar os insights.</p>
+
+                    {publishError && <p className="text-xs text-red-400 px-1">{publishError}</p>}
+
+                    {/* VINCULAR POST JÁ PUBLICADO */}
+                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.4)' }}>Vincular post já publicado</p>
+                      <p className="text-xs" style={{ color: 'rgba(100,116,139,0.35)' }}>Cole o link do Instagram para conectar os insights.</p>
                       <div className="flex gap-2">
                         <input value={linkInput} onChange={e => setLinkInput(e.target.value)}
                           placeholder="https://www.instagram.com/p/…"
                           className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
-                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }} />
+                          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', color: 'rgba(148,163,184,0.85)' }} />
                         <button onClick={async () => {
                           if (!linkInput.trim()) return;
                           setLinking(true);
@@ -836,7 +871,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                           setLinking(false);
                         }} disabled={linking || !linkInput.trim()}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-40 flex-shrink-0"
-                          style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                          style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)' }}>
                           <Link size={12} /> {linking ? 'Buscando…' : 'Vincular'}
                         </button>
                       </div>
