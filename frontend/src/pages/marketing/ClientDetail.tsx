@@ -300,6 +300,7 @@ export default function ClientDetail() {
   // Instagram insights
   const [igInsights, setIgInsights] = useState<any>(null);
   const [igInsightsLoading, setIgInsightsLoading] = useState(false);
+  const [igInsightsError, setIgInsightsError] = useState<string | null>(null);
 
   // Instagram connection
   const [igConnected, setIgConnected] = useState(false);
@@ -467,7 +468,13 @@ export default function ClientDetail() {
 
   const loadIgInsights = async () => {
     setIgInsightsLoading(true);
-    try { const r = await metaApi.getInsights(cid); setIgInsights(r.data); } catch {}
+    setIgInsightsError(null);
+    try {
+      const r = await metaApi.getInsights(cid);
+      setIgInsights(r.data);
+    } catch (e: any) {
+      setIgInsightsError(e?.response?.data?.error || e?.message || 'Erro ao carregar insights');
+    }
     setIgInsightsLoading(false);
   };
 
@@ -1671,7 +1678,13 @@ export default function ClientDetail() {
               );
             })()}
 
-            {igConnected && !igInsights && !igInsightsLoading && (
+            {igInsightsError && (
+              <div className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', color: '#f87171' }}>
+                {igInsightsError}
+              </div>
+            )}
+
+            {igConnected && !igInsights && !igInsightsLoading && !igInsightsError && (
               <p className="text-xs text-center py-4" style={{ color: 'rgba(100,116,139,0.4)' }}>Clique em "Carregar insights" para ver as métricas do Instagram</p>
             )}
           </div>
