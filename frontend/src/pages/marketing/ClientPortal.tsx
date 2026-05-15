@@ -540,7 +540,7 @@ export default function ClientPortal() {
   }, [detail?.id]);
 
   useEffect(() => {
-    if (page === 'performance' && !igInsights && !igInsightsLoading) {
+    if ((page === 'performance' || page === 'metas') && !igInsights && !igInsightsLoading) {
       loadIgInsights();
     }
     if (page === 'trafico' && !adsData && !adsLoading && cid) {
@@ -1043,25 +1043,27 @@ export default function ClientPortal() {
     useEffect(() => { setLocalGoals(goals); }, [goals]);
 
     const PRESET_METRICS = [
-      { metric: 'posts_month', label: 'Posts publicados/mês', unit: 'posts', icon: 'grid' },
-      { metric: 'leads_month', label: 'Leads gerados/mês',   unit: 'leads', icon: 'users' },
-      { metric: 'reach_month', label: 'Alcance médio/mês',   unit: 'impressões', icon: 'trending' },
-      { metric: 'revenue',     label: 'Faturamento gerado',  unit: 'R$', icon: 'dollar' },
-      { metric: 'roas',        label: 'ROAS mínimo',         unit: 'x', icon: 'zap' },
+      { metric: 'posts_month',   label: 'Posts publicados/mês',  unit: 'posts',      icon: 'grid'      },
+      { metric: 'ig_followers',  label: 'Seguidores Instagram',  unit: 'seguidores', icon: 'instagram' },
+      { metric: 'leads_month',   label: 'Leads gerados/mês',     unit: 'leads',      icon: 'users'     },
+      { metric: 'reach_month',   label: 'Alcance médio/mês',     unit: 'impressões', icon: 'trending'  },
+      { metric: 'revenue',       label: 'Faturamento gerado',    unit: 'R$',         icon: 'dollar'    },
+      { metric: 'roas',          label: 'ROAS mínimo',           unit: 'x',          icon: 'zap'       },
     ];
 
-    const ICONS: Record<string, any> = { grid: Grid3x3, users: Users, trending: TrendingUp, dollar: DollarSign, zap: Zap, target: Target };
+    const ICONS: Record<string, any> = { grid: Grid3x3, users: Users, trending: TrendingUp, dollar: DollarSign, zap: Zap, target: Target, instagram: Instagram };
 
-    const AUTO_METRICS = ['posts_month', 'leads_month', 'reach_month', 'revenue', 'roas'];
+    const AUTO_METRICS = ['posts_month', 'ig_followers', 'leads_month', 'reach_month', 'revenue', 'roas'];
 
     const getCurrentValue = (g: any) => {
       switch (g.metric) {
-        case 'posts_month': return summary?.posts?.published_month ?? 0;
-        case 'leads_month': return summary?.campaigns?.leads ?? 0;
-        case 'reach_month': return summary?.campaigns?.reach ?? 0;
-        case 'revenue':     return summary?.campaigns?.revenue ?? 0;
-        case 'roas':        return summary?.roas ?? 0;
-        default:            return g.current_value ?? 0;
+        case 'posts_month':  return summary?.posts?.published_month ?? 0;
+        case 'ig_followers': return igInsights?.profile?.followers_count ?? g.current_value ?? 0;
+        case 'leads_month':  return summary?.campaigns?.leads ?? 0;
+        case 'reach_month':  return summary?.campaigns?.reach ?? 0;
+        case 'revenue':      return summary?.campaigns?.revenue ?? 0;
+        case 'roas':         return summary?.roas ?? 0;
+        default:             return g.current_value ?? 0;
       }
     };
 
