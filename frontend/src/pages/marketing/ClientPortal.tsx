@@ -198,11 +198,13 @@ function StatusBadge({ status }: { status: ContentStatus }) {
 
 /* ─── Sidebar ────────────────────────────────────────────────────────────── */
 function PortalSidebar({
-  client, page, setPage, pendingCount, activeCampaignsCount, open, onClose, isAdmin, onBack
+  client, page, setPage, pendingCount, activeCampaignsCount, open, onClose, isAdmin, onBack,
+  collapsed, onToggleCollapse,
 }: {
   client: AgencyClient | null; page: PageId; setPage: (p: PageId) => void;
   pendingCount: number; activeCampaignsCount: number;
   open: boolean; onClose: () => void; isAdmin: boolean; onBack: () => void;
+  collapsed: boolean; onToggleCollapse: () => void;
 }) {
   const { user, logout } = useAuth();
 
@@ -219,19 +221,19 @@ function PortalSidebar({
     {
       label: 'Marketing',
       items: [
-        { id: 'conteudos'   as PageId, label: 'Conteúdos',   icon: Grid3x3,   badge: pendingCount },
-        { id: 'ideias'      as PageId, label: 'Ideias',        icon: Zap,       badge: 0 },
-        { id: 'trafico'     as PageId, label: 'Tráfego',      icon: Megaphone, badge: activeCampaignsCount },
-        { id: 'performance' as PageId, label: 'Performance',  icon: BarChart3, badge: 0 },
+        { id: 'conteudos'   as PageId, label: 'Conteúdos',  icon: Grid3x3,   badge: pendingCount },
+        { id: 'ideias'      as PageId, label: 'Ideias',      icon: Zap,       badge: 0 },
+        { id: 'trafico'     as PageId, label: 'Tráfego',     icon: Megaphone, badge: activeCampaignsCount },
+        { id: 'performance' as PageId, label: 'Performance', icon: BarChart3, badge: 0 },
       ],
     },
     {
       label: 'Comercial',
       items: [
-        { id: 'crm_dashboard'  as PageId, label: 'Dashboard',  icon: LayoutDashboard, badge: 0 },
-        { id: 'crm_pipeline'   as PageId, label: 'Pipeline',   icon: Kanban,          badge: 0 },
-        { id: 'crm_contatos'   as PageId, label: 'Contatos',   icon: Users,           badge: 0 },
-        { id: 'crm_conversas'  as PageId, label: 'Conversas',  icon: MessageSquare,   badge: 0 },
+        { id: 'crm_dashboard'  as PageId, label: 'Dashboard', icon: LayoutDashboard, badge: 0 },
+        { id: 'crm_pipeline'   as PageId, label: 'Pipeline',  icon: Kanban,          badge: 0 },
+        { id: 'crm_contatos'   as PageId, label: 'Contatos',  icon: Users,           badge: 0 },
+        { id: 'crm_conversas'  as PageId, label: 'Conversas', icon: MessageSquare,   badge: 0 },
       ],
     },
     {
@@ -249,49 +251,110 @@ function PortalSidebar({
         <div className="fixed inset-0 z-30 md:hidden" style={{ background: 'rgba(0,0,0,0.6)' }} onClick={onClose} />
       )}
 
-      <aside className={`w-60 flex flex-col h-screen fixed left-0 top-0 z-40 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
-        style={{ background: 'linear-gradient(180deg,#030314 0%,#04041a 100%)', borderRight: '1px solid rgba(255,255,255,0.05)' }}>
+      <aside
+        className={`flex flex-col h-screen fixed left-0 top-0 z-40 transition-all duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+        style={{
+          width: collapsed ? 64 : 240,
+          background: 'linear-gradient(180deg,#030314 0%,#04041a 100%)',
+          borderRight: '1px solid rgba(59,130,246,0.08)',
+          boxShadow: '4px 0 40px rgba(0,0,0,0.6)',
+        }}>
 
-        {/* Client identity */}
-        <div className="px-5 py-5" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-          {client?.logo ? (
-            <img src={client.logo} alt={client.name} className="w-10 h-10 rounded-xl object-cover mb-3" />
+        {/* Logo lun.ia + collapse toggle */}
+        <div className="flex items-center justify-between py-5 px-3" style={{ borderBottom: '1px solid rgba(59,130,246,0.07)', minHeight: 72 }}>
+          {!collapsed ? (
+            <>
+              <div className="flex items-center gap-3">
+                <img src="/logo.png" alt="lun.ia" className="w-9 h-9 rounded-full flex-shrink-0 object-cover"
+                  style={{ boxShadow: '0 0 18px rgba(59,130,246,0.55)' }} />
+                <div>
+                  <p className="font-bold text-xl tracking-tight leading-none text-white"
+                    style={{ textShadow: '0 0 20px rgba(59,130,246,0.4)' }}>lun.ia</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'rgba(59,130,246,0.45)' }}>Portal do cliente</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={onToggleCollapse} title="Recolher menu"
+                  className="p-1.5 rounded-lg transition-colors hidden md:flex"
+                  style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.1)' }}
+                  onMouseEnter={e => { (e.currentTarget.style.color = 'white'); (e.currentTarget.style.background = 'rgba(59,130,246,0.15)'); }}
+                  onMouseLeave={e => { (e.currentTarget.style.color = 'rgba(148,163,184,0.7)'); (e.currentTarget.style.background = 'rgba(59,130,246,0.06)'); }}>
+                  <ChevronLeft size={15} />
+                </button>
+                <button onClick={onClose} className="md:hidden p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  <X size={16} />
+                </button>
+              </div>
+            </>
           ) : (
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white text-base font-bold mb-3"
-              style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
-              {client?.name.charAt(0).toUpperCase()}
+            <div className="w-full flex flex-col items-center gap-2">
+              <img src="/logo.png" alt="lun.ia" className="w-8 h-8 rounded-full object-cover"
+                style={{ boxShadow: '0 0 14px rgba(59,130,246,0.55)' }} />
+              <button onClick={onToggleCollapse} title="Expandir menu"
+                className="p-1 rounded-lg transition-colors"
+                style={{ color: 'rgba(100,116,139,0.4)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'white')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.4)')}>
+                <ChevronRight size={14} />
+              </button>
             </div>
           )}
-          <p className="font-semibold text-white text-sm leading-tight">{client?.name}</p>
-          <p className="text-[11px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
-            {client?.segment || 'Portal do Cliente'}
-          </p>
+        </div>
+
+        {/* Client context block */}
+        <div className={`flex items-center gap-2.5 mx-2 my-2 rounded-xl transition-all ${collapsed ? 'justify-center px-1 py-2' : 'px-3 py-2.5'}`}
+          style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          {client?.logo ? (
+            <img src={client.logo} alt={client.name} className="w-7 h-7 rounded-lg object-cover flex-shrink-0" />
+          ) : (
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-[11px] font-bold flex-shrink-0"
+              style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+              {client?.name?.charAt(0).toUpperCase()}
+            </div>
+          )}
+          {!collapsed && (
+            <div className="min-w-0">
+              <p className="text-xs font-semibold text-white truncate leading-tight">{client?.name}</p>
+              <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>{client?.segment || 'Portal do Cliente'}</p>
+            </div>
+          )}
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-5">
+        <nav className={`flex-1 py-3 overflow-y-auto space-y-4 ${collapsed ? 'px-1' : 'px-3'}`}>
           {sections.map(section => (
             <div key={section.label}>
-              <p className="section-label px-3 mb-1.5">{section.label}</p>
+              {!collapsed
+                ? <p className="section-label px-3 mb-1.5">{section.label}</p>
+                : <div className="my-1 mx-2 h-px" style={{ background: 'rgba(59,130,246,0.07)' }} />
+              }
               <div className="space-y-0.5">
                 {section.items.map(item => {
                   const active = page === item.id;
                   return (
-                    <button key={item.id} onClick={() => { if (!(item as any).disabled) { setPage(item.id); onClose(); } }}
-                      disabled={(item as any).disabled}
-                      className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left"
-                      style={active
-                        ? { background: 'linear-gradient(90deg,rgba(59,130,246,0.13),rgba(59,130,246,0.04))', borderLeft: '2px solid #3b82f6' }
-                        : { borderLeft: '2px solid transparent', opacity: (item as any).disabled ? 0.35 : 1 }}>
+                    <button key={item.id}
+                      title={collapsed ? item.label : undefined}
+                      onClick={() => { setPage(item.id); onClose(); }}
+                      className="w-full flex items-center gap-3 rounded-xl transition-all text-left"
+                      style={{
+                        padding: collapsed ? '10px 0' : '10px 12px',
+                        justifyContent: collapsed ? 'center' : undefined,
+                        background: active ? 'linear-gradient(90deg,rgba(59,130,246,0.13),rgba(59,130,246,0.04))' : undefined,
+                        borderLeft: collapsed ? 'none' : (active ? '2px solid #3b82f6' : '2px solid transparent'),
+                      }}>
                       <item.icon size={15} style={{ color: active ? '#60a5fa' : 'rgba(100,116,139,0.6)', flexShrink: 0 }} />
-                      <span className="text-sm flex-1" style={{ color: active ? '#e2e8f0' : 'rgba(100,116,139,0.7)' }}>
-                        {item.label}
-                      </span>
-                      {item.badge > 0 && (
-                        <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: item.id === 'conteudos' ? 'rgba(245,158,11,0.2)' : 'rgba(52,211,153,0.15)', color: item.id === 'conteudos' ? '#f59e0b' : '#34d399' }}>
-                          {item.badge}
-                        </span>
+                      {!collapsed && (
+                        <>
+                          <span className="text-sm flex-1" style={{ color: active ? '#e2e8f0' : 'rgba(100,116,139,0.7)' }}>
+                            {item.label}
+                          </span>
+                          {item.badge > 0 && (
+                            <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                              style={{ background: item.id === 'conteudos' ? 'rgba(245,158,11,0.2)' : 'rgba(52,211,153,0.15)', color: item.id === 'conteudos' ? '#f59e0b' : '#34d399' }}>
+                              {item.badge}
+                            </span>
+                          )}
+                        </>
                       )}
                     </button>
                   );
@@ -302,8 +365,8 @@ function PortalSidebar({
         </nav>
 
         {/* Footer */}
-        <div className="p-3" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-          {isAdmin && (
+        <div className="p-2" style={{ borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+          {isAdmin && !collapsed && (
             <button onClick={onBack}
               className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs mb-1 transition-colors"
               style={{ color: 'rgba(245,158,11,0.7)' }}
@@ -312,22 +375,35 @@ function PortalSidebar({
               <ArrowLeft size={13} /> Sair do preview
             </button>
           )}
-          <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl"
+          {isAdmin && collapsed && (
+            <button onClick={onBack} title="Sair do preview"
+              className="w-full flex items-center justify-center py-2 rounded-xl transition-colors mb-1"
+              style={{ color: 'rgba(245,158,11,0.7)' }}
+              onMouseEnter={e => (e.currentTarget.style.background = 'rgba(245,158,11,0.06)')}
+              onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+              <ArrowLeft size={14} />
+            </button>
+          )}
+          <div className={`flex items-center gap-2.5 rounded-xl ${collapsed ? 'justify-center px-1 py-2' : 'px-3 py-2'}`}
             style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.04)' }}>
             <div className="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0"
               style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
               {user?.name?.charAt(0).toUpperCase()}
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-xs font-medium text-white truncate">{user?.name}</p>
-              <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>Cliente</p>
-            </div>
-            {!isAdmin && (
-              <button onClick={logout} title="Sair" className="p-1 rounded" style={{ color: 'rgba(100,116,139,0.4)' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.4)')}>
-                <ArrowLeft size={12} />
-              </button>
+            {!collapsed && (
+              <>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium text-white truncate">{user?.name}</p>
+                  <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>Cliente</p>
+                </div>
+                {!isAdmin && (
+                  <button onClick={logout} title="Sair" className="p-1 rounded" style={{ color: 'rgba(100,116,139,0.4)' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.4)')}>
+                    <ArrowLeft size={12} />
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -346,6 +422,8 @@ export default function ClientPortal() {
 
   const [page, setPage] = useState<PageId>('visao');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => localStorage.getItem('portal_sidebar_collapsed') === '1');
+  const toggleSidebarCollapse = () => setSidebarCollapsed(v => { const next = !v; localStorage.setItem('portal_sidebar_collapsed', next ? '1' : '0'); return next; });
 
   const [client, setClient] = useState<AgencyClient | null>(null);
   const [pieces, setPieces] = useState<ContentPiece[]>([]);
@@ -3148,9 +3226,11 @@ export default function ClientPortal() {
         pendingCount={pendingCount} activeCampaignsCount={activeCampaigns.length}
         open={sidebarOpen} onClose={() => setSidebarOpen(false)}
         isAdmin={isAdmin} onBack={() => navigate('/marketing/clients')}
+        collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse}
       />
 
-      <main className="flex-1 md:ml-60 overflow-y-auto min-w-0 w-full">
+      <main className="flex-1 overflow-y-auto min-w-0 w-full transition-all duration-300"
+        style={{ marginLeft: sidebarCollapsed ? 64 : 240 } as React.CSSProperties}>
         {/* Mobile top bar */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 sticky top-0 z-20"
           style={{ background: '#05050f', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
