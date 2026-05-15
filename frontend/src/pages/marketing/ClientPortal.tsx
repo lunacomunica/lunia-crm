@@ -254,7 +254,7 @@ function PortalSidebar({
       <aside
         className={`flex flex-col h-screen fixed left-0 top-0 z-40 transition-all duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
         style={{
-          width: collapsed ? 64 : 240,
+          width: (!open && collapsed) ? 64 : 240,
           background: 'linear-gradient(180deg,#030314 0%,#04041a 100%)',
           borderRight: '1px solid rgba(59,130,246,0.08)',
           boxShadow: '4px 0 40px rgba(0,0,0,0.6)',
@@ -3229,15 +3229,22 @@ export default function ClientPortal() {
         collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebarCollapse}
       />
 
-      <main className="flex-1 overflow-y-auto min-w-0 w-full transition-all duration-300"
-        style={{ marginLeft: sidebarCollapsed ? 64 : 240 } as React.CSSProperties}>
+      <main className={`flex-1 overflow-y-auto min-w-0 w-full transition-all duration-300 ${sidebarCollapsed ? 'md:ml-16' : 'md:ml-60'}`}>
         {/* Mobile top bar */}
         <div className="md:hidden flex items-center gap-3 px-4 py-3 sticky top-0 z-20"
           style={{ background: '#05050f', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
           <button onClick={() => setSidebarOpen(true)} className="p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.6)' }}>
             <Menu size={20} />
           </button>
-          <p className="font-semibold text-white text-sm">{client?.name}</p>
+          <img src="/logo.png" alt="lun.ia" className="w-7 h-7 rounded-full object-cover"
+            style={{ boxShadow: '0 0 10px rgba(59,130,246,0.5)' }} />
+          <p className="font-bold text-white tracking-tight" style={{ textShadow: '0 0 16px rgba(59,130,246,0.35)' }}>lun.ia</p>
+          {client?.name && (
+            <span className="text-xs px-2 py-0.5 rounded-full ml-auto"
+              style={{ background: 'rgba(59,130,246,0.08)', color: 'rgba(148,163,184,0.6)', border: '1px solid rgba(59,130,246,0.1)' }}>
+              {client.name}
+            </span>
+          )}
         </div>
 
         <div className={page === 'crm_pipeline' || page === 'crm_conversas'
