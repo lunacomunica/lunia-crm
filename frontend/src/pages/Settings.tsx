@@ -705,6 +705,22 @@ export default function Settings() {
     setAgencyTokenSaving(false);
   };
 
+  const exchangeAgencyToken = async () => {
+    if (!agencyTokenInput.trim()) return;
+    setAgencyTokenSaving(true);
+    setAgencyTokenResult(null);
+    try {
+      const r = await metaApi.exchangeToken(agencyTokenInput.trim());
+      setAgencyToken({ connected: true, expires_at: r.data.expires_at });
+      const days = r.data.expires_in ? Math.round(r.data.expires_in / 86400) : 60;
+      setAgencyTokenResult({ success: true, message: `Token longo salvo — ${r.data.name} · válido por ${days} dias` });
+      setAgencyTokenInput('');
+    } catch (e: any) {
+      setAgencyTokenResult({ success: false, message: e.response?.data?.error || 'Erro ao converter token' });
+    }
+    setAgencyTokenSaving(false);
+  };
+
   const set = (key: string, value: string) => setSettings(prev => ({ ...prev, [key]: value }));
   const handleSave = async () => {
     setSaving(true); await settingsApi.update(settings);
@@ -881,10 +897,17 @@ export default function Settings() {
                     className="flex-1 rounded-xl px-4 py-2.5 text-xs font-mono outline-none"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }}
                   />
+                  <button onClick={exchangeAgencyToken} disabled={agencyTokenSaving || !agencyTokenInput.trim()}
+                    className="px-4 text-xs rounded-xl font-medium disabled:opacity-40 flex items-center gap-1.5 transition-all"
+                    style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}
+                    title="Converte token curto em longo (~60 dias)">
+                    {agencyTokenSaving ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                    Converter
+                  </button>
                   <button onClick={saveAgencyToken} disabled={agencyTokenSaving || !agencyTokenInput.trim()}
                     className="btn-primary px-4 text-xs disabled:opacity-40">
                     {agencyTokenSaving ? <RefreshCw size={13} className="animate-spin" /> : <Key size={13} />}
-                    Atualizar
+                    Salvar
                   </button>
                 </div>
               </div>
@@ -902,6 +925,13 @@ export default function Settings() {
                     className="flex-1 rounded-xl px-4 py-2.5 text-xs font-mono outline-none"
                     style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(148,163,184,0.85)' }}
                   />
+                  <button onClick={exchangeAgencyToken} disabled={agencyTokenSaving || !agencyTokenInput.trim()}
+                    className="px-4 text-xs rounded-xl font-medium disabled:opacity-40 flex items-center gap-1.5 transition-all"
+                    style={{ background: 'rgba(251,191,36,0.1)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}
+                    title="Converte token curto em longo (~60 dias)">
+                    {agencyTokenSaving ? <RefreshCw size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+                    Converter
+                  </button>
                   <button onClick={saveAgencyToken} disabled={agencyTokenSaving || !agencyTokenInput.trim()}
                     className="btn-primary px-4 text-xs disabled:opacity-40">
                     {agencyTokenSaving ? <RefreshCw size={13} className="animate-spin" /> : <Key size={13} />}

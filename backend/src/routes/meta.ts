@@ -42,6 +42,40 @@ router.get('/agency-token', (req, res) => {
   res.json({ connected: !!token, expires_at: expires });
 });
 
+// Exchange short-lived token for long-lived (60 days)
+router.post('/agency-token/exchange', async (req, res) => {
+  const { token } = req.body as { token: string };
+  if (!token) return res.status(400).json({ error: 'token obrigatório' });
+
+  const appId = process.env.META_APP_ID;
+  const appSecret = process.env.META_APP_SECRET;
+  if (!appId || !appSecret) return res.status(500).json({ error: 'META_APP_ID ou META_APP_SECRET não configurado no servidor' });
+
+  try {
+    const result = await httpsGet(
+      `https://graph.facebook.com/v19.0/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${encodeURIComponent(token)}`
+    );
+    if (result.error) return res.status(400).json({ error: result.error.message });
+    if (!result.access_token) return res.status(400).json({ error: 'Token não retornado pela Meta' });
+
+    // Validate and save the long-lived token
+    const info = await httpsGet(`https://graph.facebook.com/v19.0/me?fields=name&access_token=${result.access_token}`);
+    if (info.error) return res.status(400).json({ error: info.error.message });
+
+    const upsert = db.prepare('INSERT OR REPLACE INTO settings (tenant_id, key, value) VALUES (?, ?, ?)');
+    upsert.run(req.user.tenant_id, 'meta_user_token', result.access_token);
+
+    const expiresAt = result.expires_in
+      ? new Date(Date.now() + result.expires_in * 1000).toISOString()
+      : null;
+    if (expiresAt) upsert.run(req.user.tenant_id, 'meta_user_token_expires', expiresAt);
+
+    res.json({ ok: true, name: info.name, expires_in: result.expires_in, expires_at: expiresAt });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Save agency token manually
 router.post('/agency-token', async (req, res) => {
   const { token } = req.body as { token: string };

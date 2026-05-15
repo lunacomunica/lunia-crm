@@ -61,6 +61,7 @@ export const metaApi = {
   getAuthUrl: (clientId: number) => api.get(`/meta/auth?client_id=${clientId}`),
   getAgencyToken: () => api.get('/meta/agency-token'),
   saveAgencyToken: (token: string) => api.post('/meta/agency-token', { token }),
+  exchangeToken: (token: string) => api.post('/meta/agency-token/exchange', { token }),
   getIgAccounts: () => api.get('/meta/ig-accounts'),
   publish: (clientId: number, contentId: number) => api.post(`/meta/publish/${clientId}/${contentId}`),
   linkIg: (clientId: number, contentId: number, value: string) => api.post(`/meta/link-ig/${clientId}/${contentId}`, { value }),
