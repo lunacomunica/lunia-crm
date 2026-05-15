@@ -396,6 +396,8 @@ export default function ClientPortal() {
   const [igInsightsLoading, setIgInsightsLoading] = useState(false);
   const [detailInsights, setDetailInsights] = useState<any>(null);
   const [detailInsightsLoading, setDetailInsightsLoading] = useState(false);
+  const [adsData, setAdsData] = useState<any>(null);
+  const [adsLoading, setAdsLoading] = useState(false);
 
   const [cid, setCid] = useState<number>(Number(clientId) || 0);
 
@@ -467,6 +469,10 @@ export default function ClientPortal() {
   useEffect(() => {
     if (page === 'performance' && !igInsights && !igInsightsLoading) {
       loadIgInsights();
+    }
+    if (page === 'trafico' && !adsData && !adsLoading && cid) {
+      setAdsLoading(true);
+      metaApi.getAds(cid).then(r => setAdsData(r.data)).catch(() => {}).finally(() => setAdsLoading(false));
     }
     if ((page === 'crm_dashboard' || page === 'crm_contatos' || page === 'crm_pipeline' || page === 'crm_conversas') && !crmDash && !crmLoading) {
       loadCrm();
@@ -1643,19 +1649,37 @@ export default function ClientPortal() {
   }
 
   function PageTrafico() {
+    const ins = adsData?.insights;
+    const metaCampaigns: any[] = adsData?.campaigns || [];
+    const hasAds = !!adsData;
+
+    const STATUS_CFG: Record<string, { label: string; color: string }> = {
+      ACTIVE:  { label: 'Ativa',   color: '#34d399' },
+      PAUSED:  { label: 'Pausada', color: '#f59e0b' },
+      DELETED: { label: 'Deletada',color: '#f87171' },
+    };
+
+    if (adsLoading) return (
+      <div className="flex items-center justify-center py-32">
+        <div className="w-6 h-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: 'rgba(59,130,246,0.3)', borderTopColor: '#3b82f6' }} />
+      </div>
+    );
+
     return (
       <div className="space-y-6">
         <div>
-          <h2 className="text-2xl font-semibold text-white mb-1">Tráfego Pago</h2>
-          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Campanhas e criativos</p>
+          <p className="section-label mb-1">Marketing</p>
+          <h1 className="text-3xl font-extralight text-white tracking-tight" style={{ textShadow: '0 0 30px rgba(59,130,246,0.2)' }}>Tráfego Pago</h1>
+          <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.7)' }}>Campanhas e resultados Meta Ads</p>
         </div>
-        {campaigns.length > 0 && (
+
+        {hasAds && ins && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {[
-              { label: 'Total Investido', value: fmtR(totalSpent) },
-              { label: 'Impressões', value: fmtN(totalImpressions) },
-              { label: 'Conversões', value: fmtN(totalConversions) },
-              { label: 'ROAS Geral', value: overallRoas > 0 ? `${overallRoas.toFixed(1)}x` : '—' },
+              { label: 'Investido (30d)', value: `R$ ${ins.spend?.toFixed(2).replace('.', ',') || '0,00'}` },
+              { label: 'Impressões',      value: fmtN(ins.impressions) },
+              { label: 'Cliques',         value: fmtN(ins.clicks) },
+              { label: 'ROAS',            value: ins.roas > 0 ? `${ins.roas.toFixed(1)}x` : '—' },
             ].map(m => (
               <div key={m.label} className="rounded-xl px-4 py-3" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
                 <p className="text-xl font-bold text-white">{m.value}</p>
@@ -1664,58 +1688,41 @@ export default function ClientPortal() {
             ))}
           </div>
         )}
-        {campaigns.length === 0 ? (
+
+        {!hasAds ? (
           <div className="text-center py-24">
             <Megaphone size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
-            <p className="text-white font-medium mb-1">Nenhuma campanha ainda</p>
+            <p className="text-white font-medium mb-1">Meta Ads não conectado</p>
+            <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.4)' }}>Configure a integração com Meta Ads para visualizar campanhas</p>
+          </div>
+        ) : metaCampaigns.length === 0 ? (
+          <div className="text-center py-16">
+            <Megaphone size={32} className="mx-auto mb-3" style={{ color: 'rgba(100,116,139,0.15)' }} />
+            <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma campanha ativa ou pausada</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {campaigns.map(c => {
-              const platform = PLATFORM_CFG[c.platform] || { label: c.platform, color: '#60a5fa' };
-              const statusCfg = CAMPAIGN_STATUS_CFG[c.status] || CAMPAIGN_STATUS_CFG.rascunho;
-              const progress = c.budget > 0 ? Math.min((c.spent / c.budget) * 100, 100) : 0;
-              const roasVal = c.spent > 0 ? (c.revenue / c.spent) : 0;
+            {metaCampaigns.map((c: any) => {
+              const budget = c.daily_budget ? `R$ ${(parseInt(c.daily_budget) / 100).toFixed(2).replace('.', ',')}/dia` : c.lifetime_budget ? `R$ ${(parseInt(c.lifetime_budget) / 100).toFixed(2).replace('.', ',')} total` : null;
+              const stCfg = STATUS_CFG[c.status] || { label: c.status, color: '#94a3b8' };
               return (
                 <div key={c.id} className="rounded-2xl p-5" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
                   <div className="flex items-center gap-2 mb-3 flex-wrap">
                     <span className="text-xs font-semibold px-2 py-0.5 rounded-full"
-                      style={{ background: `${platform.color}15`, color: platform.color }}>
-                      {platform.label}
-                    </span>
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: statusCfg.bg, color: statusCfg.color }}>{statusCfg.label}</span>
+                      style={{ background: 'rgba(24,119,242,0.15)', color: '#4a9eff' }}>Meta Ads</span>
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium"
+                      style={{ background: `${stCfg.color}18`, color: stCfg.color }}>{stCfg.label}</span>
                   </div>
                   <p className="text-sm font-semibold text-white mb-1 truncate">{c.name}</p>
-                  {(c.start_date || c.end_date) && (
-                    <p className="text-xs mb-4" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                      {c.start_date && format(new Date(c.start_date), "d MMM", { locale: ptBR })}
-                      {c.start_date && c.end_date && ' → '}
-                      {c.end_date && format(new Date(c.end_date), "d MMM yyyy", { locale: ptBR })}
-                    </p>
+                  {c.objective && (
+                    <p className="text-xs mb-3" style={{ color: 'rgba(100,116,139,0.5)' }}>{c.objective.replace(/_/g, ' ').toLowerCase()}</p>
                   )}
-                  <div className="mb-4">
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span style={{ color: 'rgba(100,116,139,0.5)' }}>Investido</span>
-                      <span className="text-white font-medium">{fmtR(c.spent)} <span style={{ color: 'rgba(100,116,139,0.4)' }}>/ {fmtR(c.budget)}</span></span>
+                  {budget && (
+                    <div className="flex items-center gap-1.5 mb-3">
+                      <DollarSign size={11} style={{ color: 'rgba(100,116,139,0.4)' }} />
+                      <span className="text-xs" style={{ color: 'rgba(148,163,184,0.7)' }}>{budget}</span>
                     </div>
-                    <div className="h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                      <div className="h-full rounded-full" style={{ width: `${progress}%`, background: progress > 90 ? '#f97316' : '#3b82f6' }} />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[
-                      { icon: Eye, label: 'Impressões', value: fmtN(c.impressions) },
-                      { icon: MousePointer, label: 'Cliques', value: fmtN(c.clicks) },
-                      { icon: TrendingUp, label: 'Conv.', value: fmtN(c.conversions) },
-                      { icon: BarChart3, label: 'ROAS', value: roasVal > 0 ? `${roasVal.toFixed(1)}x` : '—' },
-                    ].map(m => (
-                      <div key={m.label} className="text-center">
-                        <m.icon size={11} className="mx-auto mb-1" style={{ color: 'rgba(100,116,139,0.3)' }} />
-                        <p className="text-xs font-semibold text-white">{m.value}</p>
-                        <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{m.label}</p>
-                      </div>
-                    ))}
-                  </div>
+                  )}
                 </div>
               );
             })}
