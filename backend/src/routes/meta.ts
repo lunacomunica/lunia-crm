@@ -279,26 +279,55 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
     }
     let insights: any = {};
     let insightsWarning: string | null = null;
+    const isVideo = basic.media_type === 'VIDEO' || basic.media_type === 'REELS';
+    const isCarousel = basic.media_type === 'CAROUSEL_ALBUM';
+
+    // Build metric list based on media type
+    let metric: string;
+    if (isVideo) {
+      metric = 'impressions,reach,plays,saved,shares,likes,comments,total_interactions,ig_reels_avg_watch_time,ig_reels_video_view_total_time';
+    } else if (isCarousel) {
+      metric = 'carousel_album_impressions,carousel_album_reach,carousel_album_engagement,carousel_album_saved,carousel_album_video_views';
+    } else {
+      metric = 'impressions,reach,saved,shares,likes,comments,total_interactions,profile_visits,follows';
+    }
+
     try {
-      const isVideo = basic.media_type === 'VIDEO' || basic.media_type === 'REELS';
-      const metric = isVideo
-        ? 'impressions,reach,plays,saved,shares,likes,comments,total_interactions,ig_reels_avg_watch_time,ig_reels_video_view_total_time'
-        : 'impressions,reach,saved,shares,likes,comments,total_interactions,profile_visits,follows';
       const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&period=lifetime&access_token=${token}`);
       if (ins.error) throw new Error(ins.error.message);
       if (!ins.data || ins.data.length === 0) throw new Error('Sem dados de insights — o token pode não ter permissão instagram_manage_insights para esta conta. Reconecte via OAuth na aba Integração.');
-      for (const m of ins.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
+      for (const m of ins.data || []) {
+        // Normalize carousel metric names to standard names
+        const key = m.name
+          .replace('carousel_album_impressions', 'impressions')
+          .replace('carousel_album_reach', 'reach')
+          .replace('carousel_album_engagement', 'total_interactions')
+          .replace('carousel_album_saved', 'saved')
+          .replace('carousel_album_video_views', 'plays');
+        insights[key] = m.values?.[0]?.value ?? m.value ?? 0;
+      }
     } catch (e1: any) {
-      // Fallback to legacy metrics
+      // Fallback: try simpler metric set
       try {
-        const metric2 = basic.media_type === 'VIDEO' ? 'impressions,reach,plays,saved,shares' : 'impressions,reach,saved,shares,total_interactions';
+        const metric2 = isCarousel
+          ? 'carousel_album_impressions,carousel_album_reach,carousel_album_engagement,carousel_album_saved'
+          : isVideo
+          ? 'impressions,reach,plays,saved,shares'
+          : 'impressions,reach,saved,shares,total_interactions';
         const ins2 = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric2}&access_token=${token}`);
         if (ins2.error) throw new Error(ins2.error.message);
         if (!ins2.data || ins2.data.length === 0) throw new Error(e1.message);
-        for (const m of ins2.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
+        for (const m of ins2.data || []) {
+          const key = m.name
+            .replace('carousel_album_impressions', 'impressions')
+            .replace('carousel_album_reach', 'reach')
+            .replace('carousel_album_engagement', 'total_interactions')
+            .replace('carousel_album_saved', 'saved');
+          insights[key] = m.values?.[0]?.value ?? m.value ?? 0;
+        }
       } catch (e2: any) {
         insightsWarning = e2.message || e1.message;
-        console.error('[media-insights] fallback failed:', { mediaId: req.params.mediaId, e1: e1.message, e2: e2.message });
+        console.error('[media-insights] failed:', { mediaId: req.params.mediaId, mediaType: basic.media_type, e1: e1.message, e2: e2.message });
       }
     }
     // Fill likes/comments from basic if insights doesn't have them
