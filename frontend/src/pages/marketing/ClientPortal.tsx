@@ -85,7 +85,7 @@ const CAMPAIGN_STATUS_CFG: Record<string, { label: string; color: string; bg: st
 
 const TYPE_LABEL: Record<string, string> = { post: 'Post', reels: 'Reels', story: 'Story', carrossel: 'Carrossel' };
 
-type PageId = 'visao' | 'posicionamento' | 'produtos' | 'metas' | 'conteudos' | 'ideias' | 'performance' | 'trafico' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline' | 'crm_conversas';
+type PageId = 'visao' | 'posicionamento' | 'produtos' | 'metas' | 'conteudos' | 'ideias' | 'performance' | 'trafico' | 'crm_dashboard' | 'crm_contatos' | 'crm_pipeline' | 'crm_conversas' | 'integracao';
 
 const STAGES_CRM = [
   { id: 'novo',       label: 'Novo',        color: '#94a3b8' },
@@ -232,6 +232,12 @@ function PortalSidebar({
         { id: 'crm_pipeline'   as PageId, label: 'Pipeline',   icon: Kanban,          badge: 0 },
         { id: 'crm_contatos'   as PageId, label: 'Contatos',   icon: Users,           badge: 0 },
         { id: 'crm_conversas'  as PageId, label: 'Conversas',  icon: MessageSquare,   badge: 0 },
+      ],
+    },
+    {
+      label: 'Sistema',
+      items: [
+        { id: 'integracao' as PageId, label: 'Integrações', icon: Settings, badge: 0 },
       ],
     },
   ];
@@ -2958,6 +2964,91 @@ export default function ClientPortal() {
     );
   }
 
+  function PageIntegracao() {
+    const [syncing, setSyncing] = useState(false);
+    const [syncResult, setSyncResult] = useState<{ dms: number; comments: number } | null>(null);
+
+    const sync = async () => {
+      setSyncing(true); setSyncResult(null);
+      try { const r = await metaApi.syncHistory(cid); setSyncResult(r.data); }
+      catch (e: any) { alert(e?.response?.data?.error || 'Erro ao sincronizar'); }
+      setSyncing(false);
+    };
+
+    const igConnected = !!(client as any)?.instagram_user_id;
+    const waConnected = !!(client as any)?.waba_phone_number_id;
+    const adsConnected = !!(client as any)?.meta_ads_account_id;
+
+    const Card = ({ icon, title, subtitle, connected, extra }: { icon: JSX.Element; title: string; subtitle: string; connected: boolean; extra?: JSX.Element }) => (
+      <div className="rounded-2xl p-5 flex items-center gap-4" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: connected ? 'rgba(52,211,153,0.08)' : 'rgba(255,255,255,0.04)', border: `1px solid ${connected ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.08)'}` }}>
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-medium text-white">{title}</p>
+          <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>{subtitle}</p>
+        </div>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {extra}
+          <span className="text-[11px] px-2.5 py-1 rounded-full font-medium"
+            style={connected
+              ? { background: 'rgba(52,211,153,0.08)', color: '#34d399', border: '1px solid rgba(52,211,153,0.2)' }
+              : { background: 'rgba(255,255,255,0.04)', color: 'rgba(100,116,139,0.4)', border: '1px solid rgba(255,255,255,0.07)' }}>
+            {connected ? 'Conectado' : 'Não conectado'}
+          </span>
+        </div>
+      </div>
+    );
+
+    return (
+      <div className="space-y-6 max-w-xl">
+        <div>
+          <h2 className="text-2xl font-semibold text-white mb-1">Integrações</h2>
+          <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>Status das conexões configuradas pela agência</p>
+        </div>
+
+        <div className="space-y-3">
+          <Card
+            icon={<Instagram size={18} style={{ color: igConnected ? '#e1306c' : 'rgba(100,116,139,0.4)' }} />}
+            title="Instagram"
+            subtitle={igConnected ? `@${(client as any)?.instagram_handle || (client as any)?.instagram_user_id}` : 'Conta não vinculada'}
+            connected={igConnected}
+            extra={igConnected ? (
+              <button onClick={sync} disabled={syncing}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
+                style={{ background: 'rgba(225,48,108,0.08)', border: '1px solid rgba(225,48,108,0.2)', color: '#e1306c' }}>
+                <RotateCcw size={11} className={syncing ? 'animate-spin' : ''} />
+                {syncing ? 'Sincronizando…' : 'Sincronizar'}
+              </button>
+            ) : undefined}
+          />
+
+          <Card
+            icon={<Phone size={18} style={{ color: waConnected ? '#25d366' : 'rgba(100,116,139,0.4)' }} />}
+            title="WhatsApp Business"
+            subtitle={waConnected ? `ID: ${(client as any)?.waba_phone_number_id}` : 'Número não configurado'}
+            connected={waConnected}
+          />
+
+          <Card
+            icon={<Target size={18} style={{ color: adsConnected ? '#60a5fa' : 'rgba(100,116,139,0.4)' }} />}
+            title="Meta Ads"
+            subtitle={adsConnected ? `Conta: ${(client as any)?.meta_ads_account_id}` : 'Conta de anúncios não vinculada'}
+            connected={adsConnected}
+          />
+        </div>
+
+        {syncResult && (
+          <div className="flex items-center gap-2 px-4 py-3 rounded-xl text-sm" style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.15)', color: '#34d399' }}>
+            <CheckCircle2 size={14} />
+            Sincronizado — {syncResult.dms} DMs e {syncResult.comments} comentários importados
+          </div>
+        )}
+      </div>
+    );
+  }
+
   const pageComponents: Record<PageId, JSX.Element> = {
     visao:           <PageVisaoGeral />,
     posicionamento:  <PagePosicionamento />,
@@ -2971,6 +3062,7 @@ export default function ClientPortal() {
     crm_contatos:    <PageCrmContatos />,
     crm_pipeline:    <PageCrmPipeline />,
     crm_conversas:   <PageCrmConversas />,
+    integracao:      <PageIntegracao />,
   };
 
   return (
