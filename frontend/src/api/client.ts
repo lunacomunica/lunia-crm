@@ -68,6 +68,7 @@ export const metaApi = {
   searchIgAccount: (username: string) => api.get(`/meta/ig-search?username=${encodeURIComponent(username)}`),
   publish: (clientId: number, contentId: number) => api.post(`/meta/publish/${clientId}/${contentId}`),
   linkIg: (clientId: number, contentId: number, value: string) => api.post(`/meta/link-ig/${clientId}/${contentId}`, { value }),
+  unlinkIg: (clientId: number, contentId: number) => api.delete(`/meta/link-ig/${clientId}/${contentId}`),
   getIgStatus: (clientId: number) => api.get(`/meta/instagram-status/${clientId}`),
   disconnectIg: (clientId: number) => api.delete(`/meta/instagram-status/${clientId}`),
   testInstagram: (clientId: number) => api.get(`/meta/test-instagram/${clientId}`),

@@ -889,6 +889,17 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                             <ExternalLink size={10} /> Ver no Instagram
                           </a>
                         )}
+                        <button onClick={async () => {
+                          if (!confirm('Desvincular este post do Instagram? O status volta para Agendado.')) return;
+                          try {
+                            const r = await metaApi.unlinkIg(clientId, post.id);
+                            onUpdated(r.data);
+                          } catch (e: any) { setPublishError(e.response?.data?.error || 'Erro ao desvincular'); }
+                        }}
+                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs transition-all"
+                          style={{ color: 'rgba(239,68,68,0.6)', background: 'rgba(239,68,68,0.05)', border: '1px solid rgba(239,68,68,0.15)' }}>
+                          <X size={10} /> Desvincular
+                        </button>
                         <button onClick={reload} disabled={loadingInsights}
                           className="p-1.5 rounded-lg transition-all disabled:opacity-40"
                           style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>

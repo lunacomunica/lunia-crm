@@ -553,6 +553,19 @@ router.post('/link-ig/:clientId/:contentId', async (req, res) => {
   res.json(db.prepare('SELECT * FROM content_pieces WHERE id=?').get(req.params.contentId));
 });
 
+// DELETE /meta/link-ig/:clientId/:contentId — unlink Instagram post and revert to agendado
+router.delete('/link-ig/:clientId/:contentId', (req, res) => {
+  const piece = db.prepare('SELECT * FROM content_pieces WHERE id=? AND tenant_id=?')
+    .get(req.params.contentId, req.user.tenant_id) as any;
+  if (!piece) return res.status(404).json({ error: 'Post não encontrado' });
+
+  const newStatus = piece.scheduled_date ? 'agendado' : 'aprovado';
+  db.prepare("UPDATE content_pieces SET ig_media_id=NULL, ig_permalink=NULL, status=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?")
+    .run(newStatus, req.params.contentId, req.user.tenant_id);
+
+  res.json(db.prepare('SELECT * FROM content_pieces WHERE id=?').get(req.params.contentId));
+});
+
 // Meta Ads insights for a client
 router.get('/ads/:clientId', async (req, res) => {
   const token = getTokenForClient(req.user.tenant_id, req.params.clientId);
