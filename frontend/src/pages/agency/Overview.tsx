@@ -179,7 +179,7 @@ export default function AgencyOverview() {
                   <div className="flex items-center gap-2">
                     <span className="text-[10px] font-medium px-2 py-1 rounded-full"
                       style={{ color: h.color, background: h.bg }}>{h.label}</span>
-                    <button onClick={() => navigate(`/marketing/clients/${c.id}`)}
+                    <button onClick={() => navigate(`/marketing/clients/${(c as any).slug || c.id}`)}
                       className="p-1.5 rounded-lg transition-colors"
                       style={{ color: 'rgba(100,116,139,0.4)' }}
                       onMouseEnter={e => (e.currentTarget.style.color = '#e2e8f0')}
