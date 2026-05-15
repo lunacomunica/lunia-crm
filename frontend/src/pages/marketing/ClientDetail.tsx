@@ -210,10 +210,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 export default function ClientDetail() {
-  const { id } = useParams<{ id: string }>();
+  const { id: rawId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const cid = Number(id);
+  const [cid, setCid] = useState<number>(Number(rawId) || 0);
 
   const [tab, setTab] = useState<Tab>('estrategia');
   const [opTab, setOpTab] = useState<OpTab>('conteudo');
@@ -336,12 +336,14 @@ export default function ClientDetail() {
 
   const load = async () => {
     setLoading(true);
-    const [cRes, posRes, goalsRes] = await Promise.all([
-      agencyClientsApi.get(cid),
-      clientPortalApi.positioning(cid),
-      clientPortalApi.goals(cid),
-    ]);
+    const cRes = await agencyClientsApi.get(rawId as any);
     const c = cRes.data;
+    setCid(c.id);
+    const numId = c.id;
+    const [posRes, goalsRes] = await Promise.all([
+      clientPortalApi.positioning(numId),
+      clientPortalApi.goals(numId),
+    ]);
     setClient(c);
     setIgConnected(!!c.instagram_user_id);
     setIgAccountId(c.instagram_user_id || '');
@@ -495,7 +497,7 @@ export default function ClientDetail() {
     const selectPage = searchParams.get('select_ig_page') === '1';
 
     if (selectPage) {
-      navigate(`/marketing/clients/${cid}`, { replace: true });
+      navigate(`/marketing/clients/${(client as any)?.slug || cid}`, { replace: true });
       setTab('integracao');
       metaApi.getOAuthPages(cid).then(r => {
         setIgPageOptions(r.data.pages || []);
@@ -505,7 +507,7 @@ export default function ClientDetail() {
         setTimeout(() => setIgOAuthError(null), 8000);
       });
     } else if (connected || errMsg) {
-      navigate(`/marketing/clients/${cid}`, { replace: true });
+      navigate(`/marketing/clients/${(client as any)?.slug || cid}`, { replace: true });
       if (connected) {
         setIgOAuthSuccess(true);
         load();
@@ -805,7 +807,7 @@ export default function ClientDetail() {
             title={client?.active ? 'Desativar cliente' : 'Reativar cliente'}>
             <PowerOff size={12} /> {client?.active ? 'Desativar' : 'Reativar'}
           </button>
-          <button onClick={() => navigate(`/marketing/portal/${cid}`)}
+          <button onClick={() => navigate(`/marketing/portal/${(client as any)?.slug || cid}`)}
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
             style={{ color: 'rgba(100,116,139,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
             onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f59e0b'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(245,158,11,0.2)'; }}

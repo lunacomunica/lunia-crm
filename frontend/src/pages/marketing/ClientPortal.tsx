@@ -391,18 +391,20 @@ export default function ClientPortal() {
   const [detailInsights, setDetailInsights] = useState<any>(null);
   const [detailInsightsLoading, setDetailInsightsLoading] = useState(false);
 
-  const cid = Number(clientId);
+  const [cid, setCid] = useState<number>(Number(clientId) || 0);
 
   const load = async () => {
     setLoading(true);
-    const [clientRes, contentRes, batchRes, campRes, summaryRes, goalsRes, posRes] = await Promise.all([
-      agencyClientsApi.get(cid),
-      contentApi.list({ client_id: clientId! }),
-      contentApi.listBatches({ client_id: clientId! }),
-      campaignsApi.list({ client_id: clientId! }),
-      clientPortalApi.summary(cid),
-      clientPortalApi.goals(cid),
-      clientPortalApi.positioning(cid),
+    const clientRes = await agencyClientsApi.get(clientId as any);
+    const numId = clientRes.data.id;
+    setCid(numId);
+    const [contentRes, batchRes, campRes, summaryRes, goalsRes, posRes] = await Promise.all([
+      contentApi.list({ client_id: String(numId) }),
+      contentApi.listBatches({ client_id: String(numId) }),
+      campaignsApi.list({ client_id: String(numId) }),
+      clientPortalApi.summary(numId),
+      clientPortalApi.goals(numId),
+      clientPortalApi.positioning(numId),
     ]);
     setClient(clientRes.data);
     setPieces(contentRes.data);

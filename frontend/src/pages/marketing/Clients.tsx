@@ -156,7 +156,7 @@ export default function MarketingClients() {
             (segmentFilter === 'todos' || c.segment === segmentFilter) &&
             (squadFilter === 'todos' || c.squad === squadFilter)
           ).map(c => (
-            <div key={c.id} onClick={() => navigate(`/marketing/clients/${c.id}`)}
+            <div key={c.id} onClick={() => navigate(`/marketing/clients/${(c as any).slug || c.id}`)}
               className="card p-5 cursor-pointer group transition-all duration-200 hover:border-blue-500/20"
               style={{ borderColor: c.active ? 'rgba(59,130,246,0.1)' : 'rgba(100,116,139,0.06)', opacity: c.active ? 1 : 0.55 }}>
               <div className="flex items-start justify-between mb-4">
@@ -191,7 +191,7 @@ export default function MarketingClients() {
                       onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = c.active ? 'rgba(100,116,139,0.5)' : 'rgba(52,211,153,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
                       <PowerOff size={13} />
                     </button>
-                    <button onClick={() => navigate(`/marketing/portal/${c.id}`)}
+                    <button onClick={() => navigate(`/marketing/portal/${(c as any).slug || c.id}`)}
                       className="p-1.5 rounded-lg transition-all" title="Visualizar como cliente"
                       style={{ color: 'rgba(100,116,139,0.5)' }}
                       onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f59e0b'; (e.currentTarget as HTMLElement).style.background = 'rgba(245,158,11,0.1)'; }}

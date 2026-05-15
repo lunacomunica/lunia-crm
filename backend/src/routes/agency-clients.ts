@@ -3,6 +3,28 @@ import db from '../db.js';
 
 const router = Router();
 
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-') || 'cliente';
+}
+
+function uniqueSlug(tenantId: number, name: string, excludeId?: number): string {
+  const base = slugify(name);
+  let candidate = base;
+  let n = 2;
+  while (true) {
+    const existing = db.prepare('SELECT id FROM agency_clients WHERE tenant_id=? AND slug=? AND id!=?')
+      .get(tenantId, candidate, excludeId ?? -1);
+    if (!existing) return candidate;
+    candidate = `${base}-${n++}`;
+  }
+}
+
 /* ── Production overview ─────────────────────────────────────────────── */
 router.get('/production', (req, res) => {
   const rows = db.prepare(`
@@ -46,6 +68,8 @@ router.get('/', (req, res) => {
 });
 
 router.get('/:id', (req, res) => {
+  const isNumeric = /^\d+$/.test(req.params.id);
+  const whereClause = isNumeric ? 'ac.id = ?' : 'ac.slug = ?';
   const client = db.prepare(`
     SELECT ac.*,
       u.name  as owner_name,
@@ -53,7 +77,7 @@ router.get('/:id', (req, res) => {
       u.job_title as owner_job_title
     FROM agency_clients ac
     LEFT JOIN users u ON u.tenant_id = ac.tenant_id AND u.role = 'owner'
-    WHERE ac.id = ? AND ac.tenant_id = ?
+    WHERE ${whereClause} AND ac.tenant_id = ?
     ORDER BY u.id ASC LIMIT 1
   `).get(req.params.id, req.user.tenant_id);
   if (!client) return res.status(404).json({ error: 'Cliente não encontrado' });
@@ -64,7 +88,8 @@ router.post('/', (req, res) => {
   if (req.user.role === 'team') return res.status(403).json({ error: 'Sem permissão' });
   const { name, segment = '', contact_name = '', contact_email = '', instagram_handle = '', logo = '', squad = null } = req.body;
   if (!name) return res.status(400).json({ error: 'Nome é obrigatório' });
-  const r = db.prepare(`INSERT INTO agency_clients (tenant_id, name, segment, contact_name, contact_email, instagram_handle, logo, squad) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(req.user.tenant_id, name, segment, contact_name, contact_email, instagram_handle, logo, squad);
+  const slug = uniqueSlug(req.user.tenant_id, name);
+  const r = db.prepare(`INSERT INTO agency_clients (tenant_id, name, slug, segment, contact_name, contact_email, instagram_handle, logo, squad) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`).run(req.user.tenant_id, name, slug, segment, contact_name, contact_email, instagram_handle, logo, squad);
   res.status(201).json(db.prepare('SELECT * FROM agency_clients WHERE id = ?').get(r.lastInsertRowid));
 });
 
@@ -73,8 +98,12 @@ router.put('/:id', (req, res) => {
   const existing = db.prepare('SELECT * FROM agency_clients WHERE id = ? AND tenant_id = ?').get(req.params.id, req.user.tenant_id) as any;
   if (!existing) return res.status(404).json({ error: 'Cliente não encontrado' });
   const { name, segment, contact_name, contact_email, instagram_handle, logo, active, squad } = req.body;
-  db.prepare(`UPDATE agency_clients SET name=?, segment=?, contact_name=?, contact_email=?, instagram_handle=?, logo=?, active=?, squad=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?`).run(
-    name ?? existing.name, segment ?? existing.segment, contact_name ?? existing.contact_name,
+  const newName = name ?? existing.name;
+  const newSlug = name && name !== existing.name
+    ? uniqueSlug(req.user.tenant_id, name, Number(req.params.id))
+    : (existing.slug || uniqueSlug(req.user.tenant_id, existing.name, Number(req.params.id)));
+  db.prepare(`UPDATE agency_clients SET name=?, slug=?, segment=?, contact_name=?, contact_email=?, instagram_handle=?, logo=?, active=?, squad=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?`).run(
+    newName, newSlug, segment ?? existing.segment, contact_name ?? existing.contact_name,
     contact_email ?? existing.contact_email, instagram_handle ?? existing.instagram_handle,
     logo ?? existing.logo, active !== undefined ? (active ? 1 : 0) : existing.active,
     squad !== undefined ? (squad || null) : existing.squad,

@@ -469,10 +469,31 @@ const migrations = [
   "ALTER TABLE agency_clients ADD COLUMN meta_ads_account_id TEXT DEFAULT NULL",
   "ALTER TABLE agency_clients ADD COLUMN facebook_page_id TEXT DEFAULT NULL",
   "ALTER TABLE agency_clients ADD COLUMN facebook_page_token TEXT DEFAULT NULL",
+  "ALTER TABLE agency_clients ADD COLUMN slug TEXT DEFAULT NULL",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }
 }
+
+// Backfill slugs for existing clients that don't have one
+{
+  function slugify(name: string): string {
+    return name.toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9\s-]/g, '').trim()
+      .replace(/\s+/g, '-').replace(/-+/g, '-') || 'cliente';
+  }
+  const clientsWithoutSlug = db.prepare("SELECT id, tenant_id, name FROM agency_clients WHERE slug IS NULL OR slug = ''").all() as any[];
+  for (const c of clientsWithoutSlug) {
+    const base = slugify(c.name);
+    let candidate = base; let n = 2;
+    while (db.prepare('SELECT id FROM agency_clients WHERE tenant_id=? AND slug=? AND id!=?').get(c.tenant_id, candidate, c.id)) {
+      candidate = `${base}-${n++}`;
+    }
+    db.prepare("UPDATE agency_clients SET slug=? WHERE id=?").run(candidate, c.id);
+  }
+}
+
 // Promote Amanda to alta gestão (manager) — runs after job_title column is guaranteed to exist
 db.prepare("UPDATE users SET role = 'manager', job_title = 'Head de Operação' WHERE email = 'amanda@lunacomunica.com'").run();
 
