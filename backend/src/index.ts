@@ -448,3 +448,40 @@ setInterval(async () => {
     console.error('[cron] Erro no job de publicação:', e.message);
   }
 }, 5 * 60 * 1000);
+
+// ── Cron: alerta de token Meta expirando (roda 1x por dia) ───────────────────
+setInterval(() => {
+  try {
+    const tokens = db.prepare(`
+      SELECT s.tenant_id, s.value as expires_at
+      FROM settings s
+      WHERE s.key = 'meta_user_token_expires'
+    `).all() as any[];
+
+    for (const row of tokens) {
+      if (!row.expires_at) continue;
+      const days = Math.ceil((new Date(row.expires_at).getTime() - Date.now()) / 86400000);
+      if (days > 14 || days < 0) continue;
+
+      const msg = days <= 0
+        ? 'Token Meta expirado. Acesse Configurações → Meta e gere um novo token.'
+        : `Token Meta expira em ${days} ${days === 1 ? 'dia' : 'dias'}. Renove em Configurações → Meta.`;
+
+      // Avoid duplicate notifications on same day
+      const today = new Date().toISOString().slice(0, 10);
+      const existing = db.prepare(`
+        SELECT id FROM notifications
+        WHERE tenant_id = ? AND type = 'meta_token_expiry'
+          AND created_at >= ?
+      `).get(row.tenant_id, today);
+      if (existing) continue;
+
+      db.prepare(`
+        INSERT INTO notifications (tenant_id, type, title, body)
+        VALUES (?, 'meta_token_expiry', 'Token Meta expirando', ?)
+      `).run(row.tenant_id, msg);
+    }
+  } catch (e: any) {
+    console.error('[cron] Erro no job de token expiry:', e.message);
+  }
+}, 24 * 60 * 60 * 1000);

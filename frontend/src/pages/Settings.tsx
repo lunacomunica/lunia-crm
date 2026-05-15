@@ -878,6 +878,18 @@ export default function Settings() {
                 {agencyToken.connected ? 'Conectado' : 'Não configurado'}
               </span>
             </div>
+            {agencyToken.connected && agencyToken.expires_at && (() => {
+              const days = Math.ceil((new Date(agencyToken.expires_at).getTime() - Date.now()) / 86400000);
+              const urgent = days <= 7;
+              const warning = days <= 14;
+              return (
+                <div className="flex items-center gap-2 mb-4 px-3 py-2 rounded-xl text-xs"
+                  style={{ background: urgent ? 'rgba(239,68,68,0.07)' : warning ? 'rgba(251,191,36,0.07)' : 'rgba(52,211,153,0.06)', border: `1px solid ${urgent ? 'rgba(239,68,68,0.2)' : warning ? 'rgba(251,191,36,0.2)' : 'rgba(52,211,153,0.15)'}`, color: urgent ? '#f87171' : warning ? '#fbbf24' : '#34d399' }}>
+                  {urgent ? '⚠️' : warning ? '⏳' : '✓'}
+                  <span>Token expira em <strong>{days} {days === 1 ? 'dia' : 'dias'}</strong> — {new Date(agencyToken.expires_at).toLocaleDateString('pt-BR')}. {(urgent || warning) ? 'Renove agora colando um novo token abaixo.' : 'Lembre de renovar antes dessa data.'}</span>
+                </div>
+              );
+            })()}
 
             {agencyToken.connected ? (
               <div className="space-y-2">
