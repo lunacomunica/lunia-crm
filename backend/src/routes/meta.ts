@@ -865,7 +865,7 @@ router.post('/sync-history/:clientId', async (req, res) => {
   try {
     // ── DMs ──────────────────────────────────────────────────────────────
     const convsRes = await httpsGet(
-      `https://graph.facebook.com/v19.0/${igId}/conversations?platform=instagram&fields=id,participants,messages{message,from,created_time,id}&limit=20&access_token=${token}`
+      `https://graph.facebook.com/v19.0/${igId}/conversations?platform=instagram&fields=id,participants,messages{message,from,created_time,id}&limit=50&access_token=${token}`
     );
 
     for (const conv of convsRes.data || []) {
@@ -900,11 +900,22 @@ router.post('/sync-history/:clientId', async (req, res) => {
 
     // ── Comments ─────────────────────────────────────────────────────────
     const mediaRes = await httpsGet(
-      `https://graph.facebook.com/v19.0/${igId}/media?fields=id,comments{id,text,from,timestamp}&limit=10&access_token=${token}`
+      `https://graph.facebook.com/v19.0/${igId}/media?fields=id,permalink,comments{id,text,from,timestamp}&limit=50&access_token=${token}`
     );
 
     for (const media of mediaRes.data || []) {
-      for (const comment of (media.comments?.data || [])) {
+      // Paginate comments if there are more
+      let allComments = media.comments?.data || [];
+      let nextPage = media.comments?.paging?.next;
+      while (nextPage) {
+        try {
+          const page = await httpsGet(nextPage);
+          allComments = allComments.concat(page.data || []);
+          nextPage = page.paging?.next;
+        } catch { break; }
+      }
+
+      for (const comment of allComments) {
         const fromId = String(comment.from?.id || 'unknown');
         const fromUsername = comment.from?.username || fromId;
 
@@ -919,6 +930,8 @@ router.post('/sync-history/:clientId', async (req, res) => {
         if (!dbConv) {
           const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type, media_id) VALUES (?, ?, 'instagram', ?, ?, 'comment', ?)`).run(tid, contact.id, convKey, agencyClientId, media.id);
           dbConv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
+        } else if (!dbConv.media_id) {
+          db.prepare('UPDATE conversations SET media_id=? WHERE id=?').run(media.id, dbConv.id);
         }
 
         const dup = db.prepare('SELECT id FROM messages WHERE external_id=?').get(comment.id);

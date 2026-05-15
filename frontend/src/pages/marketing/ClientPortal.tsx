@@ -2564,9 +2564,13 @@ export default function ClientPortal() {
       conversationsApi.markRead(c.id);
       setConvs(prev => prev.map(x => x.id === c.id ? { ...x, unread_count: 0 } : x));
       // Load post info for comment conversations
-      if (c.conv_type === 'comment' && c.media_id && cid) {
+      // media_id may be null for older convs — extract from external_id as fallback
+      const mediaId = c.media_id || (c.conv_type === 'comment'
+        ? (c.external_id || '').split('_').pop() || null
+        : null);
+      if (c.conv_type === 'comment' && mediaId && cid) {
         setPostLoading(true);
-        metaApi.getMedia(cid, c.media_id)
+        metaApi.getMedia(cid, mediaId)
           .then(r => setPostMedia(r.data))
           .catch(() => setPostMedia(null))
           .finally(() => setPostLoading(false));
