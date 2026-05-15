@@ -865,7 +865,7 @@ router.post('/sync-history/:clientId', async (req, res) => {
   try {
     // ── DMs ──────────────────────────────────────────────────────────────
     const convsRes = await httpsGet(
-      `https://graph.facebook.com/v19.0/${igId}/conversations?platform=instagram&fields=id,participants,messages{message,from,created_time,id}&limit=50&access_token=${token}`
+      `https://graph.facebook.com/v19.0/${igId}/conversations?platform=instagram&fields=id,participants{id,username,profile_picture_url},messages{message,from,created_time,id}&limit=50&access_token=${token}`
     );
 
     for (const conv of convsRes.data || []) {
@@ -873,11 +873,14 @@ router.post('/sync-history/:clientId', async (req, res) => {
       if (!otherParticipant) continue;
       const senderId = String(otherParticipant.id);
       const senderName = otherParticipant.username ? `@${otherParticipant.username}` : senderId;
+      const avatarUrl = otherParticipant.profile_picture_url || null;
 
       let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, senderId) as any;
       if (!contact) {
-        const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id) VALUES (?, ?, 'instagram', ?)`).run(tid, senderName, senderId);
+        const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id, avatar_url) VALUES (?, ?, 'instagram', ?, ?)`).run(tid, senderName, senderId, avatarUrl);
         contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
+      } else if (avatarUrl && !contact.avatar_url) {
+        db.prepare('UPDATE contacts SET avatar_url=? WHERE id=?').run(avatarUrl, contact.id);
       }
 
       const convKey = `ig_dm_${agencyClientId}_${senderId}`;
@@ -900,7 +903,7 @@ router.post('/sync-history/:clientId', async (req, res) => {
 
     // ── Comments ─────────────────────────────────────────────────────────
     const mediaRes = await httpsGet(
-      `https://graph.facebook.com/v19.0/${igId}/media?fields=id,permalink,comments{id,text,from,timestamp}&limit=50&access_token=${token}`
+      `https://graph.facebook.com/v19.0/${igId}/media?fields=id,permalink,comments{id,text,from{id,username,profile_picture_url},timestamp}&limit=50&access_token=${token}`
     );
 
     for (const media of mediaRes.data || []) {
@@ -918,11 +921,14 @@ router.post('/sync-history/:clientId', async (req, res) => {
       for (const comment of allComments) {
         const fromId = String(comment.from?.id || 'unknown');
         const fromUsername = comment.from?.username || fromId;
+        const avatarUrl = comment.from?.profile_picture_url || null;
 
         let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND external_id=?').get(tid, fromId) as any;
         if (!contact) {
-          const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id) VALUES (?, ?, 'instagram', ?)`).run(tid, `@${fromUsername}`, fromId);
+          const r = db.prepare(`INSERT INTO contacts (tenant_id, name, source, external_id, avatar_url) VALUES (?, ?, 'instagram', ?, ?)`).run(tid, `@${fromUsername}`, fromId, avatarUrl);
           contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
+        } else if (avatarUrl && !contact.avatar_url) {
+          db.prepare('UPDATE contacts SET avatar_url=? WHERE id=?').run(avatarUrl, contact.id);
         }
 
         const convKey = `ig_comment_${agencyClientId}_${media.id}`;

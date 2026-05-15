@@ -2654,8 +2654,11 @@ export default function ClientPortal() {
                   className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all"
                   style={{ background: activeConv?.id === c.id ? 'rgba(59,130,246,0.08)' : 'transparent', borderLeft: activeConv?.id === c.id ? '2px solid #3b82f6' : '2px solid transparent' }}>
                   <div className="relative flex-shrink-0">
-                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                      style={{ background: avatarColor(c.contact_name || '') }}>{initials(c.contact_name || '?')}</div>
+                    {c.avatar_url
+                      ? <img src={c.avatar_url} className="w-10 h-10 rounded-full object-cover" />
+                      : <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                          style={{ background: avatarColor(c.contact_name || '') }}>{initials(c.contact_name || '?')}</div>
+                    }
                     <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
                       style={{ background: cfg?.dot || '#60a5fa', borderColor: '#05050f' }} />
                   </div>
@@ -2695,8 +2698,11 @@ export default function ClientPortal() {
             <>
               {/* Header */}
               <div className="flex items-center gap-3 px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                  style={{ background: avatarColor(activeConv.contact_name || '') }}>{initials(activeConv.contact_name || '?')}</div>
+                {activeConv.avatar_url
+                  ? <img src={activeConv.avatar_url} className="w-9 h-9 rounded-full object-cover flex-shrink-0" />
+                  : <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold flex-shrink-0"
+                      style={{ background: avatarColor(activeConv.contact_name || '') }}>{initials(activeConv.contact_name || '?')}</div>
+                }
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white">{activeConv.contact_name}</p>
                   {(() => {
@@ -2706,19 +2712,27 @@ export default function ClientPortal() {
                 </div>
                 {/* Post link for comments */}
                 {activeConv.conv_type === 'comment' && (
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    {postLoading && <RotateCcw size={13} className="animate-spin" style={{ color: 'rgba(100,116,139,0.4)' }} />}
-                    {postMedia?.permalink && (
-                      <a href={postMedia.permalink} target="_blank" rel="noreferrer"
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
-                        style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.2)', color: '#a855f7' }}>
-                        {(postMedia.thumbnail_url || postMedia.media_url) && (
-                          <img src={postMedia.thumbnail_url || postMedia.media_url} className="w-5 h-5 rounded object-cover flex-shrink-0" />
-                        )}
-                        Ver post
-                        <ExternalLink size={10} />
-                      </a>
-                    )}
+                  <div className="flex-shrink-0">
+                    {postLoading
+                      ? <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs"
+                          style={{ background: 'rgba(168,85,247,0.06)', border: '1px solid rgba(168,85,247,0.15)', color: 'rgba(168,85,247,0.5)' }}>
+                          <RotateCcw size={10} className="animate-spin" /> Carregando post…
+                        </div>
+                      : postMedia?.permalink
+                        ? <a href={postMedia.permalink} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all hover:opacity-80"
+                            style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.25)', color: '#a855f7' }}>
+                            {(postMedia.thumbnail_url || postMedia.media_url) && (
+                              <img src={postMedia.thumbnail_url || postMedia.media_url} className="w-6 h-6 rounded object-cover flex-shrink-0" />
+                            )}
+                            Ver post no Instagram
+                            <ExternalLink size={10} />
+                          </a>
+                        : <span className="text-[11px] px-2.5 py-1.5 rounded-xl"
+                            style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: 'rgba(100,116,139,0.4)' }}>
+                            Post não disponível
+                          </span>
+                    }
                   </div>
                 )}
               </div>
