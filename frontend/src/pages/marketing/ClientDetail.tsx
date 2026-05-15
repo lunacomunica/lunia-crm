@@ -1142,9 +1142,86 @@ export default function ClientDetail() {
           {/* Tráfego */}
           {opTab === 'trafego' && (
             <div className="space-y-4">
+
+              {/* Meta Ads — campanhas da API */}
+              {adsAccountId && (
+                <div className="rounded-2xl p-4 space-y-3" style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(59,130,246,0.12)' }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Target size={14} style={{ color: '#60a5fa' }} />
+                      <span className="text-xs font-semibold" style={{ color: '#60a5fa' }}>Meta Ads</span>
+                      {adsData?.campaigns?.length > 0 && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                          {adsData.campaigns.length}
+                        </span>
+                      )}
+                    </div>
+                    <button onClick={() => {
+                      setAdsLoading(true); setAdsError(null);
+                      metaApi.getAds(cid).then(r => setAdsData(r.data)).catch((e: any) => setAdsError(e?.response?.data?.error || e?.message || 'Erro')).finally(() => setAdsLoading(false));
+                    }} disabled={adsLoading} className="p-1.5 rounded-lg transition-all" style={{ color: 'rgba(100,116,139,0.4)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <RotateCcw size={11} className={adsLoading ? 'animate-spin' : ''} />
+                    </button>
+                  </div>
+
+                  {adsLoading && <p className="text-xs text-center py-2" style={{ color: 'rgba(100,116,139,0.4)' }}>Carregando…</p>}
+                  {adsError && <p className="text-xs px-2 py-1.5 rounded-lg" style={{ color: '#f87171', background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.15)' }}>{adsError}</p>}
+
+                  {adsData && !adsLoading && (
+                    <>
+                      {/* Resumo de gastos */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {[
+                          { label: 'Gasto (30d)', value: `R$ ${adsData.insights?.spend?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}`, color: '#f87171' },
+                          { label: 'Alcance', value: (adsData.insights?.reach || 0).toLocaleString('pt-BR'), color: '#60a5fa' },
+                          { label: 'Leads', value: (adsData.insights?.leads || 0).toLocaleString('pt-BR'), color: '#34d399' },
+                        ].map(m => (
+                          <div key={m.label} className="px-2.5 py-2 rounded-xl text-center" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <p className="text-sm font-semibold" style={{ color: m.color }}>{m.value}</p>
+                            <p className="text-[9px]" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Campanhas */}
+                      {(adsData.campaigns || []).length > 0 && (
+                        <div className="space-y-2">
+                          {adsData.campaigns.map((c: any) => (
+                            <div key={c.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-medium text-white truncate">{c.name}</p>
+                                {c.objective && <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.45)' }}>{c.objective.replace(/_/g, ' ').toLowerCase()}</p>}
+                              </div>
+                              <span className="text-[10px] ml-3 px-2 py-0.5 rounded-full flex-shrink-0"
+                                style={{ color: c.status === 'ACTIVE' ? '#34d399' : 'rgba(100,116,139,0.5)', background: c.status === 'ACTIVE' ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${c.status === 'ACTIVE' ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
+                                {c.status === 'ACTIVE' ? 'Ativa' : 'Pausada'}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      {(adsData.campaigns || []).length === 0 && (
+                        <p className="text-xs text-center py-2" style={{ color: 'rgba(100,116,139,0.35)' }}>Nenhuma campanha ativa</p>
+                      )}
+                    </>
+                  )}
+
+                  {!adsData && !adsLoading && !adsError && (
+                    <button onClick={() => {
+                      setAdsLoading(true); setAdsError(null);
+                      metaApi.getAds(cid).then(r => setAdsData(r.data)).catch((e: any) => setAdsError(e?.response?.data?.error || e?.message || 'Erro')).finally(() => setAdsLoading(false));
+                    }} className="w-full py-2 rounded-xl text-xs font-medium transition-all"
+                      style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                      Carregar campanhas do Meta Ads
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {/* Separador campanhas manuais */}
               <div className="flex items-center justify-between">
                 <p className="text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                  {campaigns.length} campanha{campaigns.length !== 1 ? 's' : ''}
+                  {campaigns.length} campanha{campaigns.length !== 1 ? 's' : ''} manual{campaigns.length !== 1 ? 'is' : ''}
                 </p>
                 <button onClick={openCreateCamp} className="btn-primary text-xs px-3 py-2">
                   <Plus size={13} /> Nova Campanha
