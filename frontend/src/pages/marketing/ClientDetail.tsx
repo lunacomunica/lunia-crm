@@ -1841,12 +1841,25 @@ export default function ClientDetail() {
                       return (
                         <p className="text-xs flex items-center gap-1.5" style={{ color: '#fbbf24' }}>
                           <AlertCircle size={11} />
-                          Conectado via ID · sem token OAuth
+                          Conectado via ID · sem token OAuth — clique em Reconectar para ativar publicação no Facebook
                         </p>
                       );
                     }
                     return null;
                   })()}
+
+                  {/* Facebook Page status */}
+                  {client?.facebook_page_id ? (
+                    <p className="text-xs flex items-center gap-1.5" style={{ color: '#60a5fa' }}>
+                      <CheckCircle2 size={11} />
+                      Página do Facebook conectada · posts publicados nos dois
+                    </p>
+                  ) : client?.instagram_token ? (
+                    <p className="text-xs flex items-center gap-1.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                      <AlertCircle size={11} />
+                      Página do Facebook não detectada · só publica no Instagram
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 /* Not connected — show OAuth button + manual fallback */

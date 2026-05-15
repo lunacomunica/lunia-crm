@@ -310,7 +310,7 @@ function toAbsoluteUrl(url: string): string {
 
 // Core publish function — reusable by endpoint and cron
 export async function publishToInstagram(tenantId: number, contentId: number): Promise<{ ig_media_id: string; ig_permalink: string }> {
-  const piece = db.prepare('SELECT cp.*, ac.instagram_user_id, ac.instagram_token, ac.instagram_token_expires FROM content_pieces cp LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id WHERE cp.id = ? AND cp.tenant_id = ?').get(contentId, tenantId) as any;
+  const piece = db.prepare('SELECT cp.*, ac.instagram_user_id, ac.instagram_token, ac.instagram_token_expires, ac.facebook_page_id, ac.facebook_page_token FROM content_pieces cp LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id WHERE cp.id = ? AND cp.tenant_id = ?').get(contentId, tenantId) as any;
   if (!piece) throw new Error('Post não encontrado');
   if (!piece.instagram_user_id) throw new Error('Conta do Instagram não configurada para este cliente');
 
@@ -395,6 +395,45 @@ export async function publishToInstagram(tenantId: number, contentId: number): P
   // Update content piece
   db.prepare("UPDATE content_pieces SET ig_media_id=?, ig_permalink=?, status='publicado', updated_at=datetime('now') WHERE id=? AND tenant_id=?")
     .run(igMediaId, igPermalink, contentId, tenantId);
+
+  // Also post to Facebook Page if connected
+  if (piece.facebook_page_id && piece.facebook_page_token) {
+    try {
+      const pageToken = piece.facebook_page_token;
+      const pageId = piece.facebook_page_id;
+      const imageFile = mediaFiles.find(f => f.type === 'image') || mediaFiles[0];
+      const videoFile = mediaFiles.find(f => f.type === 'video');
+
+      if (piece.type === 'reels' && videoFile) {
+        await httpsPost(`https://graph.facebook.com/v19.0/${pageId}/videos`, {
+          file_url: videoFile.url, description: caption, access_token: pageToken,
+        });
+      } else if (piece.type === 'carrossel' && mediaFiles.filter(f => f.type === 'image').length > 1) {
+        // Facebook multi-photo post
+        const photoIds: string[] = [];
+        for (const file of mediaFiles.filter(f => f.type === 'image')) {
+          const r = await httpsPost(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
+            url: file.url, published: 'false', access_token: pageToken,
+          });
+          if (r.id) photoIds.push(r.id);
+        }
+        if (photoIds.length > 0) {
+          const attached = photoIds.map(id => ({ media_fbid: id }));
+          await httpsPost(`https://graph.facebook.com/v19.0/${pageId}/feed`, {
+            message: caption,
+            attached_media: JSON.stringify(attached),
+            access_token: pageToken,
+          });
+        }
+      } else if (imageFile) {
+        await httpsPost(`https://graph.facebook.com/v19.0/${pageId}/photos`, {
+          url: imageFile.url, caption, access_token: pageToken,
+        });
+      }
+    } catch (e: any) {
+      console.error('[publish] Facebook Page post failed (non-fatal):', e.message);
+    }
+  }
 
   return { ig_media_id: igMediaId, ig_permalink: igPermalink };
 }
