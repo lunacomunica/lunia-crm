@@ -204,7 +204,8 @@ router.get('/', (req, res) => {
   const tid = req.user.tenant_id;
   const { client_id, status, type, batch_id } = req.query as Record<string, string>;
 
-  let query = `SELECT cp.*, ac.name as client_name, ac.instagram_handle, u.name as creator_name
+  let query = `SELECT cp.*, ac.name as client_name, ac.instagram_handle, u.name as creator_name,
+    (SELECT cc.message FROM content_comments cc WHERE cc.content_piece_id = cp.id ORDER BY cc.created_at DESC LIMIT 1) as last_comment
     FROM content_pieces cp
     LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id
     LEFT JOIN users u ON cp.created_by = u.id

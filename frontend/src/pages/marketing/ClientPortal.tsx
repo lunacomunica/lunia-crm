@@ -1322,33 +1322,13 @@ export default function ClientPortal() {
   }
 
   function PageConteudos() {
-    const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-
-    const [contentTab, setContentTab] = useState<'aprovar' | 'ativo'>('aprovar');
+    const [contentTab, setContentTab] = useState<'aprovar' | 'ativo' | 'ajustes'>('aprovar');
     const [approvingId, setApprovingId] = useState<number | null>(null);
-
-    // Default "Para Aprovar" to next month's batch
-    const [batchIdx, setBatchIdx] = useState<number>(() => {
-      if (batches.length === 0) return 0;
-      const now = new Date();
-      const nm = now.getMonth() + 2; // next month 1-based
-      const ny = nm > 12 ? now.getFullYear() + 1 : now.getFullYear();
-      const nextM = nm > 12 ? 1 : nm;
-      const idx = batches.findIndex(b => b.month === nextM && b.year === ny);
-      if (idx >= 0) return idx;
-      const cur = batches.findIndex(b => b.month === now.getMonth() + 1 && b.year === now.getFullYear());
-      return cur >= 0 ? cur : batches.length - 1;
-    });
 
     useEffect(() => { setConteudosInitFilter('all'); }, []);
 
-    const selectedBatch = batches[batchIdx] ?? null;
-
-    // Para Aprovar: pending in selected batch
-    const approvalPieces = pieces.filter(p =>
-      ['aguardando_aprovacao', 'ajuste_solicitado'].includes(p.status) &&
-      (!selectedBatch || (p as any).batch_id === selectedBatch.id)
-    );
+    // Para Aprovar: ALL pieces awaiting approval (no batch/month filter)
+    const approvalPieces = pieces.filter(p => p.status === 'aguardando_aprovacao');
 
     // Feed Ativo: all approved/scheduled/published across all batches
     const ativoPieces = [...pieces]
@@ -1359,16 +1339,12 @@ export default function ClientPortal() {
         return da < db ? 1 : da > db ? -1 : 0;
       });
 
-    const displayed = contentTab === 'aprovar' ? approvalPieces : ativoPieces;
-    const pendingCount = pieces.filter(p => p.status === 'aguardando_aprovacao').length;
+    // Ajustes: all pieces where client requested adjustment
+    const ajustesPieces = [...pieces]
+      .filter(p => p.status === 'ajuste_solicitado')
+      .sort((a, b) => new Date(b.updated_at || b.created_at).getTime() - new Date(a.updated_at || a.created_at).getTime());
 
-    const displayedApproved = selectedBatch
-      ? pieces.filter(p => ['aprovado','agendado','publicado'].includes(p.status) && (p as any).batch_id === selectedBatch.id).length
-      : 0;
-    const displayedTotal = selectedBatch
-      ? pieces.filter(p => (p as any).batch_id === selectedBatch.id).length
-      : 0;
-    const allApproved = displayedTotal > 0 && displayedApproved >= displayedTotal;
+    const displayed = contentTab === 'aprovar' ? approvalPieces : contentTab === 'ativo' ? ativoPieces : ajustesPieces;
 
     const quickApprove = async (p: ContentPiece, e: React.MouseEvent) => {
       e.stopPropagation();
@@ -1543,7 +1519,7 @@ export default function ClientPortal() {
           <div>
             <h2 className="text-2xl font-semibold text-white mb-1">Conteúdos</h2>
             <p className="text-sm" style={{ color: 'rgba(100,116,139,0.5)' }}>
-              {pendingCount > 0 ? `${pendingCount} post${pendingCount > 1 ? 's' : ''} aguardando aprovação` : 'Feed e aprovações'}
+              {approvalPieces.length > 0 ? `${approvalPieces.length} post${approvalPieces.length > 1 ? 's' : ''} aguardando aprovação` : 'Feed e aprovações'}
             </p>
           </div>
         </div>
@@ -1576,43 +1552,46 @@ export default function ClientPortal() {
               </span>
             )}
           </button>
-        </div>
-
-        {/* Month navigator — only on Para Aprovar */}
-        {contentTab === 'aprovar' && batches.length > 0 && (
-          <div className="flex items-center gap-2">
-            <button onClick={() => setBatchIdx(i => Math.max(0, i - 1))} disabled={batchIdx === 0}
-              className="p-1.5 rounded-lg transition-all disabled:opacity-25"
-              style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <ChevronLeft size={14} />
-            </button>
-            <div className="flex items-center gap-2 px-4 py-2 rounded-xl flex-1 justify-center"
-              style={{ background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.15)' }}>
-              <span className="text-sm font-semibold text-white">
-                {selectedBatch ? `${MONTHS_PT[selectedBatch.month - 1]} ${selectedBatch.year}` : '—'}
+          <button onClick={() => setContentTab('ajustes')}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+            style={contentTab === 'ajustes'
+              ? { background: 'rgba(248,113,113,0.1)', color: '#f87171', border: '1px solid rgba(248,113,113,0.2)' }
+              : { color: 'rgba(100,116,139,0.5)' }}>
+            Ajustes
+            {ajustesPieces.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ background: 'rgba(248,113,113,0.15)', color: '#f87171' }}>
+                {ajustesPieces.length}
               </span>
-              {displayedTotal > 0 && (
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ background: allApproved ? 'rgba(16,185,129,0.15)' : 'rgba(59,130,246,0.15)', color: allApproved ? '#10b981' : '#60a5fa' }}>
-                  {displayedApproved}/{displayedTotal}
-                </span>
-              )}
-            </div>
-            <button onClick={() => setBatchIdx(i => Math.min(batches.length - 1, i + 1))} disabled={batchIdx === batches.length - 1}
-              className="p-1.5 rounded-lg transition-all disabled:opacity-25"
-              style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        )}
+            )}
+          </button>
+        </div>
 
         {/* Grid */}
         {displayed.length === 0 ? (
-          <div className="text-center py-24">
-            <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
-            <p className="text-white font-medium mb-1">
-              {contentTab === 'aprovar' ? 'Nenhuma aprovação pendente para este mês' : 'Nenhum post ativo ainda'}
-            </p>
+          <div className="text-center py-24 flex flex-col items-center gap-4">
+            <FileImage size={40} style={{ color: 'rgba(100,116,139,0.12)' }} />
+            {contentTab === 'aprovar' ? (
+              <>
+                <div>
+                  <p className="text-white font-semibold mb-1">Nenhum post aguardando aprovação</p>
+                  <p className="text-sm" style={{ color: 'rgba(100,116,139,0.7)' }}>
+                    Sua equipe de marketing está trabalhando nos próximos conteúdos.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setPage('ideias')}
+                  className="flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all hover:brightness-110"
+                  style={{ background: 'linear-gradient(135deg,rgba(245,158,11,0.2),rgba(245,158,11,0.1))', color: '#f59e0b', border: '1px solid rgba(245,158,11,0.25)' }}>
+                  <Zap size={14} />
+                  Enviar uma ideia
+                </button>
+              </>
+            ) : contentTab === 'ativo' ? (
+              <p className="text-white font-medium">Nenhum post ativo ainda</p>
+            ) : (
+              <p className="text-white font-medium">Nenhum pedido de ajuste</p>
+            )}
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-0.5">
