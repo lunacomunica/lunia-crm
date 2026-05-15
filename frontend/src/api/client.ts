@@ -72,6 +72,11 @@ export const metaApi = {
   getInsights: (clientId: number) => api.get(`/meta/insights/${clientId}`),
   getAds: (clientId: number) => api.get(`/meta/ads/${clientId}`),
   getMediaInsights: (clientId: number, mediaId: string) => api.get(`/meta/media-insights/${clientId}/${mediaId}`),
+  getCampaignDetail: (clientId: number, campaignId: string) => api.get(`/meta/campaign/${clientId}/${campaignId}`),
+  getAdsetDetail: (clientId: number, adsetId: string) => api.get(`/meta/adset/${clientId}/${adsetId}`),
+  toggleCampaign: (clientId: number, campaignId: string, status: 'ACTIVE' | 'PAUSED') => api.post(`/meta/campaign/${clientId}/${campaignId}/status`, { status }),
+  toggleAdset: (clientId: number, adsetId: string, status: 'ACTIVE' | 'PAUSED') => api.post(`/meta/adset/${clientId}/${adsetId}/status`, { status }),
+  toggleAd: (clientId: number, adId: string, status: 'ACTIVE' | 'PAUSED') => api.post(`/meta/ad/${clientId}/${adId}/status`, { status }),
 };
 
 export const notificationsApi = {

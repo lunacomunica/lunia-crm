@@ -557,6 +557,111 @@ router.get('/ads/:clientId', async (req, res) => {
   }
 });
 
+// ── Meta Ads Management ─────────────────────────────────────────────────────
+
+function getAdsToken(tenantId: number, clientId: string): string | null {
+  return getTokenForClient(tenantId, clientId);
+}
+
+// GET /meta/campaign/:clientId/:campaignId — adsets + insights
+router.get('/campaign/:clientId/:campaignId', async (req, res) => {
+  const token = getAdsToken(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado' });
+  try {
+    const [campaignRes, adsetsRes] = await Promise.all([
+      httpsGet(`https://graph.facebook.com/v19.0/${req.params.campaignId}?fields=id,name,status,objective,daily_budget,lifetime_budget&access_token=${token}`),
+      httpsGet(`https://graph.facebook.com/v19.0/${req.params.campaignId}/adsets?fields=id,name,status,daily_budget,lifetime_budget,billing_event,optimization_goal&limit=30&access_token=${token}`),
+    ]);
+    if (campaignRes.error) return res.status(400).json({ error: campaignRes.error.message });
+
+    const adsets = adsetsRes.data || [];
+
+    // Get insights per adset in one batch-style call
+    let adsetInsights: Record<string, any> = {};
+    try {
+      const ids = adsets.map((a: any) => a.id).join(',');
+      if (ids) {
+        const ins = await httpsGet(`https://graph.facebook.com/v19.0/?ids=${ids}&fields=insights.date_preset(last_30d){spend,reach,impressions,clicks,ctr,cpm}&access_token=${token}`);
+        for (const [id, val] of Object.entries(ins)) {
+          adsetInsights[id] = (val as any).insights?.data?.[0] || {};
+        }
+      }
+    } catch {}
+
+    res.json({
+      ...campaignRes,
+      adsets: adsets.map((a: any) => ({ ...a, insights: adsetInsights[a.id] || {} })),
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// GET /meta/adset/:clientId/:adsetId — ads with creatives + insights
+router.get('/adset/:clientId/:adsetId', async (req, res) => {
+  const token = getAdsToken(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado' });
+  try {
+    const adsRes = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.adsetId}/ads?fields=id,name,status,creative{id,title,body,image_url,thumbnail_url,object_story_spec}&limit=30&access_token=${token}`);
+    if (adsRes.error) return res.status(400).json({ error: adsRes.error.message });
+
+    const ads = adsRes.data || [];
+
+    // Get insights per ad
+    let adInsights: Record<string, any> = {};
+    try {
+      const ids = ads.map((a: any) => a.id).join(',');
+      if (ids) {
+        const ins = await httpsGet(`https://graph.facebook.com/v19.0/?ids=${ids}&fields=insights.date_preset(last_30d){spend,reach,impressions,clicks,ctr}&access_token=${token}`);
+        for (const [id, val] of Object.entries(ins)) {
+          adInsights[id] = (val as any).insights?.data?.[0] || {};
+        }
+      }
+    } catch {}
+
+    res.json({
+      ads: ads.map((a: any) => ({ ...a, insights: adInsights[a.id] || {} })),
+    });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /meta/campaign/:clientId/:campaignId/status — pause/resume
+router.post('/campaign/:clientId/:campaignId/status', async (req, res) => {
+  const token = getAdsToken(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado' });
+  const { status } = req.body as { status: 'ACTIVE' | 'PAUSED' };
+  if (!['ACTIVE', 'PAUSED'].includes(status)) return res.status(400).json({ error: 'Status inválido' });
+  try {
+    const r = await httpsPost(`https://graph.facebook.com/v19.0/${req.params.campaignId}`, { status, access_token: token });
+    if (r.error) return res.status(400).json({ error: r.error.message });
+    res.json({ ok: true, status });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /meta/adset/:clientId/:adsetId/status — pause/resume
+router.post('/adset/:clientId/:adsetId/status', async (req, res) => {
+  const token = getAdsToken(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado' });
+  const { status } = req.body as { status: 'ACTIVE' | 'PAUSED' };
+  if (!['ACTIVE', 'PAUSED'].includes(status)) return res.status(400).json({ error: 'Status inválido' });
+  try {
+    const r = await httpsPost(`https://graph.facebook.com/v19.0/${req.params.adsetId}`, { status, access_token: token });
+    if (r.error) return res.status(400).json({ error: r.error.message });
+    res.json({ ok: true, status });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
+// POST /meta/ad/:clientId/:adId/status — pause/resume
+router.post('/ad/:clientId/:adId/status', async (req, res) => {
+  const token = getAdsToken(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado' });
+  const { status } = req.body as { status: 'ACTIVE' | 'PAUSED' };
+  if (!['ACTIVE', 'PAUSED'].includes(status)) return res.status(400).json({ error: 'Status inválido' });
+  try {
+    const r = await httpsPost(`https://graph.facebook.com/v19.0/${req.params.adId}`, { status, access_token: token });
+    if (r.error) return res.status(400).json({ error: r.error.message });
+    res.json({ ok: true, status });
+  } catch (e: any) { res.status(500).json({ error: e.message }); }
+});
+
 // Disconnect IG for a client
 router.delete('/instagram-status/:clientId', (req, res) => {
   db.prepare("UPDATE agency_clients SET instagram_token=NULL, instagram_user_id=NULL, instagram_token_expires=NULL WHERE id=? AND tenant_id=?")

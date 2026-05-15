@@ -12,6 +12,7 @@ import {
 import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi, contentIdeasApi, metaApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
 import TaskDetailDrawer from './TaskDetailDrawer';
+import MetaAdsCampaignPanel from './MetaAdsCampaignPanel';
 import { ContentStatus, Campaign, CampaignCreative, CampaignPlatform, CampaignStatus, CampaignObjective, CreativeType, CreativeStatus } from '../../types';
 import { startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -309,6 +310,7 @@ export default function ClientDetail() {
   const [igAccountId, setIgAccountId] = useState('');
   const [igSaving, setIgSaving] = useState(false);
   const [perfTab, setPerfTab] = useState<PerfTab>('conteudos');
+  const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
   const [adsAccountId, setAdsAccountId] = useState('');
   const [adsSaving, setAdsSaving] = useState(false);
   const [adsData, setAdsData] = useState<any>(null);
@@ -1187,16 +1189,23 @@ export default function ClientDetail() {
                       {(adsData.campaigns || []).length > 0 && (
                         <div className="space-y-2">
                           {adsData.campaigns.map((c: any) => (
-                            <div key={c.id} className="flex items-center justify-between px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                            <button key={c.id} onClick={() => setSelectedCampaign(c)}
+                              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-left transition-all group"
+                              style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}
+                              onMouseEnter={e => (e.currentTarget.style.borderColor = 'rgba(59,130,246,0.25)')}
+                              onMouseLeave={e => (e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)')}>
                               <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-white truncate">{c.name}</p>
+                                <p className="text-xs font-medium text-white truncate group-hover:text-blue-300 transition-colors">{c.name}</p>
                                 {c.objective && <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.45)' }}>{c.objective.replace(/_/g, ' ').toLowerCase()}</p>}
                               </div>
-                              <span className="text-[10px] ml-3 px-2 py-0.5 rounded-full flex-shrink-0"
-                                style={{ color: c.status === 'ACTIVE' ? '#34d399' : 'rgba(100,116,139,0.5)', background: c.status === 'ACTIVE' ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${c.status === 'ACTIVE' ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
-                                {c.status === 'ACTIVE' ? 'Ativa' : 'Pausada'}
-                              </span>
-                            </div>
+                              <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+                                <span className="text-[10px] px-2 py-0.5 rounded-full"
+                                  style={{ color: c.status === 'ACTIVE' ? '#34d399' : 'rgba(100,116,139,0.5)', background: c.status === 'ACTIVE' ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${c.status === 'ACTIVE' ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
+                                  {c.status === 'ACTIVE' ? 'Ativa' : 'Pausada'}
+                                </span>
+                                <ChevronRight size={12} style={{ color: 'rgba(100,116,139,0.3)' }} />
+                              </div>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -2337,6 +2346,15 @@ export default function ClientDetail() {
             setPanelPost(null);
             reloadBatches();
           }}
+        />
+      )}
+
+      {/* Meta Ads Campaign Panel */}
+      {selectedCampaign && (
+        <MetaAdsCampaignPanel
+          clientId={cid}
+          campaign={selectedCampaign}
+          onClose={() => setSelectedCampaign(null)}
         />
       )}
 
