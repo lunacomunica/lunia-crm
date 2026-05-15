@@ -96,9 +96,21 @@ app.get('/api/meta/callback', async (req, res) => {
     const expiresIn = llData.expires_in || 5184000;
     const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    // Get all Facebook Pages with linked Instagram accounts
-    const pagesRes = await httpsGet(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,name,username,profile_picture_url}&access_token=${longToken}`);
-    const candidates = (pagesRes.data || []).filter((p: any) => p.instagram_business_account?.id);
+    // Get all Facebook Pages with linked Instagram accounts (limit 100 to avoid pagination issues)
+    const pagesRes = await httpsGet(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account{id,name,username,profile_picture_url}&limit=100&access_token=${longToken}`);
+    let allPages = pagesRes.data || [];
+
+    // Also fetch next pages if paginated
+    let next = pagesRes.paging?.next;
+    while (next) {
+      try {
+        const more = await httpsGet(next);
+        allPages = allPages.concat(more.data || []);
+        next = more.paging?.next;
+      } catch { break; }
+    }
+
+    const candidates = allPages.filter((p: any) => p.instagram_business_account?.id);
 
     if (candidates.length === 0) {
       // No pages with IG — just save token, no page info
