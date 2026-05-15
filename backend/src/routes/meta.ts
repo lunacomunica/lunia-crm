@@ -247,6 +247,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
         : 'impressions,reach,saved,shares,likes,comments,total_interactions,profile_visits,follows';
       const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&period=lifetime&access_token=${token}`);
       if (ins.error) throw new Error(ins.error.message);
+      if (!ins.data || ins.data.length === 0) throw new Error('Sem dados de insights — o token pode não ter permissão instagram_manage_insights para esta conta. Reconecte via OAuth na aba Integração.');
       for (const m of ins.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
     } catch (e1: any) {
       // Fallback to legacy metrics
@@ -254,6 +255,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
         const metric2 = basic.media_type === 'VIDEO' ? 'impressions,reach,plays,saved,shares' : 'impressions,reach,saved,shares,engagement';
         const ins2 = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric2}&access_token=${token}`);
         if (ins2.error) throw new Error(ins2.error.message);
+        if (!ins2.data || ins2.data.length === 0) throw new Error(e1.message);
         for (const m of ins2.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
       } catch (e2: any) {
         insightsWarning = e2.message || e1.message;
