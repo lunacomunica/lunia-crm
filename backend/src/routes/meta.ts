@@ -285,7 +285,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
     } catch (e1: any) {
       // Fallback to legacy metrics
       try {
-        const metric2 = basic.media_type === 'VIDEO' ? 'impressions,reach,plays,saved,shares' : 'impressions,reach,saved,shares,engagement';
+        const metric2 = basic.media_type === 'VIDEO' ? 'impressions,reach,plays,saved,shares' : 'impressions,reach,saved,shares,total_interactions';
         const ins2 = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric2}&access_token=${token}`);
         if (ins2.error) throw new Error(ins2.error.message);
         if (!ins2.data || ins2.data.length === 0) throw new Error(e1.message);
