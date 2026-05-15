@@ -298,6 +298,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
         for (const m of ins2.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
       } catch (e2: any) {
         insightsWarning = e2.message || e1.message;
+        console.error('[media-insights] fallback failed:', { mediaId: req.params.mediaId, e1: e1.message, e2: e2.message });
       }
     }
     // Fill likes/comments from basic if insights doesn't have them

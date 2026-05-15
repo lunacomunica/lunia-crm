@@ -3307,6 +3307,7 @@ export default function ClientPortal() {
                     <p className="text-xs py-2" style={{ color: 'rgba(100,116,139,0.35)' }}>Carregando métricas…</p>
                   ) : detailInsights ? (() => {
                     const ins = detailInsights.insights || {};
+                    const warning = detailInsights.insights_warning;
                     const reach = ins.reach ?? 0;
                     const impressions = ins.impressions ?? 0;
                     const likes = ins.likes ?? detailInsights.like_count ?? 0;
@@ -3319,6 +3320,12 @@ export default function ClientPortal() {
                     const plays = ins.plays ?? 0;
                     return (
                       <div className="space-y-3">
+                        {warning && (
+                          <div className="px-3 py-2.5 rounded-xl text-xs leading-relaxed"
+                            style={{ background: 'rgba(249,115,22,0.06)', border: '1px solid rgba(249,115,22,0.2)', color: '#f97316' }}>
+                            ⚠️ {warning}
+                          </div>
+                        )}
                         <div className="grid grid-cols-2 gap-2">
                           <div className="rounded-xl p-3" style={{ background: 'linear-gradient(145deg,rgba(59,130,246,0.08),rgba(99,102,241,0.05))', border: '1px solid rgba(59,130,246,0.15)' }}>
                             <p className="text-xl font-bold text-white">{reach.toLocaleString('pt-BR')}</p>
