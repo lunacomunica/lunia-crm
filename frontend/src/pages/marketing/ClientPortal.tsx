@@ -2565,8 +2565,9 @@ export default function ClientPortal() {
       setConvs(prev => prev.map(x => x.id === c.id ? { ...x, unread_count: 0 } : x));
       // Load post info for comment conversations
       // media_id may be null for older convs — extract from external_id as fallback
+      // external_id format: ig_comment_{clientId}_{mediaId}  (mediaId itself may contain underscores)
       const mediaId = c.media_id || (c.conv_type === 'comment'
-        ? (c.external_id || '').split('_').pop() || null
+        ? ((c.external_id || '').replace(/^ig_comment_\d+_/, '') || null)
         : null);
       if (c.conv_type === 'comment' && mediaId && cid) {
         setPostLoading(true);
