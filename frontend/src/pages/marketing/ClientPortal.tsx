@@ -2533,13 +2533,46 @@ export default function ClientPortal() {
   }
 
   function PageCrmConversas() {
+    const [convTab, setConvTab] = useState<'all' | 'ig_dm' | 'ig_comment' | 'whatsapp'>('all');
+    const [postMedia, setPostMedia] = useState<{ permalink?: string; thumbnail_url?: string; media_url?: string; media_type?: string } | null>(null);
+    const [postLoading, setPostLoading] = useState(false);
+
+    const CONV_TABS = [
+      { id: 'all' as const, label: 'Todos' },
+      { id: 'ig_dm' as const, label: 'Instagram DM' },
+      { id: 'ig_comment' as const, label: 'Comentários IG' },
+      { id: 'whatsapp' as const, label: 'WhatsApp' },
+    ];
+
+    const CONV_TYPE_CFG: Record<string, { label: string; color: string; dot: string }> = {
+      ig_dm:    { label: 'Instagram DM',       color: '#e1306c', dot: '#e1306c' },
+      ig_comment: { label: 'Comentário IG',    color: '#a855f7', dot: '#a855f7' },
+      whatsapp: { label: 'WhatsApp',           color: '#25d366', dot: '#25d366' },
+    };
+
+    const convKey = (c: any) => {
+      if (c.platform === 'whatsapp') return 'whatsapp';
+      if (c.platform === 'instagram' && c.conv_type === 'comment') return 'ig_comment';
+      return 'ig_dm';
+    };
+
     const openConv = async (c: any) => {
       setActiveConv(c);
+      setPostMedia(null);
       const r = await conversationsApi.getMessages(c.id);
       setConvMessages(r.data);
       conversationsApi.markRead(c.id);
       setConvs(prev => prev.map(x => x.id === c.id ? { ...x, unread_count: 0 } : x));
+      // Load post info for comment conversations
+      if (c.conv_type === 'comment' && c.media_id && cid) {
+        setPostLoading(true);
+        metaApi.getMedia(cid, c.media_id)
+          .then(r => setPostMedia(r.data))
+          .catch(() => setPostMedia(null))
+          .finally(() => setPostLoading(false));
+      }
     };
+
     const sendMsg = async () => {
       if (!convMsg.trim() || !activeConv || sendingMsg) return;
       setSendingMsg(true);
@@ -2559,15 +2592,43 @@ export default function ClientPortal() {
       }
       setSendingMsg(false);
     };
-    const filtered = convs.filter(c => c.contact_name?.toLowerCase().includes(convSearch.toLowerCase()));
-    const platformDot = (p: string) => p === 'whatsapp' ? '#25d366' : p === 'instagram' && (activeConv as any)?.conv_type === 'comment' ? '#a855f7' : '#e1306c';
+
+    const tabFiltered = convs.filter(c => {
+      if (convTab !== 'all' && convKey(c) !== convTab) return false;
+      if (convSearch && !c.contact_name?.toLowerCase().includes(convSearch.toLowerCase())) return false;
+      return true;
+    });
+
+    const tabCount = (tab: string) => tab === 'all' ? convs.length : convs.filter(c => convKey(c) === tab).length;
 
     return (
       <div className="flex h-full -m-6 md:-m-8 overflow-hidden">
         {/* List */}
         <div className="w-full md:w-80 flex-shrink-0 flex flex-col border-r" style={{ borderColor: 'rgba(255,255,255,0.05)', background: 'rgba(0,0,0,0.2)' }}>
-          <div className="px-4 pt-5 pb-3 flex-shrink-0">
-            <h2 className="text-xl font-semibold text-white mb-3">Mensagens</h2>
+          <div className="px-4 pt-5 pb-3 flex-shrink-0 space-y-3">
+            <h2 className="text-xl font-semibold text-white">Mensagens</h2>
+            {/* Tabs */}
+            <div className="flex gap-1 overflow-x-auto pb-0.5 scrollbar-hide">
+              {CONV_TABS.map(t => {
+                const count = tabCount(t.id);
+                const active = convTab === t.id;
+                return (
+                  <button key={t.id} onClick={() => setConvTab(t.id)}
+                    className="flex-shrink-0 flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-medium transition-all"
+                    style={active
+                      ? { background: 'rgba(59,130,246,0.15)', color: '#60a5fa', border: '1px solid rgba(59,130,246,0.3)' }
+                      : { background: 'rgba(255,255,255,0.03)', color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    {t.label}
+                    {count > 0 && (
+                      <span className="text-[10px] px-1 rounded-full" style={{ background: active ? 'rgba(59,130,246,0.2)' : 'rgba(255,255,255,0.06)', color: active ? '#60a5fa' : 'rgba(100,116,139,0.5)' }}>
+                        {count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Search */}
             <div className="relative">
               <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'rgba(100,116,139,0.4)' }} />
               <input value={convSearch} onChange={e => setConvSearch(e.target.value)}
@@ -2577,32 +2638,41 @@ export default function ClientPortal() {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto">
-            {convLoading ? <CrmSpinner /> : filtered.length === 0 ? (
+            {convLoading ? <CrmSpinner /> : tabFiltered.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-sm" style={{ color: 'rgba(100,116,139,0.4)' }}>Nenhuma conversa</p>
               </div>
-            ) : filtered.map(c => (
-              <button key={c.id} onClick={() => openConv(c)}
-                className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all"
-                style={{ background: activeConv?.id === c.id ? 'rgba(59,130,246,0.08)' : 'transparent', borderLeft: activeConv?.id === c.id ? '2px solid #3b82f6' : '2px solid transparent' }}>
-                <div className="relative flex-shrink-0">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
-                    style={{ background: avatarColor(c.contact_name || '') }}>{initials(c.contact_name || '?')}</div>
-                  <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
-                    style={{ background: platformDot(c.platform), borderColor: '#05050f' }} />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-white truncate">{c.contact_name}</p>
-                    {c.unread_count > 0 && (
-                      <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ml-1"
-                        style={{ background: '#3b82f6', color: 'white' }}>{c.unread_count}</span>
-                    )}
+            ) : tabFiltered.map(c => {
+              const cfg = CONV_TYPE_CFG[convKey(c)];
+              return (
+                <button key={c.id} onClick={() => openConv(c)}
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left transition-all"
+                  style={{ background: activeConv?.id === c.id ? 'rgba(59,130,246,0.08)' : 'transparent', borderLeft: activeConv?.id === c.id ? '2px solid #3b82f6' : '2px solid transparent' }}>
+                  <div className="relative flex-shrink-0">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center text-white text-sm font-bold"
+                      style={{ background: avatarColor(c.contact_name || '') }}>{initials(c.contact_name || '?')}</div>
+                    <div className="absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2"
+                      style={{ background: cfg?.dot || '#60a5fa', borderColor: '#05050f' }} />
                   </div>
-                  <p className="text-xs truncate mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>{c.last_message || '…'}</p>
-                </div>
-              </button>
-            ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-sm font-medium text-white truncate">{c.contact_name}</p>
+                      {c.unread_count > 0 && (
+                        <span className="text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                          style={{ background: '#3b82f6', color: 'white' }}>{c.unread_count}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                        style={{ background: `${cfg?.color}15`, color: cfg?.color, border: `1px solid ${cfg?.color}30` }}>
+                        {cfg?.label}
+                      </span>
+                      <p className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>{c.last_message || '…'}</p>
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -2618,14 +2688,36 @@ export default function ClientPortal() {
             </div>
           ) : (
             <>
+              {/* Header */}
               <div className="flex items-center gap-3 px-6 py-4 flex-shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-white text-sm font-bold"
                   style={{ background: avatarColor(activeConv.contact_name || '') }}>{initials(activeConv.contact_name || '?')}</div>
-                <div>
+                <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white">{activeConv.contact_name}</p>
-                  <p className="text-xs capitalize" style={{ color: 'rgba(100,116,139,0.5)' }}>{activeConv.platform}</p>
+                  {(() => {
+                    const cfg = CONV_TYPE_CFG[convKey(activeConv)];
+                    return <span className="text-[11px] px-2 py-0.5 rounded-full" style={{ background: `${cfg?.color}15`, color: cfg?.color }}>{cfg?.label}</span>;
+                  })()}
                 </div>
+                {/* Post link for comments */}
+                {activeConv.conv_type === 'comment' && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {postLoading && <RotateCcw size={13} className="animate-spin" style={{ color: 'rgba(100,116,139,0.4)' }} />}
+                    {postMedia?.permalink && (
+                      <a href={postMedia.permalink} target="_blank" rel="noreferrer"
+                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
+                        style={{ background: 'rgba(168,85,247,0.08)', border: '1px solid rgba(168,85,247,0.2)', color: '#a855f7' }}>
+                        {(postMedia.thumbnail_url || postMedia.media_url) && (
+                          <img src={postMedia.thumbnail_url || postMedia.media_url} className="w-5 h-5 rounded object-cover flex-shrink-0" />
+                        )}
+                        Ver post
+                        <ExternalLink size={10} />
+                      </a>
+                    )}
+                  </div>
+                )}
               </div>
+
               <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
                 {convMessages.map((m: any) => (
                   <div key={m.id} className={`flex ${m.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}>

@@ -244,7 +244,7 @@ app.post('/api/meta/webhook', (req, res) => {
           const convKey = agencyClientId ? `ig_comment_${agencyClientId}_${mediaId || 'unknown'}` : `ig_comment_${mediaId || 'unknown'}`;
           let conv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
           if (!conv) {
-            const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type) VALUES (?, ?, 'instagram', ?, ?, 'comment')`).run(tid, contact.id, convKey, agencyClientId);
+            const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type, media_id) VALUES (?, ?, 'instagram', ?, ?, 'comment', ?)`).run(tid, contact.id, convKey, agencyClientId, mediaId || null);
             conv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
           }
 

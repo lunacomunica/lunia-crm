@@ -478,6 +478,7 @@ const migrations = [
   "ALTER TABLE client_contacts ADD COLUMN external_id TEXT DEFAULT NULL",
   "ALTER TABLE client_deals ADD COLUMN source_platform TEXT DEFAULT NULL",
   "ALTER TABLE conversations ADD COLUMN client_contact_id INTEGER DEFAULT NULL",
+  "ALTER TABLE conversations ADD COLUMN media_id TEXT DEFAULT NULL",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

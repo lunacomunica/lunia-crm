@@ -917,7 +917,7 @@ router.post('/sync-history/:clientId', async (req, res) => {
         const convKey = `ig_comment_${agencyClientId}_${media.id}`;
         let dbConv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
         if (!dbConv) {
-          const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type) VALUES (?, ?, 'instagram', ?, ?, 'comment')`).run(tid, contact.id, convKey, agencyClientId);
+          const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type, media_id) VALUES (?, ?, 'instagram', ?, ?, 'comment', ?)`).run(tid, contact.id, convKey, agencyClientId, media.id);
           dbConv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
         }
 
@@ -931,6 +931,19 @@ router.post('/sync-history/:clientId', async (req, res) => {
     }
 
     res.json({ ok: true, dms: dmCount, comments: commentCount });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// GET /meta/media/:clientId/:mediaId — fetch IG media permalink + thumbnail
+router.get('/media/:clientId/:mediaId', async (req, res) => {
+  const client = db.prepare('SELECT instagram_token, instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?').get(req.params.clientId, req.user.tenant_id) as any;
+  if (!client?.instagram_token) return res.status(400).json({ error: 'Cliente sem token Instagram.' });
+  try {
+    const data = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,permalink,thumbnail_url,media_type,media_url,timestamp&access_token=${client.instagram_token}`);
+    if (data.error) return res.status(400).json({ error: data.error.message });
+    res.json(data);
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }

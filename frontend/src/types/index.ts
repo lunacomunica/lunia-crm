@@ -111,9 +111,10 @@ export interface Conversation {
   contact_name?: string;
   contact_phone?: string;
   avatar_url?: string | null;
-  platform: 'whatsapp' | 'instagram';
+  platform: 'whatsapp' | 'instagram' | 'messenger' | 'facebook';
   conv_type?: 'dm' | 'comment' | null;
   external_id: string;
+  media_id?: string | null;
   status: 'active' | 'archived';
   agency_client_id?: number | null;
   agency_client_name?: string | null;
