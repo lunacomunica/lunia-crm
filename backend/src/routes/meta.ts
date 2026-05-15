@@ -566,6 +566,22 @@ router.delete('/link-ig/:clientId/:contentId', (req, res) => {
   res.json(db.prepare('SELECT * FROM content_pieces WHERE id=?').get(req.params.contentId));
 });
 
+// Lightweight — just fetch ad account name for verification
+router.get('/ads-account/:clientId', async (req, res) => {
+  const token = getTokenForClient(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado.' });
+  const client = db.prepare('SELECT meta_ads_account_id FROM agency_clients WHERE id=? AND tenant_id=?').get(req.params.clientId, req.user.tenant_id) as any;
+  if (!client?.meta_ads_account_id) return res.status(400).json({ error: 'Ad Account ID não configurado.' });
+  const actId = client.meta_ads_account_id.startsWith('act_') ? client.meta_ads_account_id : `act_${client.meta_ads_account_id}`;
+  try {
+    const data = await httpsGet(`https://graph.facebook.com/v19.0/${actId}?fields=id,name,currency,account_status&access_token=${token}`);
+    if (data.error) return res.status(400).json({ error: data.error.message });
+    res.json({ id: data.id, name: data.name, currency: data.currency, status: data.account_status });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Meta Ads insights for a client
 router.get('/ads/:clientId', async (req, res) => {
   const token = getTokenForClient(req.user.tenant_id, req.params.clientId);

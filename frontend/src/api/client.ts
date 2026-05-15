@@ -76,6 +76,7 @@ export const metaApi = {
   testInstagram: (clientId: number) => api.get(`/meta/test-instagram/${clientId}`),
   getInsights: (clientId: number) => api.get(`/meta/insights/${clientId}`),
   getAds: (clientId: number) => api.get(`/meta/ads/${clientId}`),
+  getAdsAccount: (clientId: number) => api.get(`/meta/ads-account/${clientId}`),
   getMediaInsights: (clientId: number, mediaId: string) => api.get(`/meta/media-insights/${clientId}/${mediaId}`),
   getCampaignDetail: (clientId: number, campaignId: string) => api.get(`/meta/campaign/${clientId}/${campaignId}`),
   getAdsetDetail: (clientId: number, adsetId: string) => api.get(`/meta/adset/${clientId}/${adsetId}`),

@@ -7,7 +7,7 @@ import {
   FileImage, Megaphone, CheckSquare, Save, ExternalLink,
   Clock, CheckCircle2, AlertCircle, RotateCcw, Calendar, ChevronDown, ChevronLeft, ChevronRight, Send,
   List, CalendarDays, LayoutGrid, MessageSquare,
-  Image, Video, MousePointerClick, Link, FileText, PowerOff
+  Image, Video, MousePointerClick, Link, FileText, PowerOff, Search
 } from 'lucide-react';
 import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi, contentIdeasApi, metaApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
@@ -322,6 +322,8 @@ export default function ClientDetail() {
   const [adsData, setAdsData] = useState<any>(null);
   const [adsLoading, setAdsLoading] = useState(false);
   const [adsError, setAdsError] = useState<string | null>(null);
+  const [adsAccountName, setAdsAccountName] = useState<string | null>(null);
+  const [adsAccountVerifying, setAdsAccountVerifying] = useState(false);
   const [igTesting, setIgTesting] = useState(false);
   const [igTestResult, setIgTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [igSaveResult, setIgSaveResult] = useState<{ success: boolean; message: string } | null>(null);
@@ -356,10 +358,9 @@ export default function ClientDetail() {
     setAdsAccountId(c.meta_ads_account_id || '');
     setWabaPhoneId(c.waba_phone_number_id || '');
     setWabaToken(c.waba_token || '');
-    // Load ads data if configured
+    // Load ads account name if configured
     if (c.meta_ads_account_id) {
-      setAdsLoading(true);
-      metaApi.getAds(cid).then(r => setAdsData(r.data)).catch((e: any) => setAdsError(e?.response?.data?.error || e?.message || 'Erro ao carregar dados de Ads')).finally(() => setAdsLoading(false));
+      metaApi.getAdsAccount(c.id).then(r => setAdsAccountName(r.data?.name || null)).catch(() => setAdsAccountName(null));
     }
     // Load agency token status
     metaApi.getAgencyToken().then(r => {
@@ -592,16 +593,30 @@ export default function ClientDetail() {
     setWabaSaving(false);
   };
 
+  const verifyAdsAccount = async () => {
+    setAdsAccountVerifying(true);
+    setAdsError(null);
+    setAdsAccountName(null);
+    try {
+      const r = await metaApi.getAdsAccount(cid);
+      setAdsAccountName(r.data?.name || null);
+    } catch (e: any) {
+      setAdsError(e?.response?.data?.error || e?.message || 'Conta não encontrada');
+    }
+    setAdsAccountVerifying(false);
+  };
+
   const saveAdsIntegration = async () => {
     setAdsSaving(true);
     try {
       await agencyClientsApi.saveIntegration(cid, { meta_ads_account_id: adsAccountId.trim() });
       if (adsAccountId.trim()) {
-        setAdsLoading(true);
+        setAdsAccountVerifying(true);
         setAdsError(null);
-        metaApi.getAds(cid).then(r => setAdsData(r.data)).catch((e: any) => setAdsError(e?.response?.data?.error || e?.message || 'Erro ao carregar dados de Ads')).finally(() => setAdsLoading(false));
+        setAdsAccountName(null);
+        metaApi.getAdsAccount(cid).then(r => setAdsAccountName(r.data?.name || null)).catch((e: any) => setAdsError(e?.response?.data?.error || e?.message || 'Conta não encontrada')).finally(() => setAdsAccountVerifying(false));
       } else {
-        setAdsData(null);
+        setAdsAccountName(null);
       }
     } catch {}
     setAdsSaving(false);
@@ -2311,48 +2326,20 @@ export default function ClientDetail() {
                 </div>
               )}
 
-              {adsLoading && (
-                <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                  <RotateCcw size={11} className="animate-spin" /> Carregando dados…
+              {adsAccountName && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(52,211,153,0.06)', border: '1px solid rgba(52,211,153,0.18)', color: '#34d399' }}>
+                  <CheckCircle2 size={12} /> {adsAccountName}
                 </div>
               )}
 
-              {adsData && !adsLoading && (
-                <div className="space-y-3">
-                  <p className="text-xs font-semibold" style={{ color: 'rgba(100,116,139,0.5)' }}>Últimos 30 dias</p>
-                  <div className="grid grid-cols-2 gap-2">
-                    {[
-                      { label: 'Gasto', value: `R$ ${adsData.insights?.spend?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}`, color: '#f87171' },
-                      { label: 'Alcance', value: (adsData.insights?.reach || 0).toLocaleString('pt-BR'), color: '#60a5fa' },
-                      { label: 'Cliques', value: (adsData.insights?.clicks || 0).toLocaleString('pt-BR'), color: '#34d399' },
-                      { label: 'CTR', value: `${adsData.insights?.ctr?.toFixed(2) || '0'}%`, color: '#a78bfa' },
-                      { label: 'CPM', value: `R$ ${adsData.insights?.cpm?.toFixed(2) || '0'}`, color: '#fbbf24' },
-                      { label: 'Leads', value: (adsData.insights?.leads || 0).toLocaleString('pt-BR'), color: '#34d399' },
-                    ].map(m => (
-                      <div key={m.label} className="px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                        <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{m.label}</p>
-                        <p className="text-base font-semibold" style={{ color: m.color }}>{m.value}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {(adsData.campaigns || []).length > 0 && (
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.4)' }}>Campanhas ativas</p>
-                      {adsData.campaigns.map((c: any) => (
-                        <div key={c.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                          <p className="text-xs text-white truncate flex-1">{c.name}</p>
-                          <span className="text-[10px] ml-2 px-2 py-0.5 rounded-full flex-shrink-0"
-                            style={{ color: c.status === 'ACTIVE' ? '#34d399' : 'rgba(100,116,139,0.5)', background: c.status === 'ACTIVE' ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${c.status === 'ACTIVE' ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
-                            {c.status === 'ACTIVE' ? 'Ativa' : 'Pausada'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex justify-end pt-1">
+              <div className="flex items-center gap-2">
+                <button onClick={verifyAdsAccount} disabled={adsAccountVerifying || !adsAccountId.trim()}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
+                  style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  {adsAccountVerifying ? <RotateCcw size={11} className="animate-spin" /> : <Search size={11} />}
+                  Verificar conta
+                </button>
+                <div className="flex-1" />
                 <button onClick={saveAdsIntegration} disabled={adsSaving}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
                   style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
