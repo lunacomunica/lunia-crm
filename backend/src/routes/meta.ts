@@ -193,7 +193,7 @@ router.get('/insights/:clientId', async (req, res) => {
     const until = Math.floor(Date.now() / 1000);
 
     const [profile, media] = await Promise.all([
-      httpsGet(`https://graph.facebook.com/v19.0/${igId}?fields=followers_count,media_count,name,biography,profile_picture_url&access_token=${token}`),
+      httpsGet(`https://graph.facebook.com/v19.0/${igId}?fields=followers_count,name,biography,profile_picture_url&access_token=${token}`),
       httpsGet(`https://graph.facebook.com/v19.0/${igId}/media?fields=id,caption,media_type,media_url,thumbnail_url,timestamp,like_count,comments_count,permalink&limit=24&access_token=${token}`),
     ]);
 
