@@ -501,6 +501,7 @@ export default function ClientDetail() {
   useEffect(() => { load(); }, [cid]);
 
   useEffect(() => {
+    if (!cid) return; // wait until load() sets the real cid
     const connected = searchParams.get('ig_connected') === '1' || searchParams.get('meta_connected') === '1';
     const errMsg = searchParams.get('ig_error') || searchParams.get('meta_error');
     const selectPage = searchParams.get('select_ig_page') === '1';
@@ -527,7 +528,7 @@ export default function ClientDetail() {
         setTimeout(() => setIgOAuthError(null), 8000);
       }
     }
-  }, [searchParams]);
+  }, [searchParams, cid]);
   useEffect(() => { if (tab === 'operacao' && batches.length === 0 && !loadingBatches) loadOp(); }, [tab]);
 
   useEffect(() => {
