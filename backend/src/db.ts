@@ -495,6 +495,24 @@ db.exec(`
   WHERE source = 'instagram' AND agency_client_id IS NULL
 `);
 
+// Backfill client_contacts from Instagram contacts that don't have an entry yet
+{
+  const igContacts = db.prepare(`
+    SELECT c.id, c.name, c.external_id, c.agency_client_id,
+           CASE WHEN cv.conv_type = 'comment' THEN 'instagram_comment' ELSE 'instagram_dm' END as source_platform
+    FROM contacts c
+    JOIN conversations cv ON cv.contact_id = c.id AND cv.agency_client_id = c.agency_client_id
+    WHERE c.source = 'instagram' AND c.agency_client_id IS NOT NULL AND c.external_id IS NOT NULL
+    GROUP BY c.id
+  `).all() as any[];
+  for (const c of igContacts) {
+    const exists = db.prepare('SELECT id FROM client_contacts WHERE agency_client_id=? AND external_id=?').get(c.agency_client_id, c.external_id);
+    if (!exists) {
+      db.prepare(`INSERT INTO client_contacts (agency_client_id, name, source, source_platform, external_id) VALUES (?, ?, 'instagram', ?, ?)`).run(c.agency_client_id, c.name, c.source_platform, c.external_id);
+    }
+  }
+}
+
 // Backfill slugs for existing clients that don't have one
 {
   function slugify(name: string): string {
