@@ -106,79 +106,74 @@ interface MediaItem { type: 'image' | 'video'; url: string; }
 function MediaViewer({ mediaFiles, mediaUrl, contentType }: {
   mediaFiles?: string | null; mediaUrl?: string | null; contentType?: string;
 }) {
+  const isReels = contentType === 'reels';
   const items: MediaItem[] = (() => {
     try {
       const parsed: { type: string; url: string }[] = JSON.parse(mediaFiles || '[]');
       const mapped = parsed.filter(f => f.url).map(f => ({
         type: (f.type === 'video' ? 'video' : 'image') as 'image' | 'video',
-        url: f.url,
+        url: toDisplayUrl(f.url),
       }));
       if (mapped.length > 0) return mapped;
     } catch {}
     if (!mediaUrl) return [];
-    const isVideo = contentType === 'reels' || /\.(mp4|mov|webm)(\?|$)/i.test(mediaUrl);
-    return [{ type: isVideo ? 'video' : 'image', url: mediaUrl }];
+    const isVideo = isReels || /\.(mp4|mov|webm)(\?|$)/i.test(mediaUrl);
+    return [{ type: isVideo ? 'video' : 'image', url: toDisplayUrl(mediaUrl) }];
   })();
 
-  const [active, setActive] = useState(0);
-  const trackRef = useRef<HTMLDivElement>(null);
-
+  const [idx, setIdx] = useState(0);
   if (items.length === 0) return null;
 
-  const goTo = (i: number) => {
-    setActive(i);
-    trackRef.current?.children[i]?.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'start' });
-  };
+  const prev = () => setIdx(i => Math.max(0, i - 1));
+  const next = () => setIdx(i => Math.min(items.length - 1, i + 1));
+  const item = items[idx];
 
-  const onScroll = () => {
-    const el = trackRef.current;
-    if (!el) return;
-    const idx = Math.round(el.scrollLeft / el.clientWidth);
-    setActive(idx);
-  };
+  if (isReels || item.type === 'video') {
+    return (
+      <div className="relative rounded-2xl overflow-hidden"
+        style={{ aspectRatio: '9/16', maxHeight: 400, background: '#000' }}>
+        <video src={item.url} controls playsInline poster={undefined}
+          className="w-full h-full object-contain" style={{ maxHeight: 400 }} />
+      </div>
+    );
+  }
 
   return (
-    <div className="rounded-2xl overflow-hidden" style={{ background: '#000', position: 'relative' }}>
-      {/* Slides */}
-      <div ref={trackRef} onScroll={onScroll}
-        className="flex"
-        style={{ overflowX: 'scroll', scrollSnapType: 'x mandatory', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
-        {items.map((item, i) => (
-          <div key={i} className="flex-shrink-0 w-full flex items-center justify-center"
-            style={{ scrollSnapAlign: 'start', minHeight: '200px', maxHeight: '520px', background: '#000' }}>
-            {item.type === 'video' ? (
-              <video src={item.url} controls playsInline
-                className="w-full"
-                style={{ maxHeight: '520px', display: 'block', outline: 'none' }} />
-            ) : (
-              <img src={item.url} alt={`slide ${i + 1}`}
-                className="w-full object-contain"
-                style={{ maxHeight: '520px', display: 'block' }}
-                onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-            )}
-          </div>
-        ))}
-      </div>
+    <div className="relative rounded-2xl overflow-hidden"
+      style={{ aspectRatio: '1080/1350', background: '#000' }}>
+      <img src={item.url} alt={`slide ${idx + 1}`} className="w-full h-full object-cover" />
 
-      {/* Slide counter badge (top-right) */}
+      {/* Counter */}
       {items.length > 1 && (
-        <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full text-xs font-semibold"
-          style={{ background: 'rgba(0,0,0,0.55)', color: 'rgba(255,255,255,0.85)', backdropFilter: 'blur(4px)' }}>
-          {active + 1} / {items.length}
+        <div className="absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-bold"
+          style={{ background: 'rgba(0,0,0,0.55)', color: 'white' }}>
+          {idx + 1}/{items.length}
         </div>
       )}
 
-      {/* Dot indicators */}
+      {/* Arrows */}
+      {idx > 0 && (
+        <button onClick={prev}
+          className="absolute left-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.55)', color: 'white' }}>
+          <ChevronLeft size={14} />
+        </button>
+      )}
+      {idx < items.length - 1 && (
+        <button onClick={next}
+          className="absolute right-2 top-1/2 -translate-y-1/2 w-7 h-7 rounded-full flex items-center justify-center"
+          style={{ background: 'rgba(0,0,0,0.55)', color: 'white' }}>
+          <ChevronRight size={14} />
+        </button>
+      )}
+
+      {/* Dots */}
       {items.length > 1 && (
-        <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+        <div className="absolute bottom-2 left-0 right-0 flex justify-center gap-1">
           {items.map((_, i) => (
-            <button key={i} onClick={() => goTo(i)}
-              className="rounded-full transition-all duration-200"
-              style={{
-                width: i === active ? '18px' : '6px',
-                height: '6px',
-                background: i === active ? '#fff' : 'rgba(255,255,255,0.4)',
-              }} />
+            <button key={i} onClick={() => setIdx(i)}
+              className="rounded-full transition-all"
+              style={{ width: i === idx ? 14 : 6, height: 6, background: i === idx ? 'white' : 'rgba(255,255,255,0.45)' }} />
           ))}
         </div>
       )}
