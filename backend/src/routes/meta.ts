@@ -35,6 +35,22 @@ function getAgencyToken(tenantId: number): string | null {
   return (db.prepare("SELECT value FROM settings WHERE tenant_id=? AND key='meta_user_token'").get(tenantId) as any)?.value || null;
 }
 
+function getTokenForClient(tenantId: number, clientId: number | string): string | null {
+  const client = db.prepare(
+    'SELECT instagram_token, instagram_token_expires FROM agency_clients WHERE id=? AND tenant_id=?'
+  ).get(clientId, tenantId) as any;
+
+  if (client?.instagram_token) {
+    // Check expiry — treat as valid if no expiry set or not yet expired
+    if (!client.instagram_token_expires || new Date(client.instagram_token_expires) > new Date()) {
+      return client.instagram_token;
+    }
+  }
+
+  // Fall back to agency token
+  return getAgencyToken(tenantId);
+}
+
 // Agency Meta token status
 router.get('/agency-token', (req, res) => {
   const token = getAgencyToken(req.user.tenant_id);
@@ -179,8 +195,8 @@ router.get('/instagram-status/:clientId', (req, res) => {
 
 // Account insights + recent media for a client
 router.get('/insights/:clientId', async (req, res) => {
-  const token = getAgencyToken(req.user.tenant_id);
-  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
+  const token = getTokenForClient(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado. Conecte via OAuth ou configure o token da agência.' });
 
   const client = db.prepare('SELECT instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?')
     .get(req.params.clientId, req.user.tenant_id) as any;
@@ -216,8 +232,8 @@ router.get('/insights/:clientId', async (req, res) => {
 
 // Individual media insights
 router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
-  const token = getAgencyToken(req.user.tenant_id);
-  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
+  const token = getTokenForClient(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado. Conecte via OAuth ou configure o token da agência.' });
 
   try {
     const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink,caption,thumbnail_url,media_url&access_token=${token}`);
@@ -294,12 +310,18 @@ function toAbsoluteUrl(url: string): string {
 
 // Core publish function — reusable by endpoint and cron
 export async function publishToInstagram(tenantId: number, contentId: number): Promise<{ ig_media_id: string; ig_permalink: string }> {
-  const token = (db.prepare("SELECT value FROM settings WHERE tenant_id=? AND key='meta_user_token'").get(tenantId) as any)?.value;
-  if (!token) throw new Error('Token da agência não configurado');
-
-  const piece = db.prepare('SELECT cp.*, ac.instagram_user_id FROM content_pieces cp LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id WHERE cp.id = ? AND cp.tenant_id = ?').get(contentId, tenantId) as any;
+  const piece = db.prepare('SELECT cp.*, ac.instagram_user_id, ac.instagram_token, ac.instagram_token_expires FROM content_pieces cp LEFT JOIN agency_clients ac ON cp.agency_client_id = ac.id WHERE cp.id = ? AND cp.tenant_id = ?').get(contentId, tenantId) as any;
   if (!piece) throw new Error('Post não encontrado');
   if (!piece.instagram_user_id) throw new Error('Conta do Instagram não configurada para este cliente');
+
+  // Resolve token: prefer per-client token if valid, fall back to agency token
+  let token: string | null = null;
+  if (piece.instagram_token && (!piece.instagram_token_expires || new Date(piece.instagram_token_expires) > new Date())) {
+    token = piece.instagram_token;
+  } else {
+    token = getAgencyToken(tenantId);
+  }
+  if (!token) throw new Error('Token não configurado. Conecte via OAuth ou configure o token da agência.');
 
   const igId = piece.instagram_user_id;
   const caption = piece.caption || piece.copy_text || piece.title || '';
@@ -389,8 +411,8 @@ router.post('/publish/:clientId/:contentId', async (req, res) => {
 
 // POST /meta/link-ig/:clientId/:contentId — link existing post by URL or numeric ID
 router.post('/link-ig/:clientId/:contentId', async (req, res) => {
-  const token = getAgencyToken(req.user.tenant_id);
-  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
+  const token = getTokenForClient(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado. Conecte via OAuth ou configure o token da agência.' });
 
   const client = db.prepare('SELECT instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?')
     .get(req.params.clientId, req.user.tenant_id) as any;
@@ -448,8 +470,8 @@ router.post('/link-ig/:clientId/:contentId', async (req, res) => {
 
 // Meta Ads insights for a client
 router.get('/ads/:clientId', async (req, res) => {
-  const token = getAgencyToken(req.user.tenant_id);
-  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
+  const token = getTokenForClient(req.user.tenant_id, req.params.clientId);
+  if (!token) return res.status(400).json({ error: 'Token não configurado. Conecte via OAuth ou configure o token da agência.' });
 
   const client = db.prepare('SELECT meta_ads_account_id FROM agency_clients WHERE id=? AND tenant_id=?')
     .get(req.params.clientId, req.user.tenant_id) as any;

@@ -320,6 +320,8 @@ export default function ClientDetail() {
   const [agencyTokenInput, setAgencyTokenInput] = useState('');
   const [agencyTokenSaving, setAgencyTokenSaving] = useState(false);
   const [agencyTokenResult, setAgencyTokenResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [igOAuthSuccess, setIgOAuthSuccess] = useState(false);
+  const [igOAuthError, setIgOAuthError] = useState<string | null>(null);
 
   // Modules (flywheel)
   const [modules, setModules] = useState({ posicionamento: false, marketing_conteudo: false, marketing_trafego: false, comercial: false });
@@ -479,9 +481,21 @@ export default function ClientDetail() {
   };
 
   useEffect(() => { load(); }, [cid]);
+
   useEffect(() => {
-    if (searchParams.get('meta_connected') === '1') {
+    const connected = searchParams.get('ig_connected') === '1' || searchParams.get('meta_connected') === '1';
+    const errMsg = searchParams.get('ig_error') || searchParams.get('meta_error');
+    if (connected || errMsg) {
       navigate(`/marketing/clients/${cid}`, { replace: true });
+      if (connected) {
+        setIgOAuthSuccess(true);
+        load(); // reload client data to reflect new token
+        setTimeout(() => setIgOAuthSuccess(false), 5000);
+      }
+      if (errMsg) {
+        setIgOAuthError(decodeURIComponent(errMsg));
+        setTimeout(() => setIgOAuthError(null), 8000);
+      }
     }
   }, [searchParams]);
   useEffect(() => { if (tab === 'operacao' && batches.length === 0 && !loadingBatches) loadOp(); }, [tab]);
@@ -1770,42 +1784,115 @@ export default function ClientDetail() {
                 </div>
                 <div className="flex items-center gap-2">
                   {igConnected && (
-                    <button onClick={disconnectInstagram}
-                      className="text-xs px-2.5 py-1 rounded-lg transition-all"
-                      style={{ color: '#f87171', background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.15)' }}>
-                      Desconectar
-                    </button>
+                    <>
+                      <button onClick={connectInstagram} disabled={igConnecting}
+                        className="text-xs px-2.5 py-1 rounded-lg transition-all flex items-center gap-1.5 disabled:opacity-50"
+                        style={{ color: '#a78bfa', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)' }}>
+                        {igConnecting ? <RotateCcw size={10} className="animate-spin" /> : <RotateCcw size={10} />}
+                        Reconectar
+                      </button>
+                      <button onClick={disconnectInstagram}
+                        className="text-xs px-2.5 py-1 rounded-lg transition-all"
+                        style={{ color: '#f87171', background: 'rgba(248,113,113,0.07)', border: '1px solid rgba(248,113,113,0.15)' }}>
+                        Desconectar
+                      </button>
+                    </>
                   )}
                 </div>
               </div>
 
-              <div>
-                <p style={fieldLabel}>ID da conta do Instagram</p>
-                <input
-                  value={igAccountId}
-                  onChange={e => setIgAccountId(e.target.value)}
-                  placeholder="ex: 17841400000000000"
-                  style={fieldInput}
-                />
-                <p className="text-xs mt-1.5" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                  Encontre em: Instagram → Configurações → Sobre a conta → ID da conta.
-                </p>
-              </div>
-
-              {igSaveResult && (
-                <p className={`text-xs flex items-center gap-1.5 ${igSaveResult.success ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {igSaveResult.success ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
-                  {igSaveResult.message}
-                </p>
+              {/* OAuth success / error toasts */}
+              {igOAuthSuccess && (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs"
+                  style={{ background: 'rgba(52,211,153,0.08)', border: '1px solid rgba(52,211,153,0.2)', color: '#34d399' }}>
+                  <CheckCircle2 size={13} /> Instagram conectado com sucesso via OAuth!
+                </div>
+              )}
+              {igOAuthError && (
+                <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs"
+                  style={{ background: 'rgba(248,113,113,0.08)', border: '1px solid rgba(248,113,113,0.2)', color: '#f87171' }}>
+                  <AlertCircle size={13} /> {igOAuthError}
+                </div>
               )}
 
-              <div className="flex justify-end pt-1">
-                <button onClick={saveIgIntegration} disabled={igSaving || !igAccountId.trim()}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
-                  style={{ color: '#ec4899', background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.2)' }}>
-                  <Save size={13} /> {igSaving ? 'Salvando…' : 'Salvar'}
-                </button>
-              </div>
+              {/* Connected state */}
+              {igConnected ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 size={14} style={{ color: '#34d399' }} />
+                    <span className="text-sm" style={{ color: '#34d399' }}>
+                      {client?.instagram_handle ? `@${client.instagram_handle}` : 'Conectado'}
+                    </span>
+                  </div>
+                  {(() => {
+                    const hasToken = !!client?.instagram_token;
+                    const expires = client?.instagram_token_expires ? new Date(client.instagram_token_expires) : null;
+                    const daysLeft = expires ? Math.ceil((expires.getTime() - Date.now()) / 86400000) : null;
+                    if (hasToken && daysLeft !== null) {
+                      const color = daysLeft <= 7 ? '#f87171' : daysLeft <= 14 ? '#fbbf24' : '#34d399';
+                      return (
+                        <p className="text-xs flex items-center gap-1.5" style={{ color }}>
+                          <CheckCircle2 size={11} />
+                          Token próprio · expira em {daysLeft > 0 ? `${daysLeft} dia${daysLeft !== 1 ? 's' : ''}` : 'hoje'}
+                        </p>
+                      );
+                    }
+                    if (!hasToken && client?.instagram_user_id) {
+                      return (
+                        <p className="text-xs flex items-center gap-1.5" style={{ color: '#fbbf24' }}>
+                          <AlertCircle size={11} />
+                          Conectado via ID · sem token OAuth
+                        </p>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              ) : (
+                /* Not connected — show OAuth button + manual fallback */
+                <div className="space-y-4">
+                  <button onClick={connectInstagram} disabled={igConnecting}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+                    style={{ color: '#fff', background: 'linear-gradient(135deg,rgba(59,130,246,0.25),rgba(37,99,235,0.3))', border: '1px solid rgba(59,130,246,0.35)' }}>
+                    {igConnecting ? <RotateCcw size={14} className="animate-spin" /> : <Instagram size={14} />}
+                    {igConnecting ? 'Redirecionando…' : 'Conectar com Facebook'}
+                  </button>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+                    <span className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>ou</span>
+                    <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.07)' }} />
+                  </div>
+
+                  <div>
+                    <p style={fieldLabel}>ID da conta do Instagram (manual)</p>
+                    <input
+                      value={igAccountId}
+                      onChange={e => setIgAccountId(e.target.value)}
+                      placeholder="ex: 17841400000000000"
+                      style={fieldInput}
+                    />
+                    <p className="text-xs mt-1.5" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                      Encontre em: Instagram → Configurações → Sobre a conta → ID da conta.
+                    </p>
+                  </div>
+
+                  {igSaveResult && (
+                    <p className={`text-xs flex items-center gap-1.5 ${igSaveResult.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {igSaveResult.success ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                      {igSaveResult.message}
+                    </p>
+                  )}
+
+                  <div className="flex justify-end pt-1">
+                    <button onClick={saveIgIntegration} disabled={igSaving || !igAccountId.trim()}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+                      style={{ color: '#ec4899', background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.2)' }}>
+                      <Save size={13} /> {igSaving ? 'Salvando…' : 'Salvar'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Meta Ads API */}

@@ -106,19 +106,15 @@ app.get('/api/meta/callback', async (req, res) => {
       } catch {}
     }
 
-    // Save token centrally in settings (agency-level)
-    const upsert = db.prepare('INSERT OR REPLACE INTO settings (tenant_id, key, value) VALUES (?, ?, ?)');
-    upsert.run(tenantId, 'meta_user_token', longToken);
-    upsert.run(tenantId, 'meta_user_token_expires', expiresAt);
+    // Save per-client token in agency_clients
+    db.prepare(
+      "UPDATE agency_clients SET instagram_token=?, instagram_user_id=COALESCE(?, instagram_user_id), instagram_token_expires=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?"
+    ).run(longToken, igUserId, expiresAt, clientId, tenantId);
 
-    // Also clear old per-client token if any (keep instagram_user_id untouched)
-    db.prepare("UPDATE agency_clients SET instagram_token=NULL WHERE id=? AND tenant_id=?")
-      .run(clientId, tenantId);
-
-    res.redirect(`/marketing/clients/${clientId}?meta_connected=1`);
+    res.redirect(`/marketing/clients/${clientId}?ig_connected=1`);
   } catch (err: any) {
     console.error('[meta/callback]', err.message);
-    res.redirect(`/marketing/clients/${clientId}?meta_error=${encodeURIComponent(err.message)}`);
+    res.redirect(`/marketing/clients/${clientId}?ig_error=${encodeURIComponent(err.message)}`);
   }
 });
 
