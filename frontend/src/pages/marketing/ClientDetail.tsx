@@ -7,7 +7,7 @@ import {
   FileImage, Megaphone, CheckSquare, Save, ExternalLink,
   Clock, CheckCircle2, AlertCircle, RotateCcw, Calendar, ChevronDown, ChevronLeft, ChevronRight, Send,
   List, CalendarDays, LayoutGrid,
-  Image, Video, MousePointerClick, Link, FileText
+  Image, Video, MousePointerClick, Link, FileText, PowerOff
 } from 'lucide-react';
 import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi, contentIdeasApi, metaApi } from '../../api/client';
 import PostDetailPanel from './PostDetailPanel';
@@ -788,14 +788,32 @@ export default function ClientDetail() {
             </div>
           </div>
         </div>
-        <button onClick={() => navigate(`/marketing/portal/${cid}`)}
-          className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
-          style={{ color: 'rgba(100,116,139,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f59e0b'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(245,158,11,0.2)'; }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}>
-          <Eye size={13} /> Ver como cliente
-          <ExternalLink size={11} />
-        </button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          {!client?.active && (
+            <span className="text-xs font-medium px-2.5 py-1 rounded-xl"
+              style={{ background: 'rgba(100,116,139,0.1)', color: 'rgba(100,116,139,0.7)', border: '1px solid rgba(100,116,139,0.2)' }}>
+              Inativo
+            </span>
+          )}
+          <button onClick={async () => {
+            if (!confirm(client?.active ? `Desativar ${client.name}? Ele sumirá dos menus de trabalho.` : `Reativar ${client?.name}?`)) return;
+            const r = await agencyClientsApi.toggleActive(cid);
+            setClient(r.data);
+          }}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+            style={{ color: client?.active ? 'rgba(239,68,68,0.6)' : 'rgba(52,211,153,0.7)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            title={client?.active ? 'Desativar cliente' : 'Reativar cliente'}>
+            <PowerOff size={12} /> {client?.active ? 'Desativar' : 'Reativar'}
+          </button>
+          <button onClick={() => navigate(`/marketing/portal/${cid}`)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+            style={{ color: 'rgba(100,116,139,0.6)', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = '#f59e0b'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(245,158,11,0.2)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = 'rgba(100,116,139,0.6)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.06)'; }}>
+            <Eye size={13} /> Ver como cliente
+            <ExternalLink size={11} />
+          </button>
+        </div>
       </div>
 
       {/* Tabs */}

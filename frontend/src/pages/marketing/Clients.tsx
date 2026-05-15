@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Trash2, X, Briefcase, Instagram, Clock, Eye, Camera } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Briefcase, Instagram, Clock, Eye, Camera, PowerOff } from 'lucide-react';
 import { agencyClientsApi, uploadAnyApi } from '../../api/client';
 import { AgencyClient } from '../../types';
 import { useAuth } from '../../context/AuthContext';
@@ -23,6 +23,7 @@ export default function MarketingClients() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [segmentFilter, setSegmentFilter] = useState('todos');
   const [squadFilter, setSquadFilter] = useState('todos');
+  const [showInactive, setShowInactive] = useState(false);
 
   const load = () => { setLoading(true); agencyClientsApi.list().then(r => { setClients(r.data); setLoading(false); }); };
   useEffect(() => { load(); }, []);
@@ -67,12 +68,26 @@ export default function MarketingClients() {
             Clientes
           </h1>
           <p className="text-sm mt-1" style={{ color: 'rgba(100,116,139,0.7)' }}>
-            {clients.filter(c => c.active).length} clientes ativos
+            {clients.filter(c => c.active).length} ativos
+            {clients.filter(c => !c.active).length > 0 && (
+              <span style={{ color: 'rgba(100,116,139,0.4)' }}> · {clients.filter(c => !c.active).length} inativos</span>
+            )}
           </p>
         </div>
-        {canEdit && (
-          <button onClick={openCreate} className="btn-primary"><Plus size={15} /> Novo Cliente</button>
-        )}
+        <div className="flex items-center gap-2">
+          {clients.some(c => !c.active) && (
+            <button onClick={() => setShowInactive(v => !v)}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+              style={showInactive
+                ? { background: 'rgba(100,116,139,0.15)', color: 'rgba(148,163,184,0.8)', border: '1px solid rgba(100,116,139,0.25)' }
+                : { background: 'transparent', color: 'rgba(100,116,139,0.45)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <PowerOff size={12} /> {showInactive ? 'Ocultar inativos' : 'Ver inativos'}
+            </button>
+          )}
+          {canEdit && (
+            <button onClick={openCreate} className="btn-primary"><Plus size={15} /> Novo Cliente</button>
+          )}
+        </div>
       </div>
 
       {!loading && clients.length > 0 && (() => {
@@ -136,10 +151,14 @@ export default function MarketingClients() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {clients.filter(c => (segmentFilter === 'todos' || c.segment === segmentFilter) && (squadFilter === 'todos' || c.squad === squadFilter)).map(c => (
+          {clients.filter(c =>
+            (showInactive ? true : !!c.active) &&
+            (segmentFilter === 'todos' || c.segment === segmentFilter) &&
+            (squadFilter === 'todos' || c.squad === squadFilter)
+          ).map(c => (
             <div key={c.id} onClick={() => navigate(`/marketing/clients/${c.id}`)}
               className="card p-5 cursor-pointer group transition-all duration-200 hover:border-blue-500/20"
-              style={{ borderColor: c.active ? 'rgba(59,130,246,0.1)' : 'rgba(100,116,139,0.06)' }}>
+              style={{ borderColor: c.active ? 'rgba(59,130,246,0.1)' : 'rgba(100,116,139,0.06)', opacity: c.active ? 1 : 0.55 }}>
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
                   {c.logo ? (
@@ -151,12 +170,27 @@ export default function MarketingClients() {
                     </div>
                   )}
                   <div>
-                    <p className="text-sm font-semibold text-white">{c.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-semibold text-white">{c.name}</p>
+                      {!c.active && (
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full"
+                          style={{ background: 'rgba(100,116,139,0.12)', color: 'rgba(100,116,139,0.6)', border: '1px solid rgba(100,116,139,0.2)' }}>
+                          Inativo
+                        </span>
+                      )}
+                    </div>
                     {c.segment && <p className="text-xs" style={{ color: 'rgba(100,116,139,0.55)' }}>{c.segment}</p>}
                   </div>
                 </div>
                 {(
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                    <button onClick={async (e) => { e.stopPropagation(); await agencyClientsApi.toggleActive(c.id); load(); }}
+                      className="p-1.5 rounded-lg transition-all" title={c.active ? 'Desativar cliente' : 'Reativar cliente'}
+                      style={{ color: c.active ? 'rgba(100,116,139,0.5)' : 'rgba(52,211,153,0.6)' }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.color = c.active ? '#f87171' : '#34d399'; (e.currentTarget as HTMLElement).style.background = c.active ? 'rgba(239,68,68,0.1)' : 'rgba(52,211,153,0.1)'; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.color = c.active ? 'rgba(100,116,139,0.5)' : 'rgba(52,211,153,0.6)'; (e.currentTarget as HTMLElement).style.background = 'transparent'; }}>
+                      <PowerOff size={13} />
+                    </button>
                     <button onClick={() => navigate(`/marketing/portal/${c.id}`)}
                       className="p-1.5 rounded-lg transition-all" title="Visualizar como cliente"
                       style={{ color: 'rgba(100,116,139,0.5)' }}

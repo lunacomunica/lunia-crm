@@ -30,6 +30,7 @@ router.get('/production', (req, res) => {
 });
 
 router.get('/', (req, res) => {
+  const activeOnly = req.query.active_only === '1';
   const clients = db.prepare(`
     SELECT ac.*,
       COUNT(cp.id) as content_count,
@@ -38,7 +39,7 @@ router.get('/', (req, res) => {
       (SELECT COUNT(*) FROM content_pieces WHERE batch_id = (SELECT id FROM feed_batches WHERE agency_client_id = ac.id AND tenant_id = ac.tenant_id ORDER BY year DESC, month DESC LIMIT 1)) as current_feed_posts
     FROM agency_clients ac
     LEFT JOIN content_pieces cp ON cp.agency_client_id = ac.id
-    WHERE ac.tenant_id = ?
+    WHERE ac.tenant_id = ? ${activeOnly ? 'AND ac.active = 1' : ''}
     GROUP BY ac.id ORDER BY ac.name
   `).all(req.user.tenant_id);
   res.json(clients);
@@ -80,6 +81,15 @@ router.put('/:id', (req, res) => {
     req.params.id, req.user.tenant_id
   );
   res.json(db.prepare('SELECT * FROM agency_clients WHERE id = ?').get(req.params.id));
+});
+
+router.patch('/:id/active', (req, res) => {
+  if (req.user.role === 'team') return res.status(403).json({ error: 'Sem permissão' });
+  const existing = db.prepare('SELECT * FROM agency_clients WHERE id=? AND tenant_id=?').get(req.params.id, req.user.tenant_id) as any;
+  if (!existing) return res.status(404).json({ error: 'Cliente não encontrado' });
+  const newActive = existing.active ? 0 : 1;
+  db.prepare("UPDATE agency_clients SET active=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?").run(newActive, req.params.id, req.user.tenant_id);
+  res.json(db.prepare('SELECT * FROM agency_clients WHERE id=?').get(req.params.id));
 });
 
 router.patch('/:id/integration', (req, res) => {

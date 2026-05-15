@@ -20,7 +20,7 @@ export default function MarketingCalendar() {
 
   useEffect(() => {
     contentApi.list().then(r => setPieces(r.data));
-    agencyClientsApi.list().then(r => setClients(r.data));
+    agencyClientsApi.list(true).then(r => setClients(r.data));
   }, []);
 
   const days = eachDayOfInterval({ start: startOfMonth(current), end: endOfMonth(current) });

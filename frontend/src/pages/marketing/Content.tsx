@@ -127,7 +127,7 @@ export default function MarketingContent() {
   const prevMonth = () => setNavMonth(m => m.month === 1 ? { month: 12, year: m.year - 1 } : { month: m.month - 1, year: m.year });
   const nextMonth = () => setNavMonth(m => m.month === 12 ? { month: 1, year: m.year + 1 } : { month: m.month + 1, year: m.year });
 
-  useEffect(() => { agencyClientsApi.list().then(r => setClients(r.data)); }, []);
+  useEffect(() => { agencyClientsApi.list(true).then(r => setClients(r.data)); }, []);
 
   useEffect(() => {
     if (filterClient === 'all') { setBatches([]); setPosts([]); return; }

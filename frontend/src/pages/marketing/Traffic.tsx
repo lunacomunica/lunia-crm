@@ -205,7 +205,7 @@ export default function Traffic() {
     campaignsApi.list(p).then(r => { setCampaigns(r.data); setLoading(false); });
   };
   useEffect(() => { load(); }, [filterClient, filterStatus, filterPlatform]);
-  useEffect(() => { agencyClientsApi.list().then(r => setClients(r.data)); }, []);
+  useEffect(() => { agencyClientsApi.list(true).then(r => setClients(r.data)); }, []);
 
   useEffect(() => {
     if (creativeModal && detail?.platform === 'instagram_boost' && detail?.agency_client_id) {

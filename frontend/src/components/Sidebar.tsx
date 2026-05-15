@@ -48,7 +48,7 @@ function ClientSwitcher({ showAgency, managerMode }: { showAgency: boolean; mana
     if (managerMode) {
       usersApi.getMyClients().then(r => setClients(r.data));
     } else {
-      agencyClientsApi.list().then(r =>
+      agencyClientsApi.list(true).then(r =>
         setClients(r.data.filter((c: any) => c.active && (showAgency || !c.is_agency)))
       );
     }
