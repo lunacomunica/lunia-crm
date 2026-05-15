@@ -1,38 +1,49 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, MessageSquare,
-  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid, Eye, ChevronDown, BarChart2, CheckCircle2, AlertTriangle, ArrowRight, Menu
+  TrendingUp, Settings, LogOut, Package, Briefcase, FileImage, Bell, Megaphone, Building2, CheckSquare, X, LayoutGrid, Eye, ChevronDown, BarChart2, CheckCircle2, AlertTriangle, ArrowRight, Menu, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, createContext, useContext } from 'react';
 import { notificationsApi, agencyClientsApi, usersApi } from '../api/client';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+const CollapsedCtx = createContext(false);
+
 function NavItem({ path, label, icon: Icon, exact }: { path: string; label: string; icon: any; exact?: boolean }) {
   const { pathname } = useLocation();
+  const collapsed = useContext(CollapsedCtx);
   const active = exact ? pathname === path : pathname.startsWith(path);
   return (
-    <Link to={path}
-      className="flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative"
-      style={active
-        ? { background: 'linear-gradient(90deg, rgba(59,130,246,0.13) 0%, rgba(59,130,246,0.04) 100%)', borderLeft: '2px solid #3b82f6', boxShadow: 'inset 0 0 20px rgba(59,130,246,0.04)' }
-        : { borderLeft: '2px solid transparent' }}>
+    <Link to={path} title={collapsed ? label : undefined}
+      className="flex items-center gap-3 rounded-xl transition-all duration-200 group relative"
+      style={{
+        padding: collapsed ? '10px 0' : '10px 12px',
+        justifyContent: collapsed ? 'center' : undefined,
+        background: active ? 'linear-gradient(90deg, rgba(59,130,246,0.13) 0%, rgba(59,130,246,0.04) 100%)' : undefined,
+        borderLeft: collapsed ? 'none' : (active ? '2px solid #3b82f6' : '2px solid transparent'),
+        boxShadow: active ? 'inset 0 0 20px rgba(59,130,246,0.04)' : undefined,
+      }}>
       <Icon size={16} className="flex-shrink-0 transition-all duration-200"
         style={active ? { color: '#60a5fa', filter: 'drop-shadow(0 0 6px rgba(59,130,246,0.7))' } : { color: 'rgba(100,116,139,0.7)' }} />
-      <span className="text-sm font-medium transition-colors duration-200"
-        style={{ color: active ? '#e2e8f0' : 'rgba(100,116,139,0.8)' }}>
-        {label}
-      </span>
-      {active && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#3b82f6', boxShadow: '0 0 6px rgba(59,130,246,0.9)' }} />}
+      {!collapsed && (
+        <span className="text-sm font-medium transition-colors duration-200"
+          style={{ color: active ? '#e2e8f0' : 'rgba(100,116,139,0.8)' }}>
+          {label}
+        </span>
+      )}
+      {!collapsed && active && <div className="ml-auto w-1.5 h-1.5 rounded-full" style={{ background: '#3b82f6', boxShadow: '0 0 6px rgba(59,130,246,0.9)' }} />}
     </Link>
   );
 }
 
 function NavSection({ label, children }: { label: string; children: React.ReactNode }) {
+  const collapsed = useContext(CollapsedCtx);
   return (
     <div>
-      <p className="section-label px-3 mb-2">{label}</p>
+      {!collapsed && <p className="section-label px-3 mb-2">{label}</p>}
+      {collapsed && <div className="my-2 mx-2 h-px" style={{ background: 'rgba(59,130,246,0.08)' }} />}
       <div className="space-y-0.5">{children}</div>
     </div>
   );
@@ -43,6 +54,7 @@ function ClientSwitcher({ showAgency, managerMode }: { showAgency: boolean; mana
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const collapsed = useContext(CollapsedCtx);
 
   useEffect(() => {
     if (managerMode) {
@@ -62,10 +74,43 @@ function ClientSwitcher({ showAgency, managerMode }: { showAgency: boolean; mana
 
   if (clients.length === 0) return null;
 
+  if (collapsed) {
+    return (
+      <div ref={ref} className="relative flex justify-center">
+        <button onClick={() => setOpen(o => !o)} title="Ver como cliente"
+          className="p-2.5 rounded-xl transition-all"
+          style={{ color: '#60a5fa', background: open ? 'rgba(59,130,246,0.1)' : 'transparent' }}>
+          <Eye size={16} />
+        </button>
+        {open && (
+          <div className="absolute left-full top-0 ml-2 w-48 rounded-xl overflow-hidden z-50"
+            style={{ background: '#070718', border: '1px solid rgba(59,130,246,0.12)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
+            {clients.map(c => (
+              <button key={c.id} onClick={() => { setOpen(false); navigate(`/marketing/portal/${c.slug || c.id}`); }}
+                className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.07)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}>
+                {c.logo ? (
+                  <img src={c.logo} alt={c.name} className="w-5 h-5 rounded-full object-cover flex-shrink-0" />
+                ) : (
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+                    style={{ background: 'linear-gradient(135deg,#6366f1,#8b5cf6)' }}>
+                    {c.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <span className="text-xs truncate" style={{ color: 'rgba(226,232,240,0.8)' }}>{c.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div ref={ref} className="relative">
-      <button
-        onClick={() => setOpen(o => !o)}
+      <button onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200"
         style={{ background: open ? 'rgba(59,130,246,0.08)' : 'rgba(255,255,255,0.03)', border: '1px solid rgba(59,130,246,0.12)' }}
         onMouseEnter={e => { if (!open) (e.currentTarget as HTMLElement).style.background = 'rgba(59,130,246,0.06)'; }}
@@ -76,14 +121,11 @@ function ClientSwitcher({ showAgency, managerMode }: { showAgency: boolean; mana
         </div>
         <ChevronDown size={12} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} style={{ color: 'rgba(100,116,139,0.5)' }} />
       </button>
-
       {open && (
         <div className="mt-1 rounded-xl overflow-hidden"
           style={{ background: '#070718', border: '1px solid rgba(59,130,246,0.12)', boxShadow: '0 8px 24px rgba(0,0,0,0.5)' }}>
           {clients.map(c => (
-            <button
-              key={c.id}
-              onClick={() => { setOpen(false); navigate(`/marketing/portal/${c.id}`); }}
+            <button key={c.id} onClick={() => { setOpen(false); navigate(`/marketing/portal/${c.slug || c.id}`); }}
               className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left transition-colors"
               style={{ borderBottom: '1px solid rgba(255,255,255,0.03)' }}
               onMouseEnter={e => (e.currentTarget.style.background = 'rgba(59,130,246,0.07)')}
@@ -136,7 +178,6 @@ function NotificationBell() {
   const navigate = useNavigate();
 
   const load = () => notificationsApi.list().then(r => { setUnread(r.data.unread); setNotifications(r.data.notifications); });
-
   useEffect(() => { load(); const t = setInterval(load, 30000); return () => clearInterval(t); }, []);
   useEffect(() => {
     const h = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
@@ -162,12 +203,9 @@ function NotificationBell() {
             style={{ background: '#f59e0b' }}>{unread > 9 ? '9+' : unread}</span>
         )}
       </button>
-
       {open && (
         <div className="absolute bottom-full left-0 mb-2 w-80 rounded-2xl overflow-hidden"
           style={{ background: '#0d0d1f', border: '1px solid rgba(59,130,246,0.15)', boxShadow: '0 -8px 40px rgba(0,0,0,0.7)', zIndex: 9999 }}>
-
-          {/* Header */}
           <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(59,130,246,0.08)' }}>
             <div className="flex items-center gap-2">
               <Bell size={13} style={{ color: 'rgba(100,116,139,0.5)' }} />
@@ -185,8 +223,6 @@ function NotificationBell() {
               </button>
             )}
           </div>
-
-          {/* List */}
           <div className="max-h-80 overflow-y-auto">
             {notifications.length === 0 ? (
               <div className="px-4 py-8 text-center">
@@ -199,22 +235,15 @@ function NotificationBell() {
               const Icon = cfg?.icon;
               const dest = cfg?.dest(meta);
               return (
-                <button key={n.id}
-                  onClick={() => { setOpen(false); if (dest) navigate(dest); }}
+                <button key={n.id} onClick={() => { setOpen(false); if (dest) navigate(dest); }}
                   className="w-full flex items-start gap-3 px-4 py-3.5 text-left group transition-colors"
                   style={{ background: n.read ? 'transparent' : 'rgba(59,130,246,0.04)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}
                   onMouseEnter={e => (e.currentTarget.style.background = 'rgba(255,255,255,0.04)')}
                   onMouseLeave={e => (e.currentTarget.style.background = n.read ? 'transparent' : 'rgba(59,130,246,0.04)')}>
-
-                  {/* Icon */}
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
                     style={{ background: cfg?.bg || 'rgba(96,165,250,0.1)' }}>
-                    {Icon
-                      ? <Icon size={14} style={{ color: cfg.color }} />
-                      : <Bell size={14} style={{ color: '#60a5fa' }} />}
+                    {Icon ? <Icon size={14} style={{ color: cfg.color }} /> : <Bell size={14} style={{ color: '#60a5fa' }} />}
                   </div>
-
-                  {/* Content */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 mb-0.5">
                       {!n.read && <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg?.color || '#60a5fa' }} />}
@@ -226,10 +255,8 @@ function NotificationBell() {
                     </p>
                     <div className="flex items-center justify-between mt-1">
                       <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.4)' }}>{timeAgo(n.created_at)}</p>
-                      <span className="text-[10px] flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                        style={{ color: cfg?.color || '#60a5fa' }}>
-                        {'Abrir post →'}
-                        <ArrowRight size={9} />
+                      <span className="text-[10px] flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: cfg?.color || '#60a5fa' }}>
+                        {'Abrir post →'}<ArrowRight size={9} />
                       </span>
                     </div>
                   </div>
@@ -237,14 +264,10 @@ function NotificationBell() {
               );
             })}
           </div>
-
-          {/* Footer */}
           {notifications.length > 0 && (
             <div className="px-4 py-2.5 flex justify-center" style={{ borderTop: '1px solid rgba(59,130,246,0.08)' }}>
-              <button
-                onClick={() => notificationsApi.clearAll().then(() => { setNotifications([]); setUnread(0); })}
-                className="text-[11px] transition-colors"
-                style={{ color: 'rgba(100,116,139,0.4)' }}
+              <button onClick={() => notificationsApi.clearAll().then(() => { setNotifications([]); setUnread(0); })}
+                className="text-[11px] transition-colors" style={{ color: 'rgba(100,116,139,0.4)' }}
                 onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
                 onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.4)')}>
                 Limpar tudo
@@ -320,155 +343,213 @@ export function BottomNav({ onMore }: { onMore: () => void }) {
   );
 }
 
-export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
+export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }: {
+  open?: boolean;
+  onClose?: () => void;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+}) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const isOwner = user?.role === 'owner';
   const isManager = user?.role === 'manager';
   const isTeam = user?.role === 'team';
+  const isCollapsed = !!collapsed;
 
   useEffect(() => { onClose?.(); }, [pathname]);
 
   return (
-    <aside className={`w-64 flex flex-col h-screen fixed left-0 top-0 z-40 transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
-      style={{ background: 'linear-gradient(180deg, #030314 0%, #04041a 100%)', borderRight: '1px solid rgba(59,130,246,0.08)', boxShadow: '4px 0 40px rgba(0,0,0,0.6)' }}>
+    <CollapsedCtx.Provider value={isCollapsed}>
+      <aside
+        className={`flex flex-col h-screen fixed left-0 top-0 z-40 transition-all duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}
+        style={{
+          width: isCollapsed ? 64 : 256,
+          background: 'linear-gradient(180deg, #030314 0%, #04041a 100%)',
+          borderRight: '1px solid rgba(59,130,246,0.08)',
+          boxShadow: '4px 0 40px rgba(0,0,0,0.6)',
+        }}>
 
-      {/* Logo */}
-      <div className="px-5 py-6 flex items-center justify-between" style={{ borderBottom: '1px solid rgba(59,130,246,0.07)' }}>
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="lun.ia" className="w-9 h-9 rounded-full flex-shrink-0 object-cover"
-            style={{ boxShadow: '0 0 18px rgba(59,130,246,0.55)' }} />
-          <div>
-            <p className="font-bold text-xl tracking-tight leading-none text-white"
-              style={{ textShadow: '0 0 20px rgba(59,130,246,0.4)' }}>lun.ia</p>
-            <p className="text-[10px] mt-0.5" style={{ color: 'rgba(59,130,246,0.45)' }}>ERP by @lunacomunica</p>
-          </div>
-        </div>
-        <button onClick={onClose} className="md:hidden p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.5)' }}>
-          <X size={16} />
-        </button>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 px-3 py-4 overflow-y-auto space-y-4">
-
-        {/* OWNER */}
-        {isOwner && (
-          <>
-            <NavSection label="Plataforma">
-              <NavItem path="/admin/tenants" label="Workspaces" icon={Building2} />
-            </NavSection>
-
-            <NavSection label="Agência">
-              <NavItem path="/agency" label="Visão Geral" icon={LayoutDashboard} exact />
-              <NavItem path="/agency/team" label="Equipe" icon={Users} />
-              <NavItem path="/agency/performance" label="Performance" icon={BarChart2} />
-            </NavSection>
-
-            <NavSection label="Negócio">
-              <NavItem path="/dashboard" label="Dashboard" icon={LayoutDashboard} />
-              <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
-              <NavItem path="/products" label="Produtos" icon={Package} />
-            </NavSection>
-
-            <NavSection label="Comercial">
-              <NavItem path="/contacts" label="Contatos" icon={Users} />
-              <NavItem path="/conversations" label="Conversas" icon={MessageSquare} />
-              <NavItem path="/funnel" label="Funil de Vendas" icon={TrendingUp} />
-            </NavSection>
-
-            <NavSection label="Marketing">
-              <NavItem path="/marketing/production" label="Produção" icon={LayoutGrid} />
-              <NavItem path="/marketing/clients" label="Clientes" icon={Briefcase} />
-              <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
-              <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
-            </NavSection>
-
-            <NavSection label="Modo Cliente">
-              <ClientSwitcher showAgency={true} />
-            </NavSection>
-          </>
-        )}
-
-        {/* MANAGER */}
-        {isManager && (
-          <>
-            <NavSection label="Equipe">
-              <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
-            </NavSection>
-
-            <NavSection label="Marketing">
-              <NavItem path="/marketing/production" label="Produção" icon={LayoutGrid} />
-              <NavItem path="/marketing/clients" label="Clientes" icon={Briefcase} />
-              <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
-              <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
-            </NavSection>
-
-            <NavSection label="Modo Cliente">
-              <ClientSwitcher showAgency={false} managerMode />
-            </NavSection>
-          </>
-        )}
-
-        {/* TEAM */}
-        {isTeam && (
-          <>
-            <NavSection label="Meu Espaço">
-              <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
-            </NavSection>
-
-            <NavSection label="Operação">
-              <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
-              <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
-            </NavSection>
-          </>
-        )}
-      </nav>
-
-      {/* User footer */}
-      <div className="p-3" style={{ borderTop: '1px solid rgba(59,130,246,0.07)' }}>
-        {user && (
-          <div className="rounded-xl px-3 py-2.5 flex items-center justify-between"
-            style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
-            <div className="flex items-center gap-2.5 min-w-0">
-              {user.avatar ? (
-                <img src={user.avatar} alt={user.name} className="w-7 h-7 rounded-full object-cover flex-shrink-0"
-                  style={{ border: '1px solid rgba(59,130,246,0.3)' }} />
-              ) : (
-                <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
-                  style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
-                  {user.name.charAt(0).toUpperCase()}
+        {/* Logo */}
+        <div className="flex items-center justify-between py-5 px-3" style={{ borderBottom: '1px solid rgba(59,130,246,0.07)', minHeight: 72 }}>
+          {!isCollapsed ? (
+            <>
+              <div className="flex items-center gap-3">
+                <img src="/logo.png" alt="lun.ia" className="w-9 h-9 rounded-full flex-shrink-0 object-cover"
+                  style={{ boxShadow: '0 0 18px rgba(59,130,246,0.55)' }} />
+                <div>
+                  <p className="font-bold text-xl tracking-tight leading-none text-white"
+                    style={{ textShadow: '0 0 20px rgba(59,130,246,0.4)' }}>lun.ia</p>
+                  <p className="text-[10px] mt-0.5" style={{ color: 'rgba(59,130,246,0.45)' }}>ERP by @lunacomunica</p>
                 </div>
-              )}
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-white truncate">{user.name}</p>
-                <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>
-                  {(user as any).job_title || ROLE_LABEL[user.role] || user.tenant}
-                </p>
               </div>
-            </div>
-            <div className="flex items-center gap-0.5 flex-shrink-0">
-              <NotificationBell />
-              {(isOwner || isManager || isTeam) && (
-                <button onClick={() => navigate('/settings')} title="Configurações"
-                  className="p-1.5 rounded-lg transition-colors"
-                  style={{ color: 'rgba(100,116,139,0.5)' }}
-                  onMouseEnter={e => (e.currentTarget.style.color = '#e2e8f0')}
-                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
-                  <Settings size={13} />
+              <div className="flex items-center gap-1">
+                <button onClick={onToggleCollapse} title="Recolher menu"
+                  className="p-1.5 rounded-lg transition-colors hidden md:flex"
+                  style={{ color: 'rgba(148,163,184,0.7)', background: 'rgba(59,130,246,0.06)', border: '1px solid rgba(59,130,246,0.1)' }}
+                  onMouseEnter={e => { (e.currentTarget.style.color = 'white'); (e.currentTarget.style.background = 'rgba(59,130,246,0.15)'); }}
+                  onMouseLeave={e => { (e.currentTarget.style.color = 'rgba(148,163,184,0.7)'); (e.currentTarget.style.background = 'rgba(59,130,246,0.06)'); }}>
+                  <ChevronLeft size={15} />
                 </button>
-              )}
-              <button onClick={logout} title="Sair" className="p-1.5 rounded-lg transition-colors"
-                style={{ color: 'rgba(100,116,139,0.5)' }}
-                onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
-                <LogOut size={13} />
+                <button onClick={onClose} className="md:hidden p-1.5 rounded-lg" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  <X size={16} />
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="w-full flex flex-col items-center gap-2">
+              <img src="/logo.png" alt="lun.ia" className="w-8 h-8 rounded-full object-cover"
+                style={{ boxShadow: '0 0 14px rgba(59,130,246,0.55)' }} />
+              <button onClick={onToggleCollapse} title="Expandir menu"
+                className="p-1 rounded-lg transition-colors"
+                style={{ color: 'rgba(100,116,139,0.4)' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'white')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.4)')}>
+                <ChevronRight size={14} />
               </button>
             </div>
-          </div>
-        )}
-      </div>
-    </aside>
+          )}
+        </div>
+
+        {/* Nav */}
+        <nav className={`flex-1 py-4 overflow-y-auto space-y-4 ${isCollapsed ? 'px-1' : 'px-3'}`}>
+
+          {isOwner && (
+            <>
+              <NavSection label="Plataforma">
+                <NavItem path="/admin/tenants" label="Workspaces" icon={Building2} />
+              </NavSection>
+              <NavSection label="Agência">
+                <NavItem path="/agency" label="Visão Geral" icon={LayoutDashboard} exact />
+                <NavItem path="/agency/team" label="Equipe" icon={Users} />
+                <NavItem path="/agency/performance" label="Performance" icon={BarChart2} />
+              </NavSection>
+              <NavSection label="Negócio">
+                <NavItem path="/dashboard" label="Dashboard" icon={LayoutDashboard} />
+                <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
+                <NavItem path="/products" label="Produtos" icon={Package} />
+              </NavSection>
+              <NavSection label="Comercial">
+                <NavItem path="/contacts" label="Contatos" icon={Users} />
+                <NavItem path="/conversations" label="Conversas" icon={MessageSquare} />
+                <NavItem path="/funnel" label="Funil de Vendas" icon={TrendingUp} />
+              </NavSection>
+              <NavSection label="Marketing">
+                <NavItem path="/marketing/production" label="Produção" icon={LayoutGrid} />
+                <NavItem path="/marketing/clients" label="Clientes" icon={Briefcase} />
+                <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
+                <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
+              </NavSection>
+              <NavSection label="Modo Cliente">
+                <ClientSwitcher showAgency={true} />
+              </NavSection>
+            </>
+          )}
+
+          {isManager && (
+            <>
+              <NavSection label="Equipe">
+                <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
+              </NavSection>
+              <NavSection label="Marketing">
+                <NavItem path="/marketing/production" label="Produção" icon={LayoutGrid} />
+                <NavItem path="/marketing/clients" label="Clientes" icon={Briefcase} />
+                <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
+                <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
+              </NavSection>
+              <NavSection label="Modo Cliente">
+                <ClientSwitcher showAgency={false} managerMode />
+              </NavSection>
+            </>
+          )}
+
+          {isTeam && (
+            <>
+              <NavSection label="Meu Espaço">
+                <NavItem path="/gerot" label="Gerot" icon={CheckSquare} />
+              </NavSection>
+              <NavSection label="Operação">
+                <NavItem path="/marketing/content" label="Conteúdos" icon={FileImage} />
+                <NavItem path="/marketing/traffic" label="Tráfego Pago" icon={Megaphone} />
+              </NavSection>
+            </>
+          )}
+        </nav>
+
+        {/* User footer */}
+        <div className={`p-3 ${isCollapsed ? 'px-1' : ''}`} style={{ borderTop: '1px solid rgba(59,130,246,0.07)' }}>
+          {user && (
+            isCollapsed ? (
+              <div className="flex flex-col items-center gap-2 py-1">
+                {user.avatar ? (
+                  <img src={user.avatar} alt={user.name} className="w-8 h-8 rounded-full object-cover"
+                    style={{ border: '1px solid rgba(59,130,246,0.3)' }} />
+                ) : (
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                    style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                    {user.name.charAt(0).toUpperCase()}
+                  </div>
+                )}
+                <NotificationBell />
+                {(isOwner || isManager || isTeam) && (
+                  <button onClick={() => navigate('/settings')} title="Configurações"
+                    className="p-1.5 rounded-lg transition-colors"
+                    style={{ color: 'rgba(100,116,139,0.5)' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#e2e8f0')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                    <Settings size={13} />
+                  </button>
+                )}
+                <button onClick={logout} title="Sair" className="p-1.5 rounded-lg transition-colors"
+                  style={{ color: 'rgba(100,116,139,0.5)' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                  <LogOut size={13} />
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-xl px-3 py-2.5 flex items-center justify-between"
+                style={{ background: 'rgba(59,130,246,0.04)', border: '1px solid rgba(59,130,246,0.1)' }}>
+                <div className="flex items-center gap-2.5 min-w-0">
+                  {user.avatar ? (
+                    <img src={user.avatar} alt={user.name} className="w-7 h-7 rounded-full object-cover flex-shrink-0"
+                      style={{ border: '1px solid rgba(59,130,246,0.3)' }} />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0"
+                      style={{ background: 'linear-gradient(135deg,#3b82f6,#6366f1)' }}>
+                      {user.name.charAt(0).toUpperCase()}
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium text-white truncate">{user.name}</p>
+                    <p className="text-[10px] truncate" style={{ color: 'rgba(100,116,139,0.6)' }}>
+                      {(user as any).job_title || ROLE_LABEL[user.role] || user.tenant}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <NotificationBell />
+                  {(isOwner || isManager || isTeam) && (
+                    <button onClick={() => navigate('/settings')} title="Configurações"
+                      className="p-1.5 rounded-lg transition-colors"
+                      style={{ color: 'rgba(100,116,139,0.5)' }}
+                      onMouseEnter={e => (e.currentTarget.style.color = '#e2e8f0')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                      <Settings size={13} />
+                    </button>
+                  )}
+                  <button onClick={logout} title="Sair" className="p-1.5 rounded-lg transition-colors"
+                    style={{ color: 'rgba(100,116,139,0.5)' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                    <LogOut size={13} />
+                  </button>
+                </div>
+              </div>
+            )
+          )}
+        </div>
+      </aside>
+    </CollapsedCtx.Provider>
   );
 }
