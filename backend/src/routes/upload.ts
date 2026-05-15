@@ -25,8 +25,8 @@ const mediaFilter = (_req: any, file: Express.Multer.File, cb: multer.FileFilter
 
 const anyFilter = (_req: any, _file: Express.Multer.File, cb: multer.FileFilterCallback) => cb(null, true);
 
-const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 }, fileFilter: mediaFilter });
-const uploadAny = multer({ storage, limits: { fileSize: 50 * 1024 * 1024 }, fileFilter: anyFilter });
+const upload = multer({ storage, limits: { fileSize: 500 * 1024 * 1024 }, fileFilter: mediaFilter });
+const uploadAny = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 }, fileFilter: anyFilter });
 
 router.post('/', upload.array('files', 20), (req, res) => {
   const files = (req.files as Express.Multer.File[]) || [];

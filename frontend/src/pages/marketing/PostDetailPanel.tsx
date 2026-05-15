@@ -631,7 +631,21 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                       label="Subir vídeo do Reels" icon={Video} uploading={uploading === 'video'} progress={uploading === 'video' ? uploadProgress : 0}
                       onFiles={files => uploadFiles(files, 'video')} />
                   )}
-                  {!reelsCover && (
+                  {reelsCover ? (
+                    <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                      <img src={reelsCover.url} alt="capa" className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs text-white truncate">{reelsCover.name}</p>
+                        <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>Capa do Reels</p>
+                      </div>
+                      <button onClick={removeCoverForReels} className="p-1.5 rounded-lg transition-colors flex-shrink-0"
+                        style={{ color: 'rgba(100,116,139,0.5)' }}
+                        onMouseEnter={e => (e.currentTarget.style.color = '#f87171')}
+                        onMouseLeave={e => (e.currentTarget.style.color = 'rgba(100,116,139,0.5)')}>
+                        <X size={13} />
+                      </button>
+                    </div>
+                  ) : (
                     <DropZone accept="image/jpeg,image/png,image/webp" multiple={false}
                       label="Capa do Reels (opcional)" icon={ImageIcon} uploading={uploading === 'cover'} progress={uploading === 'cover' ? uploadProgress : 0}
                       onFiles={files => uploadFiles(files, 'cover')} />
