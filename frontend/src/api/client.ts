@@ -63,6 +63,7 @@ export const metaApi = {
   saveAgencyToken: (token: string) => api.post('/meta/agency-token', { token }),
   exchangeToken: (token: string) => api.post('/meta/agency-token/exchange', { token }),
   getIgAccounts: () => api.get('/meta/ig-accounts'),
+  searchIgAccount: (username: string) => api.get(`/meta/ig-search?username=${encodeURIComponent(username)}`),
   publish: (clientId: number, contentId: number) => api.post(`/meta/publish/${clientId}/${contentId}`),
   linkIg: (clientId: number, contentId: number, value: string) => api.post(`/meta/link-ig/${clientId}/${contentId}`, { value }),
   getIgStatus: (clientId: number) => api.get(`/meta/instagram-status/${clientId}`),

@@ -123,6 +123,43 @@ router.get('/ig-accounts', async (req, res) => {
   }
 });
 
+// Search Instagram Business account by username (business_discovery)
+router.get('/ig-search', async (req, res) => {
+  const token = getAgencyToken(req.user.tenant_id);
+  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
+
+  const username = (req.query.username as string || '').trim().replace(/^@/, '');
+  if (!username) return res.status(400).json({ error: 'username obrigatório' });
+
+  // business_discovery needs a "from" IG account — use any configured client's account
+  const anyClient = db.prepare(
+    'SELECT instagram_user_id FROM agency_clients WHERE tenant_id=? AND instagram_user_id IS NOT NULL LIMIT 1'
+  ).get(req.user.tenant_id) as any;
+
+  if (!anyClient?.instagram_user_id) {
+    return res.status(400).json({ error: 'Nenhuma conta do Instagram conectada ainda. Conecte pelo menos uma conta via ID para poder buscar outras.' });
+  }
+
+  try {
+    const result = await httpsGet(
+      `https://graph.facebook.com/v19.0/${anyClient.instagram_user_id}?fields=business_discovery.fields(id,name,username,profile_picture_url,followers_count)&username=${encodeURIComponent(username)}&access_token=${token}`
+    );
+    if (result.error) return res.status(400).json({ error: result.error.message });
+    if (!result.business_discovery) return res.status(404).json({ error: `Conta @${username} não encontrada ou não é uma conta Business/Creator.` });
+
+    const bd = result.business_discovery;
+    res.json({
+      ig_user_id: bd.id,
+      name: bd.name || bd.username,
+      username: bd.username,
+      profile_picture_url: bd.profile_picture_url,
+      followers_count: bd.followers_count,
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Return IG connection status for a client
 router.get('/instagram-status/:clientId', (req, res) => {
   const client = db.prepare('SELECT instagram_user_id, instagram_token_expires FROM agency_clients WHERE id=? AND tenant_id=?')

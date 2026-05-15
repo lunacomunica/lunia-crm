@@ -317,6 +317,7 @@ export default function ClientDetail() {
   const [igAccountsLoading, setIgAccountsLoading] = useState(false);
   const [igAccountsError, setIgAccountsError] = useState<string | null>(null);
   const [igAccountsSearched, setIgAccountsSearched] = useState(false);
+  const [igSearchInput, setIgSearchInput] = useState('');
   const [agencyTokenConnected, setAgencyTokenConnected] = useState(false);
   const [agencyTokenExpires, setAgencyTokenExpires] = useState<string | null>(null);
   const [agencyTokenInput, setAgencyTokenInput] = useState('');
@@ -546,16 +547,17 @@ export default function ClientDetail() {
     setAgencyTokenSaving(false);
   };
 
-  const loadIgAccounts = async () => {
+  const searchIgAccount = async () => {
+    if (!igSearchInput.trim()) return;
     setIgAccountsLoading(true);
     setIgAccounts([]);
     setIgAccountsError(null);
     setIgAccountsSearched(false);
     try {
-      const r = await metaApi.getIgAccounts();
-      setIgAccounts(r.data);
+      const r = await metaApi.searchIgAccount(igSearchInput.trim());
+      setIgAccounts([r.data]);
     } catch (e: any) {
-      setIgAccountsError(e?.response?.data?.error || e?.message || 'Erro ao buscar contas');
+      setIgAccountsError(e?.response?.data?.error || e?.message || 'Conta não encontrada');
     }
     setIgAccountsLoading(false);
     setIgAccountsSearched(true);
@@ -1779,11 +1781,20 @@ export default function ClientDetail() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <p style={fieldLabel}>Perfil do Instagram</p>
-                  <button onClick={loadIgAccounts} disabled={igAccountsLoading}
-                    className="flex items-center gap-1 text-[11px] disabled:opacity-40 transition-all"
-                    style={{ color: '#60a5fa' }}>
-                    <RotateCcw size={10} className={igAccountsLoading ? 'animate-spin' : ''} />
-                    {igAccountsLoading ? 'Buscando...' : 'Buscar contas'}
+                </div>
+                <div className="flex gap-2 mb-3">
+                  <input
+                    value={igSearchInput}
+                    onChange={e => setIgSearchInput(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && searchIgAccount()}
+                    placeholder="@username ou nome da conta"
+                    style={{ ...fieldInput, margin: 0 }}
+                  />
+                  <button onClick={searchIgAccount} disabled={igAccountsLoading || !igSearchInput.trim()}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium disabled:opacity-40 transition-all flex-shrink-0"
+                    style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)' }}>
+                    <RotateCcw size={11} className={igAccountsLoading ? 'animate-spin' : ''} />
+                    {igAccountsLoading ? 'Buscando...' : 'Buscar'}
                   </button>
                 </div>
 
@@ -1795,7 +1806,7 @@ export default function ClientDetail() {
 
                 {igAccountsSearched && !igAccountsLoading && igAccounts.length === 0 && !igAccountsError && (
                   <div className="mb-2 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', color: 'rgba(251,191,36,0.8)' }}>
-                    Nenhuma conta encontrada. Verifique se o token da agência tem permissão <strong>pages_show_list</strong> e se a conta do Instagram está vinculada a uma Página do Facebook gerenciada pelo mesmo usuário.
+                    Nenhuma conta encontrada. A conta precisa ser Business ou Creator. Tente o username exato (sem @).
                   </div>
                 )}
 
