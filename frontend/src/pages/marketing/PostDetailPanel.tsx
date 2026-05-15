@@ -916,6 +916,11 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                       </div>
                     ) : (
                       <>
+                        {mediaInsights.insights_warning && (
+                          <div className="px-3 py-2 rounded-xl text-xs" style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.2)', color: '#fbbf24' }}>
+                            Insights parciais: {mediaInsights.insights_warning}
+                          </div>
+                        )}
                         {mediaInsights.timestamp && (
                           <p className="text-xs" style={{ color: 'rgba(100,116,139,0.35)' }}>
                             Publicado em {new Date(mediaInsights.timestamp).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}

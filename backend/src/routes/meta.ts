@@ -239,20 +239,25 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
     const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink,caption,thumbnail_url,media_url&access_token=${token}`);
     if (basic.error) return res.status(400).json({ error: basic.error.message || 'Erro na Graph API' });
     let insights: any = {};
+    let insightsWarning: string | null = null;
     try {
       const isVideo = basic.media_type === 'VIDEO' || basic.media_type === 'REELS';
       const metric = isVideo
         ? 'impressions,reach,plays,saved,shares,likes,comments,total_interactions,ig_reels_avg_watch_time,ig_reels_video_view_total_time'
         : 'impressions,reach,saved,shares,likes,comments,total_interactions,profile_visits,follows';
       const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&period=lifetime&access_token=${token}`);
+      if (ins.error) throw new Error(ins.error.message);
       for (const m of ins.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
-    } catch (e1) {
+    } catch (e1: any) {
       // Fallback to legacy metrics
       try {
         const metric2 = basic.media_type === 'VIDEO' ? 'impressions,reach,plays,saved,shares' : 'impressions,reach,saved,shares,engagement';
         const ins2 = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric2}&access_token=${token}`);
+        if (ins2.error) throw new Error(ins2.error.message);
         for (const m of ins2.data || []) insights[m.name] = m.values?.[0]?.value ?? m.value ?? 0;
-      } catch {}
+      } catch (e2: any) {
+        insightsWarning = e2.message || e1.message;
+      }
     }
     // Fill likes/comments from basic if insights doesn't have them
     if (!insights.likes) insights.likes = basic.like_count ?? 0;
@@ -265,7 +270,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
       commentsList = commentsRes.data || [];
     } catch {}
 
-    res.json({ ...basic, insights, comments_list: commentsList });
+    res.json({ ...basic, insights, comments_list: commentsList, insights_warning: insightsWarning });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
