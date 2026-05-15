@@ -807,8 +807,8 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                   <div className="space-y-3">
 
                     {/* PROGRAMAR — destaque principal */}
-                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(99,102,241,0.05)', border: '1px solid rgba(99,102,241,0.18)' }}>
-                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(129,140,248,0.8)' }}>Programar publicação</p>
+                    <div className="rounded-2xl p-4 space-y-3" style={{ background: 'rgba(59,130,246,0.05)', border: '1px solid rgba(59,130,246,0.18)' }}>
+                      <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'rgba(96,165,250,0.9)' }}>Programar publicação</p>
                       <p className="text-xs" style={{ color: 'rgba(100,116,139,0.45)' }}>Define data e hora — publica automaticamente no Instagram e Facebook.</p>
                       <div className="flex gap-2">
                         <input type="date" value={schedDate} onChange={e => setSchedDate(e.target.value)}
@@ -828,7 +828,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                         setScheduling(false);
                       }} disabled={scheduling || !schedDate}
                         className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
-                        style={{ color: '#818cf8', background: 'rgba(99,102,241,0.1)', border: '1px solid rgba(99,102,241,0.25)' }}>
+                        style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.25)' }}>
                         <Calendar size={13} className={scheduling ? 'animate-pulse' : ''} />
                         {scheduling ? 'Agendando…' : 'Programar'}
                       </button>
