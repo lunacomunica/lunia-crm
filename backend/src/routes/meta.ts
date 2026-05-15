@@ -269,7 +269,26 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
   if (!token) return res.status(400).json({ error: 'Token não configurado. Conecte via OAuth ou configure o token da agência.' });
 
   try {
-    const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink,caption,thumbnail_url,media_url&access_token=${token}`);
+    // Resolve URL → numeric ID if ig_media_id was saved as an Instagram URL
+    let mediaId = req.params.mediaId;
+    if (mediaId.includes('instagram.com')) {
+      const match = mediaId.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
+      if (match) {
+        const shortcode = match[1];
+        const postUrl = `https://www.instagram.com/p/${shortcode}/`;
+        try {
+          const lookup = await httpsGet(`https://graph.facebook.com/v19.0/?id=${encodeURIComponent(postUrl)}&fields=id&access_token=${token}`);
+          if (lookup.id && !lookup.error) {
+            // Update DB so future calls use the numeric ID
+            db.prepare("UPDATE content_pieces SET ig_media_id=? WHERE ig_media_id=? AND tenant_id=?")
+              .run(lookup.id, mediaId, req.user.tenant_id);
+            mediaId = lookup.id;
+          }
+        } catch {}
+      }
+    }
+
+    const basic = await httpsGet(`https://graph.facebook.com/v19.0/${mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink,caption,thumbnail_url,media_url&access_token=${token}`);
     if (basic.error) {
       const msg = basic.error.message || '';
       if (basic.error.code === 100 || msg.includes('does not exist') || msg.includes('missing permissions')) {
@@ -279,7 +298,6 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
     }
     let insights: any = {};
     let insightsWarning: string | null = null;
-    let _rawInsights: any = null;
     const isVideo = basic.media_type === 'VIDEO' || basic.media_type === 'REELS';
     const isCarousel = basic.media_type === 'CAROUSEL_ALBUM';
 
@@ -294,9 +312,8 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
     }
 
     try {
-      const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&period=lifetime&access_token=${token}`);
+      const ins = await httpsGet(`https://graph.facebook.com/v19.0/${mediaId}/insights?metric=${metric}&period=lifetime&access_token=${token}`);
       if (ins.error) throw new Error(ins.error.message);
-      _rawInsights = ins.data;
       if (!ins.data || ins.data.length === 0) throw new Error('Sem dados de insights — o token pode não ter permissão instagram_manage_insights para esta conta. Reconecte via OAuth na aba Integração.');
       for (const m of ins.data || []) {
         // Normalize carousel metric names to standard names
@@ -316,7 +333,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
           : isVideo
           ? 'impressions,reach,plays,saved,shares'
           : 'impressions,reach,saved,shares,total_interactions';
-        const ins2 = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric2}&access_token=${token}`);
+        const ins2 = await httpsGet(`https://graph.facebook.com/v19.0/${mediaId}/insights?metric=${metric2}&access_token=${token}`);
         if (ins2.error) throw new Error(ins2.error.message);
         if (!ins2.data || ins2.data.length === 0) throw new Error(e1.message);
         for (const m of ins2.data || []) {
@@ -339,11 +356,11 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
     // Fetch comments list
     let commentsList: any[] = [];
     try {
-      const commentsRes = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/comments?fields=id,text,timestamp,username,like_count,replies{id,text,timestamp,username}&limit=30&access_token=${token}`);
+      const commentsRes = await httpsGet(`https://graph.facebook.com/v19.0/${mediaId}/comments?fields=id,text,timestamp,username,like_count,replies{id,text,timestamp,username}&limit=30&access_token=${token}`);
       commentsList = commentsRes.data || [];
     } catch {}
 
-    res.json({ ...basic, insights, comments_list: commentsList, insights_warning: insightsWarning, _debug: { media_type: basic.media_type, raw_insights: _rawInsights } });
+    res.json({ ...basic, insights, comments_list: commentsList, insights_warning: insightsWarning });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
