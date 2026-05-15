@@ -485,6 +485,16 @@ for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }
 }
 
+// Backfill agency_client_id on Instagram contacts that were synced before the column existed
+db.exec(`
+  UPDATE contacts SET agency_client_id = (
+    SELECT cv.agency_client_id FROM conversations cv
+    WHERE cv.contact_id = contacts.id AND cv.agency_client_id IS NOT NULL
+    LIMIT 1
+  )
+  WHERE source = 'instagram' AND agency_client_id IS NULL
+`);
+
 // Backfill slugs for existing clients that don't have one
 {
   function slugify(name: string): string {

@@ -882,6 +882,9 @@ router.post('/sync-history/:clientId', async (req, res) => {
       } else if (avatarUrl && !contact.avatar_url) {
         db.prepare('UPDATE contacts SET avatar_url=? WHERE id=?').run(avatarUrl, contact.id);
       }
+      // Upsert into client_contacts so the contact appears in the client portal
+      const existingCc = db.prepare('SELECT id FROM client_contacts WHERE agency_client_id=? AND external_id=?').get(agencyClientId, senderId) as any;
+      if (!existingCc) db.prepare(`INSERT INTO client_contacts (agency_client_id, name, source, source_platform, external_id) VALUES (?, ?, 'instagram', 'instagram_dm', ?)`).run(agencyClientId, senderName, senderId);
 
       const convKey = `ig_dm_${agencyClientId}_${senderId}`;
       let dbConv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
@@ -930,6 +933,9 @@ router.post('/sync-history/:clientId', async (req, res) => {
         } else if (avatarUrl && !contact.avatar_url) {
           db.prepare('UPDATE contacts SET avatar_url=? WHERE id=?').run(avatarUrl, contact.id);
         }
+        // Upsert into client_contacts so the contact appears in the client portal
+        const existingCcComment = db.prepare('SELECT id FROM client_contacts WHERE agency_client_id=? AND external_id=?').get(agencyClientId, fromId) as any;
+        if (!existingCcComment) db.prepare(`INSERT INTO client_contacts (agency_client_id, name, source, source_platform, external_id) VALUES (?, ?, 'instagram', 'instagram_comment', ?)`).run(agencyClientId, `@${fromUsername}`, fromId);
 
         const convKey = `ig_comment_${agencyClientId}_${media.id}`;
         let dbConv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
