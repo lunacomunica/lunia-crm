@@ -306,10 +306,17 @@ export default function ClientDetail() {
   const [igConnecting, setIgConnecting] = useState(false);
   const [igAccountId, setIgAccountId] = useState('');
   const [igSaving, setIgSaving] = useState(false);
+  const [adsAccountId, setAdsAccountId] = useState('');
+  const [adsSaving, setAdsSaving] = useState(false);
+  const [adsData, setAdsData] = useState<any>(null);
+  const [adsLoading, setAdsLoading] = useState(false);
+  const [adsError, setAdsError] = useState<string | null>(null);
   const [igTesting, setIgTesting] = useState(false);
   const [igTestResult, setIgTestResult] = useState<{ success: boolean; message: string } | null>(null);
   const [igAccounts, setIgAccounts] = useState<any[]>([]);
   const [igAccountsLoading, setIgAccountsLoading] = useState(false);
+  const [igAccountsError, setIgAccountsError] = useState<string | null>(null);
+  const [igAccountsSearched, setIgAccountsSearched] = useState(false);
   const [agencyTokenConnected, setAgencyTokenConnected] = useState(false);
   const [agencyTokenExpires, setAgencyTokenExpires] = useState<string | null>(null);
   const [agencyTokenInput, setAgencyTokenInput] = useState('');
@@ -331,6 +338,12 @@ export default function ClientDetail() {
     setClient(c);
     setIgConnected(!!c.instagram_user_id);
     setIgAccountId(c.instagram_user_id || '');
+    setAdsAccountId(c.meta_ads_account_id || '');
+    // Load ads data if configured
+    if (c.meta_ads_account_id) {
+      setAdsLoading(true);
+      metaApi.getAds(cid).then(r => setAdsData(r.data)).catch((e: any) => setAdsError(e?.response?.data?.error || e?.message || 'Erro ao carregar dados de Ads')).finally(() => setAdsLoading(false));
+    }
     // Load agency token status
     metaApi.getAgencyToken().then(r => {
       setAgencyTokenConnected(r.data.connected);
@@ -503,6 +516,21 @@ export default function ClientDetail() {
     setIgSaving(false);
   };
 
+  const saveAdsIntegration = async () => {
+    setAdsSaving(true);
+    try {
+      await agencyClientsApi.saveIntegration(cid, { meta_ads_account_id: adsAccountId.trim() });
+      if (adsAccountId.trim()) {
+        setAdsLoading(true);
+        setAdsError(null);
+        metaApi.getAds(cid).then(r => setAdsData(r.data)).catch((e: any) => setAdsError(e?.response?.data?.error || e?.message || 'Erro ao carregar dados de Ads')).finally(() => setAdsLoading(false));
+      } else {
+        setAdsData(null);
+      }
+    } catch {}
+    setAdsSaving(false);
+  };
+
   const saveAgencyToken = async () => {
     if (!agencyTokenInput.trim()) return;
     setAgencyTokenSaving(true);
@@ -521,11 +549,16 @@ export default function ClientDetail() {
   const loadIgAccounts = async () => {
     setIgAccountsLoading(true);
     setIgAccounts([]);
+    setIgAccountsError(null);
+    setIgAccountsSearched(false);
     try {
       const r = await metaApi.getIgAccounts();
       setIgAccounts(r.data);
-    } catch {}
+    } catch (e: any) {
+      setIgAccountsError(e?.response?.data?.error || e?.message || 'Erro ao buscar contas');
+    }
     setIgAccountsLoading(false);
+    setIgAccountsSearched(true);
   };
 
   const testIgConnection = async () => {
@@ -1746,18 +1779,24 @@ export default function ClientDetail() {
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <p style={fieldLabel}>Perfil do Instagram</p>
-                  {agencyTokenConnected && (
-                    <button onClick={loadIgAccounts} disabled={igAccountsLoading}
-                      className="flex items-center gap-1 text-[11px] disabled:opacity-40 transition-all"
-                      style={{ color: '#60a5fa' }}>
-                      <RotateCcw size={10} className={igAccountsLoading ? 'animate-spin' : ''} />
-                      {igAccountsLoading ? 'Buscando...' : 'Buscar contas'}
-                    </button>
-                  )}
+                  <button onClick={loadIgAccounts} disabled={igAccountsLoading}
+                    className="flex items-center gap-1 text-[11px] disabled:opacity-40 transition-all"
+                    style={{ color: '#60a5fa' }}>
+                    <RotateCcw size={10} className={igAccountsLoading ? 'animate-spin' : ''} />
+                    {igAccountsLoading ? 'Buscando...' : 'Buscar contas'}
+                  </button>
                 </div>
 
-                {!agencyTokenConnected && (
-                  <p className="text-xs mb-2" style={{ color: 'rgba(100,116,139,0.4)' }}>Configure o token da agência primeiro para buscar as contas disponíveis.</p>
+                {igAccountsError && (
+                  <div className="mb-2 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
+                    {igAccountsError}
+                  </div>
+                )}
+
+                {igAccountsSearched && !igAccountsLoading && igAccounts.length === 0 && !igAccountsError && (
+                  <div className="mb-2 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', color: 'rgba(251,191,36,0.8)' }}>
+                    Nenhuma conta encontrada. Verifique se o token da agência tem permissão <strong>pages_show_list</strong> e se a conta do Instagram está vinculada a uma Página do Facebook gerenciada pelo mesmo usuário.
+                  </div>
                 )}
 
                 {igAccounts.length > 0 && (
@@ -1805,32 +1844,81 @@ export default function ClientDetail() {
 
             {/* Meta Ads API */}
             <div className="rounded-2xl p-6 space-y-5" style={cardStyle}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center"
-                    style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.15)' }}>
-                    <Target size={16} style={{ color: '#60a5fa' }} />
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.15)' }}>
+                  <Target size={16} style={{ color: '#60a5fa' }} />
+                </div>
+                <span className="text-base font-light text-white">Meta Ads API</span>
+              </div>
+
+              <div>
+                <p style={fieldLabel}>Ad Account ID</p>
+                <input
+                  value={adsAccountId}
+                  onChange={e => setAdsAccountId(e.target.value)}
+                  placeholder="act_123456789"
+                  style={fieldInput}
+                />
+                <p className="text-xs mt-1.5" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                  Usa o token da agência. Encontre o ID em <code style={{ color: 'rgba(148,163,184,0.4)' }}>business.facebook.com → Contas de anúncios</code>.
+                </p>
+              </div>
+
+              {adsError && (
+                <div className="px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', color: '#f87171' }}>
+                  {adsError}
+                </div>
+              )}
+
+              {adsLoading && (
+                <div className="flex items-center gap-2 text-xs" style={{ color: 'rgba(100,116,139,0.5)' }}>
+                  <RotateCcw size={11} className="animate-spin" /> Carregando dados…
+                </div>
+              )}
+
+              {adsData && !adsLoading && (
+                <div className="space-y-3">
+                  <p className="text-xs font-semibold" style={{ color: 'rgba(100,116,139,0.5)' }}>Últimos 30 dias</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { label: 'Gasto', value: `R$ ${adsData.insights?.spend?.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) || '0,00'}`, color: '#f87171' },
+                      { label: 'Alcance', value: (adsData.insights?.reach || 0).toLocaleString('pt-BR'), color: '#60a5fa' },
+                      { label: 'Cliques', value: (adsData.insights?.clicks || 0).toLocaleString('pt-BR'), color: '#34d399' },
+                      { label: 'CTR', value: `${adsData.insights?.ctr?.toFixed(2) || '0'}%`, color: '#a78bfa' },
+                      { label: 'CPM', value: `R$ ${adsData.insights?.cpm?.toFixed(2) || '0'}`, color: '#fbbf24' },
+                      { label: 'Leads', value: (adsData.insights?.leads || 0).toLocaleString('pt-BR'), color: '#34d399' },
+                    ].map(m => (
+                      <div key={m.label} className="px-3 py-2.5 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                        <p className="text-[10px]" style={{ color: 'rgba(100,116,139,0.5)' }}>{m.label}</p>
+                        <p className="text-base font-semibold" style={{ color: m.color }}>{m.value}</p>
+                      </div>
+                    ))}
                   </div>
-                  <span className="text-base font-light text-white">Meta Ads API</span>
+                  {(adsData.campaigns || []).length > 0 && (
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: 'rgba(100,116,139,0.4)' }}>Campanhas ativas</p>
+                      {adsData.campaigns.map((c: any) => (
+                        <div key={c.id} className="flex items-center justify-between px-3 py-2 rounded-lg" style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                          <p className="text-xs text-white truncate flex-1">{c.name}</p>
+                          <span className="text-[10px] ml-2 px-2 py-0.5 rounded-full flex-shrink-0"
+                            style={{ color: c.status === 'ACTIVE' ? '#34d399' : 'rgba(100,116,139,0.5)', background: c.status === 'ACTIVE' ? 'rgba(52,211,153,0.1)' : 'rgba(255,255,255,0.04)', border: `1px solid ${c.status === 'ACTIVE' ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.06)'}` }}>
+                            {c.status === 'ACTIVE' ? 'Ativa' : 'Pausada'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-1 rounded-full"
-                  style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.15)' }}>
-                  EM BREVE
-                </span>
+              )}
+
+              <div className="flex justify-end pt-1">
+                <button onClick={saveAdsIntegration} disabled={adsSaving}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+                  style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                  <Save size={13} /> {adsSaving ? 'Salvando…' : 'Salvar'}
+                </button>
               </div>
-              <div className="grid grid-cols-2 gap-3 opacity-40 pointer-events-none">
-                <div>
-                  <p style={fieldLabel}>Ad Account ID</p>
-                  <input disabled placeholder="act_123456789" style={fieldInput} />
-                </div>
-                <div>
-                  <p style={fieldLabel}>Access Token</p>
-                  <input disabled placeholder="EAABsbCS…" type="password" style={fieldInput} />
-                </div>
-              </div>
-              <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>
-                Requer aprovação Meta para <code style={{ color: 'rgba(148,163,184,0.5)' }}>ads_read</code> e <code style={{ color: 'rgba(148,163,184,0.5)' }}>ads_management</code>.
-              </p>
             </div>
 
           </div>

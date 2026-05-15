@@ -145,6 +145,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
 
   try {
     const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink,caption,thumbnail_url,media_url&access_token=${token}`);
+    if (basic.error) return res.status(400).json({ error: basic.error.message || 'Erro na Graph API' });
     let insights: any = {};
     try {
       const isVideo = basic.media_type === 'VIDEO' || basic.media_type === 'REELS';
@@ -333,20 +334,31 @@ router.post('/link-ig/:clientId/:contentId', async (req, res) => {
     const match = value.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
     if (!match) return res.status(400).json({ error: 'URL inválida — use o link do post do Instagram' });
     const shortcode = match[1];
+    const postUrl = `https://www.instagram.com/p/${shortcode}/`;
 
-    // Search in account media for matching shortcode
     try {
+      // Try Graph API URL lookup first — resolves post URL directly to media ID
       let found: string | null = null;
-      let url = `https://graph.facebook.com/v19.0/${client.instagram_user_id}/media?fields=id,shortcode,permalink&limit=50&access_token=${token}`;
-      while (url && !found) {
-        const page: any = await httpsGet(url);
-        for (const m of page.data || []) {
-          if (m.shortcode === shortcode || m.permalink?.includes(shortcode)) { found = m.id; break; }
+      try {
+        const lookup = await httpsGet(`https://graph.facebook.com/v19.0/?id=${encodeURIComponent(postUrl)}&fields=id&access_token=${token}`);
+        if (lookup.id && !lookup.error) found = lookup.id;
+      } catch {}
+
+      // Fallback: paginate through account media looking for matching shortcode
+      if (!found) {
+        let pageUrl: string | null = `https://graph.facebook.com/v19.0/${client.instagram_user_id}/media?fields=id,shortcode,permalink&limit=50&access_token=${token}`;
+        let pages = 0;
+        while (pageUrl && !found && pages < 10) {
+          const page: any = await httpsGet(pageUrl);
+          for (const m of page.data || []) {
+            if (m.shortcode === shortcode || m.permalink?.includes(shortcode)) { found = m.id; break; }
+          }
+          pageUrl = page.paging?.next || null;
+          pages++;
         }
-        url = page.paging?.next || null;
-        if (!found && !page.paging?.next) break;
       }
-      if (!found) return res.status(404).json({ error: 'Post não encontrado na conta. Verifique se é da conta correta.' });
+
+      if (!found) return res.status(404).json({ error: 'Post não encontrado. Tente inserir o ID numérico da mídia diretamente.' });
       mediaId = found;
     } catch (e: any) {
       return res.status(500).json({ error: e.message });
@@ -356,6 +368,51 @@ router.post('/link-ig/:clientId/:contentId', async (req, res) => {
   db.prepare("UPDATE content_pieces SET ig_media_id=?, status='publicado', updated_at=datetime('now') WHERE id=? AND tenant_id=?")
     .run(mediaId, req.params.contentId, req.user.tenant_id);
   res.json(db.prepare('SELECT * FROM content_pieces WHERE id=?').get(req.params.contentId));
+});
+
+// Meta Ads insights for a client
+router.get('/ads/:clientId', async (req, res) => {
+  const token = getAgencyToken(req.user.tenant_id);
+  if (!token) return res.status(400).json({ error: 'Token da agência não configurado' });
+
+  const client = db.prepare('SELECT meta_ads_account_id FROM agency_clients WHERE id=? AND tenant_id=?')
+    .get(req.params.clientId, req.user.tenant_id) as any;
+  if (!client) return res.status(404).json({ error: 'Cliente não encontrado' });
+  if (!client.meta_ads_account_id) return res.status(400).json({ error: 'Ad Account ID não configurado para este cliente' });
+
+  const actId = client.meta_ads_account_id.startsWith('act_') ? client.meta_ads_account_id : `act_${client.meta_ads_account_id}`;
+
+  try {
+    const [accountRes, insightsRes, campaignsRes] = await Promise.all([
+      httpsGet(`https://graph.facebook.com/v19.0/${actId}?fields=name,currency,account_status&access_token=${token}`),
+      httpsGet(`https://graph.facebook.com/v19.0/${actId}/insights?fields=spend,reach,impressions,clicks,ctr,cpc,cpm,actions&date_preset=last_30d&access_token=${token}`),
+      httpsGet(`https://graph.facebook.com/v19.0/${actId}/campaigns?fields=id,name,status,objective,daily_budget,lifetime_budget&effective_status=["ACTIVE","PAUSED"]&limit=20&access_token=${token}`),
+    ]);
+
+    if (accountRes.error) return res.status(400).json({ error: accountRes.error.message });
+
+    const insights = insightsRes.data?.[0] || {};
+    const leads = (insights.actions || []).find((a: any) => a.action_type === 'lead')?.value || 0;
+    const purchases = (insights.actions || []).find((a: any) => a.action_type === 'purchase')?.value || 0;
+
+    res.json({
+      account: accountRes,
+      insights: {
+        spend: parseFloat(insights.spend || '0'),
+        reach: parseInt(insights.reach || '0'),
+        impressions: parseInt(insights.impressions || '0'),
+        clicks: parseInt(insights.clicks || '0'),
+        ctr: parseFloat(insights.ctr || '0'),
+        cpc: parseFloat(insights.cpc || '0'),
+        cpm: parseFloat(insights.cpm || '0'),
+        leads: parseInt(leads),
+        purchases: parseInt(purchases),
+      },
+      campaigns: campaignsRes.data || [],
+    });
+  } catch (e: any) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // Disconnect IG for a client

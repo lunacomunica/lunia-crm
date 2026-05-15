@@ -466,6 +466,7 @@ const migrations = [
   "ALTER TABLE agency_clients ADD COLUMN instagram_token_expires TEXT DEFAULT NULL",
   "ALTER TABLE content_pieces ADD COLUMN ig_media_id TEXT DEFAULT NULL",
   "ALTER TABLE content_pieces ADD COLUMN ig_permalink TEXT DEFAULT NULL",
+  "ALTER TABLE agency_clients ADD COLUMN meta_ads_account_id TEXT DEFAULT NULL",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

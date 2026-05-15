@@ -278,6 +278,7 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
   const [panelTab, setPanelTab] = useState<'copy' | 'post' | 'gerot'>(initialTab || 'copy');
   const [mediaInsights, setMediaInsights] = useState<any>(null);
   const [loadingInsights, setLoadingInsights] = useState(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [linkInput, setLinkInput] = useState('');
@@ -294,9 +295,10 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
     const clientId = (post as any).agency_client_id;
     if (panelTab === 'post' && igId && clientId && !mediaInsights && !loadingInsights) {
       setLoadingInsights(true);
+      setInsightsError(null);
       metaApi.getMediaInsights(clientId, igId)
         .then(r => setMediaInsights(r.data))
-        .catch(() => {})
+        .catch((e: any) => setInsightsError(e?.response?.data?.error || e?.message || 'Erro ao carregar métricas'))
         .finally(() => setLoadingInsights(false));
     }
   }, [panelTab]);
@@ -757,7 +759,13 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
             const reload = async () => {
               if (!igId || !clientId) return;
               setLoadingInsights(true);
-              try { const r = await metaApi.getMediaInsights(clientId, igId); setMediaInsights(r.data); } catch {}
+              setInsightsError(null);
+              try {
+                const r = await metaApi.getMediaInsights(clientId, igId);
+                setMediaInsights(r.data);
+              } catch (e: any) {
+                setInsightsError(e?.response?.data?.error || e?.message || 'Erro ao carregar métricas');
+              }
               setLoadingInsights(false);
             };
 
@@ -861,6 +869,10 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
                       <div className="flex items-center justify-center py-10 gap-2">
                         <RotateCcw size={14} className="animate-spin" style={{ color: 'rgba(100,116,139,0.4)' }} />
                         <p className="text-xs" style={{ color: 'rgba(100,116,139,0.4)' }}>Carregando métricas…</p>
+                      </div>
+                    ) : insightsError ? (
+                      <div className="px-3 py-4 rounded-xl text-xs" style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.18)', color: '#f87171' }}>
+                        {insightsError}
                       </div>
                     ) : !mediaInsights ? (
                       <div className="text-center py-8">
