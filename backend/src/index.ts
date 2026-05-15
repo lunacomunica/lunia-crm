@@ -67,6 +67,11 @@ app.get('/api/meta/callback', async (req, res) => {
     return res.redirect('/?meta_error=invalid_state');
   }
 
+  const clientSlug = (() => {
+    const c = db.prepare('SELECT slug FROM agency_clients WHERE id=? AND tenant_id=?').get(clientId, tenantId) as any;
+    return c?.slug || clientId;
+  })();
+
   const appId = process.env.META_APP_ID!;
   const appSecret = process.env.META_APP_SECRET!;
   const redirectUri = process.env.META_REDIRECT_URI || 'https://app.lunacomunica.com/api/meta/callback';
@@ -117,7 +122,7 @@ app.get('/api/meta/callback', async (req, res) => {
       db.prepare(
         "UPDATE agency_clients SET instagram_token=?, instagram_token_expires=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?"
       ).run(longToken, expiresAt, clientId, tenantId);
-      return res.redirect(`/marketing/clients/${clientId}?ig_connected=1`);
+      return res.redirect(`/marketing/clients/${clientSlug}?ig_connected=1`);
     }
 
     if (candidates.length === 1) {
@@ -126,7 +131,7 @@ app.get('/api/meta/callback', async (req, res) => {
       db.prepare(
         "UPDATE agency_clients SET instagram_token=?, instagram_user_id=?, instagram_token_expires=?, facebook_page_id=?, facebook_page_token=?, updated_at=datetime('now') WHERE id=? AND tenant_id=?"
       ).run(longToken, p.instagram_business_account.id, expiresAt, p.id, p.access_token || longToken, clientId, tenantId);
-      return res.redirect(`/marketing/clients/${clientId}?ig_connected=1`);
+      return res.redirect(`/marketing/clients/${clientSlug}?ig_connected=1`);
     }
 
     // Multiple pages — store session and let user choose
@@ -146,10 +151,10 @@ app.get('/api/meta/callback', async (req, res) => {
     db.prepare("INSERT OR REPLACE INTO settings (tenant_id, key, value) VALUES (?, ?, ?)")
       .run(tenantId, `oauth_session_${clientId}`, sessionData);
 
-    res.redirect(`/marketing/clients/${clientId}?select_ig_page=1`);
+    res.redirect(`/marketing/clients/${clientSlug}?select_ig_page=1`);
   } catch (err: any) {
     console.error('[meta/callback]', err.message);
-    res.redirect(`/marketing/clients/${clientId}?ig_error=${encodeURIComponent(err.message)}`);
+    res.redirect(`/marketing/clients/${clientSlug}?ig_error=${encodeURIComponent(err.message)}`);
   }
 });
 
