@@ -100,7 +100,7 @@ export const agencyClientsApi = {
   update: (id: number, data: any) => api.put(`/agency-clients/${id}`, data),
   toggleActive: (id: number) => api.patch(`/agency-clients/${id}/active`),
   delete: (id: number) => api.delete(`/agency-clients/${id}`),
-  saveIntegration: (id: number, data: { instagram_token?: string; instagram_user_id?: string; meta_ads_account_id?: string }) => api.patch(`/agency-clients/${id}/integration`, data),
+  saveIntegration: (id: number, data: { instagram_token?: string; instagram_user_id?: string; meta_ads_account_id?: string; waba_phone_number_id?: string; waba_token?: string }) => api.patch(`/agency-clients/${id}/integration`, data),
   updateCeoMessage: (id: number, message: string) => api.patch(`/agency-clients/${id}/ceo-message`, { ceo_message: message }),
   updateModules: (id: number, modules: Record<string, boolean>) => api.patch(`/agency-clients/${id}/modules`, { modules }),
 };

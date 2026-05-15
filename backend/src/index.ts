@@ -179,6 +179,7 @@ app.post('/api/meta/webhook', (req, res) => {
 
         const convKey = agencyClientId ? `ig_dm_${agencyClientId}_${senderId}` : `ig_dm_${senderId}`;
         let conv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
+        const isNewIgConv = !conv;
         if (!conv) {
           const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type) VALUES (?, ?, 'instagram', ?, ?, 'dm')`).run(tid, contact.id, convKey, agencyClientId);
           conv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
@@ -188,6 +189,21 @@ app.post('/api/meta/webhook', (req, res) => {
         if (!dup) {
           db.prepare(`INSERT INTO messages (conversation_id, content, direction, external_id) VALUES (?, ?, 'inbound', ?)`).run(conv.id, content, msgId);
           db.prepare("UPDATE conversations SET last_message_at=datetime('now'), unread_count=unread_count+1 WHERE id=?").run(conv.id);
+        }
+
+        // Auto-create lead in client pipeline for new Instagram DMs
+        if (isNewIgConv && agencyClientId) {
+          try {
+            let cc = db.prepare('SELECT id FROM client_contacts WHERE agency_client_id=? AND external_id=?').get(agencyClientId, senderId) as any;
+            if (!cc) {
+              const r = db.prepare(`INSERT INTO client_contacts (agency_client_id, name, source, source_platform, external_id) VALUES (?, ?, 'instagram', 'instagram_dm', ?)`).run(agencyClientId, senderName, senderId);
+              cc = { id: r.lastInsertRowid };
+            }
+            const existingDeal = db.prepare('SELECT id FROM client_deals WHERE agency_client_id=? AND client_contact_id=?').get(agencyClientId, cc.id);
+            if (!existingDeal) {
+              db.prepare(`INSERT INTO client_deals (agency_client_id, client_contact_id, title, stage, source_platform) VALUES (?, ?, ?, 'novo', 'instagram_dm')`).run(agencyClientId, cc.id, `Lead Instagram DM — ${senderName}`);
+            }
+          } catch {}
         }
       }
 
@@ -228,8 +244,15 @@ app.post('/api/meta/webhook', (req, res) => {
   }
 
   // ── WhatsApp ──────────────────────────────────────────────────────────
-  const tid = 1;
   for (const entry of body.entry || []) {
+    // Identify which agency client owns this phone number
+    const phoneNumberId = entry.changes?.[0]?.value?.metadata?.phone_number_id;
+    const wabaClient = phoneNumberId
+      ? db.prepare('SELECT * FROM agency_clients WHERE waba_phone_number_id = ?').get(phoneNumberId) as any
+      : null;
+    const tid = wabaClient?.tenant_id || 1;
+    const agencyClientId = wabaClient?.id || null;
+
     for (const change of entry.changes || []) {
       if (change.field === 'messages') {
         const msgs = change.value?.messages || [];
@@ -237,19 +260,40 @@ app.post('/api/meta/webhook', (req, res) => {
         for (const msg of msgs) {
           const from = msg.from;
           const name = contacts_meta.find((c: any) => c.wa_id === from)?.profile?.name || from;
+
+          // Global contact (for agency CRM)
           let contact = db.prepare('SELECT * FROM contacts WHERE tenant_id=? AND (external_id=? OR phone=?)').get(tid, from, `+${from}`) as any;
           if (!contact) {
             const r = db.prepare(`INSERT INTO contacts (tenant_id, name, phone, source, external_id) VALUES (?, ?, ?, 'whatsapp', ?)`).run(tid, name, `+${from}`, from);
             contact = db.prepare('SELECT * FROM contacts WHERE id=?').get(r.lastInsertRowid);
           }
-          let conv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, from) as any;
+
+          const convKey = agencyClientId ? `wpp_${agencyClientId}_${from}` : from;
+          let conv = db.prepare('SELECT * FROM conversations WHERE tenant_id=? AND external_id=?').get(tid, convKey) as any;
+          const isNewConv = !conv;
           if (!conv) {
-            const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id) VALUES (?, ?, 'whatsapp', ?)`).run(tid, contact.id, from);
+            const r = db.prepare(`INSERT INTO conversations (tenant_id, contact_id, platform, external_id, agency_client_id, conv_type) VALUES (?, ?, 'whatsapp', ?, ?, 'dm')`).run(tid, contact.id, convKey, agencyClientId);
             conv = db.prepare('SELECT * FROM conversations WHERE id=?').get(r.lastInsertRowid);
           }
+
           const content = msg.text?.body || msg.caption || '[mídia]';
-          db.prepare(`INSERT INTO messages (conversation_id, content, direction, external_id) VALUES (?, ?, 'inbound', ?)`).run(conv.id, content, msg.id);
+          db.prepare(`INSERT OR IGNORE INTO messages (conversation_id, content, direction, external_id) VALUES (?, ?, 'inbound', ?)`).run(conv.id, content, msg.id);
           db.prepare("UPDATE conversations SET last_message_at=datetime('now'), unread_count=unread_count+1 WHERE id=?").run(conv.id);
+
+          // Auto-create lead in client pipeline for new conversations
+          if (isNewConv && agencyClientId) {
+            try {
+              let cc = db.prepare('SELECT id FROM client_contacts WHERE agency_client_id=? AND external_id=?').get(agencyClientId, from) as any;
+              if (!cc) {
+                const r = db.prepare(`INSERT INTO client_contacts (agency_client_id, name, phone, source, source_platform, external_id) VALUES (?, ?, ?, 'whatsapp', 'whatsapp', ?)`).run(agencyClientId, name, `+${from}`, from);
+                cc = { id: r.lastInsertRowid };
+              }
+              const existingDeal = db.prepare('SELECT id FROM client_deals WHERE agency_client_id=? AND client_contact_id=?').get(agencyClientId, cc.id);
+              if (!existingDeal) {
+                db.prepare(`INSERT INTO client_deals (agency_client_id, client_contact_id, title, stage, source_platform) VALUES (?, ?, ?, 'novo', 'whatsapp')`).run(agencyClientId, cc.id, `Lead WhatsApp — ${name}`);
+              }
+            } catch {}
+          }
         }
       }
       if (change.field === 'leadgen') {

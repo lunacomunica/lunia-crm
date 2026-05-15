@@ -472,6 +472,12 @@ const migrations = [
   "ALTER TABLE agency_clients ADD COLUMN facebook_page_id TEXT DEFAULT NULL",
   "ALTER TABLE agency_clients ADD COLUMN facebook_page_token TEXT DEFAULT NULL",
   "ALTER TABLE agency_clients ADD COLUMN slug TEXT DEFAULT NULL",
+  "ALTER TABLE agency_clients ADD COLUMN waba_phone_number_id TEXT DEFAULT NULL",
+  "ALTER TABLE agency_clients ADD COLUMN waba_token TEXT DEFAULT NULL",
+  "ALTER TABLE client_contacts ADD COLUMN source_platform TEXT DEFAULT NULL",
+  "ALTER TABLE client_contacts ADD COLUMN external_id TEXT DEFAULT NULL",
+  "ALTER TABLE client_deals ADD COLUMN source_platform TEXT DEFAULT NULL",
+  "ALTER TABLE conversations ADD COLUMN client_contact_id INTEGER DEFAULT NULL",
 ];
 for (const sql of migrations) {
   try { db.exec(sql); } catch { /* column already exists */ }

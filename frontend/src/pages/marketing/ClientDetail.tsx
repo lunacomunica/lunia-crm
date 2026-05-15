@@ -6,7 +6,7 @@ import {
   Target, TrendingUp, Users, Zap, Star, DollarSign,
   FileImage, Megaphone, CheckSquare, Save, ExternalLink,
   Clock, CheckCircle2, AlertCircle, RotateCcw, Calendar, ChevronDown, ChevronLeft, ChevronRight, Send,
-  List, CalendarDays, LayoutGrid,
+  List, CalendarDays, LayoutGrid, MessageSquare,
   Image, Video, MousePointerClick, Link, FileText, PowerOff
 } from 'lucide-react';
 import { agencyClientsApi, clientPortalApi, contentApi, campaignsApi, tasksApi, clientProjectsApi, contentIdeasApi, metaApi } from '../../api/client';
@@ -315,6 +315,10 @@ export default function ClientDetail() {
   const [selectedCampaign, setSelectedCampaign] = useState<any | null>(null);
   const [adsAccountId, setAdsAccountId] = useState('');
   const [adsSaving, setAdsSaving] = useState(false);
+  const [wabaPhoneId, setWabaPhoneId] = useState('');
+  const [wabaToken, setWabaToken] = useState('');
+  const [wabaSaving, setWabaSaving] = useState(false);
+  const [wabaSaved, setWabaSaved] = useState(false);
   const [adsData, setAdsData] = useState<any>(null);
   const [adsLoading, setAdsLoading] = useState(false);
   const [adsError, setAdsError] = useState<string | null>(null);
@@ -350,6 +354,8 @@ export default function ClientDetail() {
     setIgConnected(!!c.instagram_user_id);
     setIgAccountId(c.instagram_user_id || '');
     setAdsAccountId(c.meta_ads_account_id || '');
+    setWabaPhoneId(c.waba_phone_number_id || '');
+    setWabaToken(c.waba_token || '');
     // Load ads data if configured
     if (c.meta_ads_account_id) {
       setAdsLoading(true);
@@ -574,6 +580,16 @@ export default function ClientDetail() {
       setIgSaveResult({ success: false, message: e?.response?.data?.error || 'Erro ao salvar.' });
     }
     setIgSaving(false);
+  };
+
+  const saveWabaIntegration = async () => {
+    setWabaSaving(true);
+    try {
+      await agencyClientsApi.saveIntegration(cid, { waba_phone_number_id: wabaPhoneId.trim(), waba_token: wabaToken.trim() });
+      setWabaSaved(true);
+      setTimeout(() => setWabaSaved(false), 3000);
+    } catch {}
+    setWabaSaving(false);
   };
 
   const saveAdsIntegration = async () => {
@@ -2215,6 +2231,55 @@ export default function ClientDetail() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* WhatsApp Business API */}
+            <div className="rounded-2xl p-6 space-y-5" style={cardStyle}>
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center"
+                  style={{ background: 'rgba(37,211,102,0.1)', border: '1px solid rgba(37,211,102,0.2)' }}>
+                  <MessageSquare size={16} style={{ color: '#25d366' }} />
+                </div>
+                <div>
+                  <span className="text-base font-light text-white">WhatsApp Business API</span>
+                  <p className="text-xs mt-0.5" style={{ color: 'rgba(100,116,139,0.4)' }}>DMs viram leads automáticos no pipeline</p>
+                </div>
+              </div>
+
+              <div>
+                <p style={fieldLabel}>Phone Number ID</p>
+                <input value={wabaPhoneId} onChange={e => setWabaPhoneId(e.target.value)}
+                  placeholder="ex: 107839462938471"
+                  style={fieldInput} />
+                <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                  Meta Business Suite → WhatsApp → Configurações do número
+                </p>
+              </div>
+
+              <div>
+                <p style={fieldLabel}>Token de acesso (permanente)</p>
+                <input value={wabaToken} onChange={e => setWabaToken(e.target.value)}
+                  placeholder="EAAxxxxx..."
+                  type="password"
+                  style={fieldInput} />
+                <p className="text-xs mt-1" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                  Token do sistema do Meta Business Suite com permissão WhatsApp
+                </p>
+              </div>
+
+              {wabaSaved && (
+                <p className="text-xs flex items-center gap-1.5" style={{ color: '#34d399' }}>
+                  <CheckCircle2 size={12} /> Salvo com sucesso
+                </p>
+              )}
+
+              <div className="flex justify-end">
+                <button onClick={saveWabaIntegration} disabled={wabaSaving || (!wabaPhoneId.trim() && !wabaToken.trim())}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
+                  style={{ color: '#25d366', background: 'rgba(37,211,102,0.08)', border: '1px solid rgba(37,211,102,0.2)' }}>
+                  <Save size={13} /> {wabaSaving ? 'Salvando…' : 'Salvar'}
+                </button>
+              </div>
             </div>
 
             {/* Meta Ads API */}
