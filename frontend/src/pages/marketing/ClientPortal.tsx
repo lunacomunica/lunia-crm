@@ -465,9 +465,9 @@ export default function ClientPortal() {
     if ((page === 'crm_dashboard' || page === 'crm_contatos' || page === 'crm_pipeline' || page === 'crm_conversas') && !crmDash && !crmLoading) {
       loadCrm();
     }
-    if (page === 'crm_conversas' && convs.length === 0 && !convLoading) {
+    if (page === 'crm_conversas' && convs.length === 0 && !convLoading && cid) {
       setConvLoading(true);
-      conversationsApi.list().then(r => { setConvs(r.data); setConvLoading(false); });
+      conversationsApi.list({ agency_client_id: String(cid) }).then(r => { setConvs(r.data); setConvLoading(false); });
     }
     if (page === 'visao' && user) {
       setProfileForm({ name: user.name || '', avatar: user.avatar || '' });
@@ -2543,13 +2543,24 @@ export default function ClientPortal() {
     const sendMsg = async () => {
       if (!convMsg.trim() || !activeConv || sendingMsg) return;
       setSendingMsg(true);
-      const r = await conversationsApi.sendMessage(activeConv.id, convMsg);
-      setConvMessages(prev => [...prev, r.data]);
-      setConvMsg('');
+      try {
+        let r;
+        if (activeConv.platform === 'instagram') {
+          const parts = (activeConv.external_id || '').split('_');
+          const recipientId = parts[parts.length - 1];
+          r = await conversationsApi.sendIgReply(activeConv.id, String(cid), recipientId, convMsg);
+        } else {
+          r = await conversationsApi.sendMessage(activeConv.id, convMsg);
+        }
+        setConvMessages(prev => [...prev, r.data]);
+        setConvMsg('');
+      } catch (e: any) {
+        alert(e?.response?.data?.error || 'Erro ao enviar');
+      }
       setSendingMsg(false);
     };
     const filtered = convs.filter(c => c.contact_name?.toLowerCase().includes(convSearch.toLowerCase()));
-    const platformDot = (p: string) => p === 'whatsapp' ? '#25d366' : '#e1306c';
+    const platformDot = (p: string) => p === 'whatsapp' ? '#25d366' : p === 'instagram' && (activeConv as any)?.conv_type === 'comment' ? '#a855f7' : '#e1306c';
 
     return (
       <div className="flex h-full -m-6 md:-m-8 overflow-hidden">

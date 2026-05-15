@@ -56,7 +56,7 @@ export default function Conversations() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState('');
   const [search, setSearch] = useState('');
-  const [platform, setPlatform] = useState('all');
+  const [platform, setPlatform] = useState('whatsapp');
   const [clientFilter, setClientFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
