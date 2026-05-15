@@ -275,16 +275,42 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
       const match = mediaId.match(/\/(?:p|reel)\/([A-Za-z0-9_-]+)/);
       if (match) {
         const shortcode = match[1];
-        const postUrl = `https://www.instagram.com/p/${shortcode}/`;
+        const isReel = mediaId.includes('/reel/');
+        const postUrl = `https://www.instagram.com/${isReel ? 'reel' : 'p'}/${shortcode}/`;
+        let resolved = false;
         try {
           const lookup = await httpsGet(`https://graph.facebook.com/v19.0/?id=${encodeURIComponent(postUrl)}&fields=id&access_token=${token}`);
+          console.log('[media-insights] URL lookup:', JSON.stringify(lookup));
           if (lookup.id && !lookup.error) {
-            // Update DB so future calls use the numeric ID
             db.prepare("UPDATE content_pieces SET ig_media_id=? WHERE ig_media_id=? AND tenant_id=?")
-              .run(lookup.id, mediaId, req.user.tenant_id);
+              .run(lookup.id, req.params.mediaId, req.user.tenant_id);
             mediaId = lookup.id;
+            resolved = true;
           }
-        } catch {}
+        } catch (e: any) {
+          console.error('[media-insights] URL lookup error:', e.message);
+        }
+        // Fallback: search user's media feed by shortcode in permalink
+        if (!resolved) {
+          try {
+            const igClient = db.prepare('SELECT instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?').get(req.params.clientId, req.user.tenant_id) as any;
+            if (igClient?.instagram_user_id) {
+              const feed = await httpsGet(`https://graph.facebook.com/v19.0/${igClient.instagram_user_id}/media?fields=id,permalink&limit=100&access_token=${token}`);
+              console.log('[media-insights] feed lookup:', feed?.data?.length, 'items');
+              const found = (feed?.data || []).find((m: any) => m.permalink?.includes(shortcode));
+              if (found?.id) {
+                db.prepare("UPDATE content_pieces SET ig_media_id=? WHERE ig_media_id=? AND tenant_id=?")
+                  .run(found.id, req.params.mediaId, req.user.tenant_id);
+                mediaId = found.id;
+                resolved = true;
+              } else {
+                console.error('[media-insights] shortcode not found in feed:', shortcode);
+              }
+            }
+          } catch (e2: any) {
+            console.error('[media-insights] feed lookup error:', e2.message);
+          }
+        }
       }
     }
 
