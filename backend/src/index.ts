@@ -96,13 +96,13 @@ app.get('/api/meta/callback', async (req, res) => {
     const expiresIn = llData.expires_in || 5184000;
     const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
 
-    // Get Instagram Business Account ID + Facebook Page via /me/accounts
+    // Get Facebook Page token via /me/accounts — try to match client's existing instagram_user_id
     const pages = await httpsGet(`https://graph.facebook.com/v19.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longToken}`);
     let igUserId: string | null = null;
     let fbPageId: string | null = null;
     let fbPageToken: string | null = null;
 
-    // Prefer the page that matches the instagram_user_id already saved for this client
+    // Look for the page whose IG account matches what's already saved for this client
     const existing = db.prepare('SELECT instagram_user_id FROM agency_clients WHERE id=? AND tenant_id=?').get(clientId, tenantId) as any;
     const existingIgId = existing?.instagram_user_id;
 
@@ -110,15 +110,21 @@ app.get('/api/meta/callback', async (req, res) => {
     const matched = existingIgId
       ? candidates.find((p: any) => p.instagram_business_account.id === existingIgId)
       : null;
-    const chosen = matched || candidates[0];
 
-    if (chosen) {
-      igUserId = chosen.instagram_business_account.id;
-      fbPageId = chosen.id;
-      fbPageToken = chosen.access_token || longToken;
+    if (matched) {
+      // Perfect match — also update ig user id (same value) + FB page
+      igUserId = matched.instagram_business_account.id;
+      fbPageId = matched.id;
+      fbPageToken = matched.access_token || longToken;
+    } else if (!existingIgId && candidates[0]) {
+      // No existing IG ID set — use first found (first-time setup)
+      igUserId = candidates[0].instagram_business_account.id;
+      fbPageId = candidates[0].id;
+      fbPageToken = candidates[0].access_token || longToken;
     }
+    // If existingIgId is set but no match found, we only save the token (don't touch instagram_user_id)
 
-    // Save per-client token + Facebook Page in agency_clients
+    // Save token. Only update instagram_user_id if we found a value to set.
     db.prepare(
       "UPDATE agency_clients SET instagram_token=?, instagram_user_id=COALESCE(?, instagram_user_id), instagram_token_expires=?, facebook_page_id=COALESCE(?, facebook_page_id), facebook_page_token=COALESCE(?, facebook_page_token), updated_at=datetime('now') WHERE id=? AND tenant_id=?"
     ).run(longToken, igUserId, expiresAt, fbPageId, fbPageToken, clientId, tenantId);
