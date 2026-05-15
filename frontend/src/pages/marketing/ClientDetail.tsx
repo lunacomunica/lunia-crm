@@ -1039,8 +1039,8 @@ export default function ClientDetail() {
                                     <FileImage size={13} style={{ color: 'rgba(59,130,246,0.35)' }} />
                                   </div>
                                 )}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-medium text-white truncate">{p.title}</p>
+                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => { setPanelInitialTab('copy'); setPanelPost(p); }}>
+                                  <p className="text-sm font-medium text-white truncate hover:text-blue-400 transition-colors">{p.title}</p>
                                   {p.scheduled_date && (
                                     <p className="text-[10px] mt-0.5" style={{ color: 'rgba(100,116,139,0.5)' }}>
                                       {format(new Date(p.scheduled_date + 'T12:00:00'), "d 'de' MMMM", { locale: ptBR })}
