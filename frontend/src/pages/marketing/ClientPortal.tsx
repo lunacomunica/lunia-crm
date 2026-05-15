@@ -1323,59 +1323,62 @@ export default function ClientPortal() {
 
   function PageConteudos() {
     const MONTHS_PT = ['Janeiro','Fevereiro','Março','Abril','Maio','Junho','Julho','Agosto','Setembro','Outubro','Novembro','Dezembro'];
-    const DAYS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
 
-    const [contentTab, setContentTab] = useState<'aprovar' | 'aprovados'>('aprovar');
-    const [viewMode, setViewMode] = useState<'lista' | 'calendario' | 'previa'>('lista');
+    const [contentTab, setContentTab] = useState<'aprovar' | 'ativo'>('aprovar');
+    const [approvingId, setApprovingId] = useState<number | null>(null);
+
+    // Default "Para Aprovar" to next month's batch
     const [batchIdx, setBatchIdx] = useState<number>(() => {
       if (batches.length === 0) return 0;
       const now = new Date();
-      const idx = batches.findIndex(b => b.month === now.getMonth() + 1 && b.year === now.getFullYear());
-      return idx >= 0 ? idx : batches.length - 1;
+      const nm = now.getMonth() + 2; // next month 1-based
+      const ny = nm > 12 ? now.getFullYear() + 1 : now.getFullYear();
+      const nextM = nm > 12 ? 1 : nm;
+      const idx = batches.findIndex(b => b.month === nextM && b.year === ny);
+      if (idx >= 0) return idx;
+      const cur = batches.findIndex(b => b.month === now.getMonth() + 1 && b.year === now.getFullYear());
+      return cur >= 0 ? cur : batches.length - 1;
     });
 
-    // Consume init filter once
     useEffect(() => { setConteudosInitFilter('all'); }, []);
 
     const selectedBatch = batches[batchIdx] ?? null;
-    const batchPieces = selectedBatch
-      ? pieces.filter(p => (p as any).batch_id === selectedBatch.id)
-      : pieces;
 
-    const approvalPieces = batchPieces.filter(p =>
-      ['aguardando_aprovacao', 'ajuste_solicitado'].includes(p.status)
+    // Para Aprovar: pending in selected batch
+    const approvalPieces = pieces.filter(p =>
+      ['aguardando_aprovacao', 'ajuste_solicitado'].includes(p.status) &&
+      (!selectedBatch || (p as any).batch_id === selectedBatch.id)
     );
-    const approvedPieces = [...batchPieces]
+
+    // Feed Ativo: all approved/scheduled/published across all batches
+    const ativoPieces = [...pieces]
       .filter(p => ['aprovado', 'agendado', 'publicado'].includes(p.status))
       .sort((a, b) => {
         const da = a.scheduled_date || a.created_at || '';
-        const db2 = b.scheduled_date || b.created_at || '';
-        return da < db2 ? 1 : da > db2 ? -1 : 0;
+        const db = b.scheduled_date || b.created_at || '';
+        return da < db ? 1 : da > db ? -1 : 0;
       });
 
-    const displayed = contentTab === 'aprovar' ? approvalPieces : approvedPieces;
+    const displayed = contentTab === 'aprovar' ? approvalPieces : ativoPieces;
+    const pendingCount = pieces.filter(p => p.status === 'aguardando_aprovacao').length;
 
-    const displayedApproved = selectedBatch?.approved_count ?? batchPieces.filter(p => ['aprovado','agendado','publicado'].includes(p.status)).length;
-    const displayedTotal = selectedBatch?.post_count ?? batchPieces.length;
+    const displayedApproved = selectedBatch
+      ? pieces.filter(p => ['aprovado','agendado','publicado'].includes(p.status) && (p as any).batch_id === selectedBatch.id).length
+      : 0;
+    const displayedTotal = selectedBatch
+      ? pieces.filter(p => (p as any).batch_id === selectedBatch.id).length
+      : 0;
     const allApproved = displayedTotal > 0 && displayedApproved >= displayedTotal;
 
-    // Calendar helpers
-    const calYear  = selectedBatch?.year  ?? new Date().getFullYear();
-    const calMonth = selectedBatch?.month ?? (new Date().getMonth() + 1);
-    const firstDay    = new Date(calYear, calMonth - 1, 1).getDay();
-    const daysInMonth = new Date(calYear, calMonth, 0).getDate();
-    const postsByDay: Record<number, ContentPiece[]> = {};
-    displayed.forEach(p => {
-      if (!p.scheduled_date) return;
-      const d = new Date(p.scheduled_date);
-      if (d.getFullYear() === calYear && d.getMonth() + 1 === calMonth) {
-        const day = d.getDate();
-        if (!postsByDay[day]) postsByDay[day] = [];
-        postsByDay[day].push(p);
-      }
-    });
+    const quickApprove = async (p: ContentPiece, e: React.MouseEvent) => {
+      e.stopPropagation();
+      setApprovingId(p.id);
+      await contentApi.updateStatus(p.id, 'aprovado');
+      setPieces(prev => prev.map(x => x.id === p.id ? { ...x, status: 'aprovado' } : x));
+      setApprovingId(null);
+    };
 
-    /* ── Views ── */
+    /* ── Card grid ── */
     function ListView() {
       return (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1413,18 +1416,24 @@ export default function ClientPortal() {
     }
 
     function CalendarioView() {
-      const cells: (number | null)[] = [];
-      for (let i = 0; i < firstDay; i++) cells.push(null);
-      for (let d = 1; d <= daysInMonth; d++) cells.push(d);
-      const today = new Date();
-      const noDate = displayed.filter(p => !p.scheduled_date);
-
+      // kept for reference only — no longer rendered
       const TYPE_LABEL: Record<string, { label: string; color: string }> = {
         carrossel: { label: 'CAR', color: '#a78bfa' },
         reels:     { label: 'REE', color: '#f472b6' },
         story:     { label: 'STR', color: '#fb923c' },
         post:      { label: 'POST', color: '#60a5fa' },
       };
+      const cells: (number | null)[] = [];
+      const today = new Date();
+      const noDate = displayed.filter(p => !p.scheduled_date);
+      const calYear = new Date().getFullYear();
+      const calMonth = new Date().getMonth() + 1;
+      const firstDay = new Date(calYear, calMonth - 1, 1).getDay();
+      const daysInMonth = new Date(calYear, calMonth, 0).getDate();
+      const postsByDay: Record<number, ContentPiece[]> = {};
+      const DAYS_PT = ['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
+      for (let i = 0; i < firstDay; i++) cells.push(null);
+      for (let d = 1; d <= daysInMonth; d++) cells.push(d);
 
       return (
         <div>
@@ -1537,42 +1546,40 @@ export default function ClientPortal() {
               {pendingCount > 0 ? `${pendingCount} post${pendingCount > 1 ? 's' : ''} aguardando aprovação` : 'Feed e aprovações'}
             </p>
           </div>
-          {/* View toggle */}
-          <div className="flex gap-0.5 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.04)' }}>
-            {([
-              { id: 'lista',      icon: List,        label: 'Lista'      },
-              { id: 'calendario', icon: CalendarDays, label: 'Calendário' },
-              { id: 'previa',     icon: Grid3x3,      label: 'Prévia'     },
-            ] as const).map(v => (
-              <button key={v.id} onClick={() => setViewMode(v.id)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-                style={viewMode === v.id
-                  ? { background: 'rgba(59,130,246,0.15)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }
-                  : { color: 'rgba(100,116,139,0.55)' }}>
-                <v.icon size={13} />{v.label}
-              </button>
-            ))}
-          </div>
         </div>
 
-        {/* Resumo rápido */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          {[
-            { label: 'Publicados / Agendados', value: pieces.filter(p => ['publicado','agendado'].includes(p.status)).length, color: '#34d399' },
-            { label: 'Aprovados',              value: pieces.filter(p => p.status === 'aprovado').length,                    color: '#60a5fa' },
-            { label: 'Aguardando aprovação',   value: pieces.filter(p => p.status === 'aguardando_aprovacao').length,        color: '#f59e0b' },
-            { label: 'Pedidos de ajuste',      value: pieces.filter(p => p.status === 'ajuste_solicitado').length,           color: '#f97316' },
-          ].map(m => (
-            <div key={m.label} className="rounded-xl px-3 py-3"
-              style={{ background: 'linear-gradient(145deg,#0d0d22,#0f0f28)', border: '1px solid rgba(255,255,255,0.04)' }}>
-              <p className="text-xl font-bold mb-0.5" style={{ color: m.color }}>{m.value}</p>
-              <p className="text-[10px] leading-tight" style={{ color: 'rgba(100,116,139,0.45)' }}>{m.label}</p>
-            </div>
-          ))}
+        {/* Tabs */}
+        <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+          <button onClick={() => setContentTab('aprovar')}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+            style={contentTab === 'aprovar'
+              ? { background: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.2)' }
+              : { color: 'rgba(100,116,139,0.5)' }}>
+            Para Aprovar
+            {approvalPieces.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ background: 'rgba(245,158,11,0.2)', color: '#f59e0b' }}>
+                {approvalPieces.length}
+              </span>
+            )}
+          </button>
+          <button onClick={() => setContentTab('ativo')}
+            className="flex-1 py-2.5 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2"
+            style={contentTab === 'ativo'
+              ? { background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.2)' }
+              : { color: 'rgba(100,116,139,0.5)' }}>
+            Feed Ativo
+            {ativoPieces.length > 0 && (
+              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
+                {ativoPieces.length}
+              </span>
+            )}
+          </button>
         </div>
 
-        {/* Month navigator */}
-        {batches.length > 0 && (
+        {/* Month navigator — only on Para Aprovar */}
+        {contentTab === 'aprovar' && batches.length > 0 && (
           <div className="flex items-center gap-2">
             <button onClick={() => setBatchIdx(i => Math.max(0, i - 1))} disabled={batchIdx === 0}
               className="p-1.5 rounded-lg transition-all disabled:opacity-25"
@@ -1599,50 +1606,72 @@ export default function ClientPortal() {
           </div>
         )}
 
-        {/* Content tabs */}
-        <div className="flex gap-1 p-1 rounded-xl" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
-          <button onClick={() => setContentTab('aprovar')}
-            className="flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2"
-            style={contentTab === 'aprovar'
-              ? { background: 'rgba(245,158,11,0.12)', color: '#fbbf24', border: '1px solid rgba(245,158,11,0.2)' }
-              : { color: 'rgba(100,116,139,0.5)' }}>
-            Para aprovar
-            {approvalPieces.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b' }}>
-                {approvalPieces.length}
-              </span>
-            )}
-          </button>
-          <button onClick={() => setContentTab('aprovados')}
-            className="flex-1 py-2 rounded-lg text-xs font-medium transition-all flex items-center justify-center gap-2"
-            style={contentTab === 'aprovados'
-              ? { background: 'rgba(16,185,129,0.1)', color: '#34d399', border: '1px solid rgba(16,185,129,0.2)' }
-              : { color: 'rgba(100,116,139,0.5)' }}>
-            Aprovados
-            {approvedPieces.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
-                style={{ background: 'rgba(16,185,129,0.1)', color: '#10b981' }}>
-                {approvedPieces.length}
-              </span>
-            )}
-          </button>
-        </div>
-
-        {/* Content area */}
+        {/* Grid */}
         {displayed.length === 0 ? (
           <div className="text-center py-24">
             <FileImage size={40} className="mx-auto mb-4" style={{ color: 'rgba(100,116,139,0.15)' }} />
             <p className="text-white font-medium mb-1">
-              {contentTab === 'aprovar' ? 'Nenhuma aprovação pendente' : 'Nenhum post aprovado neste mês'}
+              {contentTab === 'aprovar' ? 'Nenhuma aprovação pendente para este mês' : 'Nenhum post ativo ainda'}
             </p>
           </div>
-        ) : viewMode === 'lista' ? (
-          <ListView />
-        ) : viewMode === 'calendario' ? (
-          <CalendarioView />
         ) : (
-          <PreviaView />
+          <div className="grid grid-cols-3 gap-0.5">
+            {displayed.map(p => {
+              const thumb = getPostThumbnail(p);
+              const isAwaiting = p.status === 'aguardando_aprovacao';
+              const isAjuste = p.status === 'ajuste_solicitado';
+              const borderGlow = isAwaiting ? '0 0 0 2px rgba(245,158,11,0.5)' : isAjuste ? '0 0 0 2px rgba(248,113,113,0.5)' : 'none';
+              const cfg = STATUS_CFG[p.status as ContentStatus] ?? STATUS_CFG['em_criacao'];
+              return (
+                <div key={p.id} className="relative cursor-pointer group overflow-hidden"
+                  style={{ aspectRatio: '1080/1350', background: '#0d0d22', boxShadow: borderGlow }}
+                  onClick={() => openDetail(p)}>
+                  {/* Thumbnail */}
+                  {thumb
+                    ? <img src={thumb} alt={p.title} className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105" />
+                    : <div className="w-full h-full flex items-center justify-center"><FileImage size={22} style={{ color: 'rgba(59,130,246,0.2)' }} /></div>}
+
+                  {/* Type icon */}
+                  {p.type === 'carrossel' && <span className="absolute top-1.5 right-1.5"><IgCarouselIcon size={13} /></span>}
+                  {p.type === 'reels'    && <span className="absolute top-1.5 right-1.5"><IgReelsIcon size={13} /></span>}
+
+                  {/* Bottom info strip */}
+                  <div className="absolute bottom-0 left-0 right-0 px-2 py-1.5"
+                    style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 100%)' }}>
+                    {p.scheduled_date && (
+                      <p className="text-[10px] text-white/70 truncate">
+                        {format(new Date(p.scheduled_date), "d MMM", { locale: ptBR })}
+                      </p>
+                    )}
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full"
+                      style={{ background: `${cfg.color}25`, color: cfg.color }}>
+                      {cfg.label}
+                    </span>
+                  </div>
+
+                  {/* Hover overlay — Para Aprovar only */}
+                  {contentTab === 'aprovar' && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                      style={{ background: 'rgba(0,0,0,0.6)' }}>
+                      <button
+                        onClick={e => quickApprove(p, e)}
+                        disabled={approvingId === p.id}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold transition-all"
+                        style={{ background: 'rgba(16,185,129,0.9)', color: '#fff' }}>
+                        {approvingId === p.id ? '...' : '✓ Aprovar'}
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); openDetail(p); }}
+                        className="flex items-center gap-1 text-xs font-medium px-3 py-1 rounded-full"
+                        style={{ background: 'rgba(255,255,255,0.15)', color: 'rgba(255,255,255,0.85)' }}>
+                        Ver detalhes
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
     );
