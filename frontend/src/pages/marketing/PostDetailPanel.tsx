@@ -292,19 +292,20 @@ export default function PostDetailPanel({ post, onClose, onUpdated, onDeleted, i
     usersApi.list().then(r => setUsers(r.data || []));
   }, [post.id]);
 
-  // Auto-load insights when tab opens with ig_media_id
+  // Auto-load insights when tab opens with ig_media_id, or when ig_media_id is first set (after linking)
   useEffect(() => {
     const igId = (post as any).ig_media_id;
     const clientId = (post as any).agency_client_id;
-    if (panelTab === 'post' && igId && clientId && !mediaInsights && !loadingInsights) {
+    if (panelTab === 'post' && igId && clientId && !loadingInsights) {
       setLoadingInsights(true);
       setInsightsError(null);
+      setMediaInsights(null);
       metaApi.getMediaInsights(clientId, igId)
         .then(r => setMediaInsights(r.data))
         .catch((e: any) => setInsightsError(e?.response?.data?.error || e?.message || 'Erro ao carregar métricas'))
         .finally(() => setLoadingInsights(false));
     }
-  }, [panelTab]);
+  }, [panelTab, (post as any).ig_media_id]);
 
   // Auto-resize caption on mount
   useEffect(() => {
