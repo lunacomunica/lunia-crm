@@ -5,7 +5,7 @@ import {
   ArrowLeft, Eye, Plus, Trash2, X, Instagram, Pencil,
   Target, TrendingUp, Users, Zap, Star, DollarSign,
   FileImage, Megaphone, CheckSquare, Save, ExternalLink,
-  Clock, CheckCircle2, RotateCcw, Calendar, ChevronDown, ChevronLeft, ChevronRight, Send,
+  Clock, CheckCircle2, AlertCircle, RotateCcw, Calendar, ChevronDown, ChevronLeft, ChevronRight, Send,
   List, CalendarDays, LayoutGrid,
   Image, Video, MousePointerClick, Link, FileText
 } from 'lucide-react';
@@ -313,11 +313,7 @@ export default function ClientDetail() {
   const [adsError, setAdsError] = useState<string | null>(null);
   const [igTesting, setIgTesting] = useState(false);
   const [igTestResult, setIgTestResult] = useState<{ success: boolean; message: string } | null>(null);
-  const [igAccounts, setIgAccounts] = useState<any[]>([]);
-  const [igAccountsLoading, setIgAccountsLoading] = useState(false);
-  const [igAccountsError, setIgAccountsError] = useState<string | null>(null);
-  const [igAccountsSearched, setIgAccountsSearched] = useState(false);
-  const [igSearchInput, setIgSearchInput] = useState('');
+  const [igSaveResult, setIgSaveResult] = useState<{ success: boolean; message: string } | null>(null);
   const [agencyTokenConnected, setAgencyTokenConnected] = useState(false);
   const [agencyTokenExpires, setAgencyTokenExpires] = useState<string | null>(null);
   const [agencyTokenInput, setAgencyTokenInput] = useState('');
@@ -511,9 +507,16 @@ export default function ClientDetail() {
   };
 
   const saveIgIntegration = async () => {
+    if (!igAccountId.trim()) return;
     setIgSaving(true);
-    await agencyClientsApi.saveIntegration(cid, { instagram_user_id: igAccountId });
-    setIgConnected(!!igAccountId);
+    setIgSaveResult(null);
+    try {
+      await agencyClientsApi.saveIntegration(cid, { instagram_user_id: igAccountId.trim() });
+      setIgConnected(true);
+      setIgSaveResult({ success: true, message: 'Conta vinculada com sucesso.' });
+    } catch (e: any) {
+      setIgSaveResult({ success: false, message: e?.response?.data?.error || 'Erro ao salvar.' });
+    }
     setIgSaving(false);
   };
 
@@ -547,21 +550,6 @@ export default function ClientDetail() {
     setAgencyTokenSaving(false);
   };
 
-  const searchIgAccount = async () => {
-    if (!igSearchInput.trim()) return;
-    setIgAccountsLoading(true);
-    setIgAccounts([]);
-    setIgAccountsError(null);
-    setIgAccountsSearched(false);
-    try {
-      const r = await metaApi.searchIgAccount(igSearchInput.trim());
-      setIgAccounts([r.data]);
-    } catch (e: any) {
-      setIgAccountsError(e?.response?.data?.error || e?.message || 'Conta não encontrada');
-    }
-    setIgAccountsLoading(false);
-    setIgAccountsSearched(true);
-  };
 
   const testIgConnection = async () => {
     setIgTesting(true);
@@ -1779,73 +1767,27 @@ export default function ClientDetail() {
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <p style={fieldLabel}>Perfil do Instagram</p>
-                </div>
-                <div className="flex gap-2 mb-3">
-                  <input
-                    value={igSearchInput}
-                    onChange={e => setIgSearchInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && searchIgAccount()}
-                    placeholder="@username ou nome da conta"
-                    style={{ ...fieldInput, margin: 0 }}
-                  />
-                  <button onClick={searchIgAccount} disabled={igAccountsLoading || !igSearchInput.trim()}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium disabled:opacity-40 transition-all flex-shrink-0"
-                    style={{ color: '#60a5fa', background: 'rgba(59,130,246,0.08)', border: '1px solid rgba(59,130,246,0.18)' }}>
-                    <RotateCcw size={11} className={igAccountsLoading ? 'animate-spin' : ''} />
-                    {igAccountsLoading ? 'Buscando...' : 'Buscar'}
-                  </button>
-                </div>
-
-                {igAccountsError && (
-                  <div className="mb-2 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(239,68,68,0.08)', border: '1px solid rgba(239,68,68,0.2)', color: '#f87171' }}>
-                    {igAccountsError}
-                  </div>
-                )}
-
-                {igAccountsSearched && !igAccountsLoading && igAccounts.length === 0 && !igAccountsError && (
-                  <div className="mb-2 px-3 py-2 rounded-lg text-xs" style={{ background: 'rgba(251,191,36,0.06)', border: '1px solid rgba(251,191,36,0.15)', color: 'rgba(251,191,36,0.8)' }}>
-                    Nenhuma conta encontrada. A conta precisa ser Business ou Creator. Tente o username exato (sem @).
-                  </div>
-                )}
-
-                {igAccounts.length > 0 && (
-                  <div className="space-y-2 mb-3">
-                    {igAccounts.map(acc => (
-                      <button key={acc.ig_user_id} onClick={() => setIgAccountId(acc.ig_user_id)}
-                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left"
-                        style={{
-                          background: igAccountId === acc.ig_user_id ? 'rgba(236,72,153,0.1)' : 'rgba(255,255,255,0.03)',
-                          border: `1px solid ${igAccountId === acc.ig_user_id ? 'rgba(236,72,153,0.35)' : 'rgba(255,255,255,0.06)'}`,
-                        }}>
-                        {acc.profile_picture_url
-                          ? <img src={acc.profile_picture_url} className="w-8 h-8 rounded-full object-cover flex-shrink-0" />
-                          : <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: 'rgba(236,72,153,0.1)' }}><Instagram size={14} style={{ color: '#ec4899' }} /></div>
-                        }
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white truncate">{acc.name}</p>
-                          <p className="text-xs truncate" style={{ color: 'rgba(100,116,139,0.5)' }}>
-                            {acc.username ? `@${acc.username}` : acc.page_name}
-                            {acc.followers_count ? ` · ${acc.followers_count.toLocaleString('pt-BR')} seguidores` : ''}
-                          </p>
-                        </div>
-                        {igAccountId === acc.ig_user_id && <CheckCircle2 size={14} style={{ color: '#ec4899', flexShrink: 0 }} />}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
+                <p style={fieldLabel}>ID da conta do Instagram</p>
                 <input
                   value={igAccountId}
                   onChange={e => setIgAccountId(e.target.value)}
-                  placeholder="ID da conta (ou clique em Buscar contas)"
+                  placeholder="ex: 17841400000000000"
                   style={fieldInput}
                 />
+                <p className="text-xs mt-1.5" style={{ color: 'rgba(100,116,139,0.4)' }}>
+                  Encontre em: Instagram → Configurações → Sobre a conta → ID da conta.
+                </p>
               </div>
 
+              {igSaveResult && (
+                <p className={`text-xs flex items-center gap-1.5 ${igSaveResult.success ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {igSaveResult.success ? <CheckCircle2 size={12} /> : <AlertCircle size={12} />}
+                  {igSaveResult.message}
+                </p>
+              )}
+
               <div className="flex justify-end pt-1">
-                <button onClick={saveIgIntegration} disabled={igSaving}
+                <button onClick={saveIgIntegration} disabled={igSaving || !igAccountId.trim()}
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all disabled:opacity-40"
                   style={{ color: '#ec4899', background: 'rgba(236,72,153,0.08)', border: '1px solid rgba(236,72,153,0.2)' }}>
                   <Save size={13} /> {igSaving ? 'Salvando…' : 'Salvar'}
