@@ -270,7 +270,13 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
 
   try {
     const basic = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,media_type,like_count,comments_count,timestamp,permalink,caption,thumbnail_url,media_url&access_token=${token}`);
-    if (basic.error) return res.status(400).json({ error: basic.error.message || 'Erro na Graph API' });
+    if (basic.error) {
+      const msg = basic.error.message || '';
+      if (basic.error.code === 100 || msg.includes('does not exist') || msg.includes('missing permissions')) {
+        return res.status(404).json({ error: 'Post não encontrado no Instagram — pode ter sido excluído ou o ID está incorreto.' });
+      }
+      return res.status(400).json({ error: msg || 'Erro na Graph API' });
+    }
     let insights: any = {};
     let insightsWarning: string | null = null;
     try {
