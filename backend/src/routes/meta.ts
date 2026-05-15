@@ -279,6 +279,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
     }
     let insights: any = {};
     let insightsWarning: string | null = null;
+    let _rawInsights: any = null;
     const isVideo = basic.media_type === 'VIDEO' || basic.media_type === 'REELS';
     const isCarousel = basic.media_type === 'CAROUSEL_ALBUM';
 
@@ -295,6 +296,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
     try {
       const ins = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}/insights?metric=${metric}&period=lifetime&access_token=${token}`);
       if (ins.error) throw new Error(ins.error.message);
+      _rawInsights = ins.data;
       if (!ins.data || ins.data.length === 0) throw new Error('Sem dados de insights — o token pode não ter permissão instagram_manage_insights para esta conta. Reconecte via OAuth na aba Integração.');
       for (const m of ins.data || []) {
         // Normalize carousel metric names to standard names
@@ -341,7 +343,7 @@ router.get('/media-insights/:clientId/:mediaId', async (req, res) => {
       commentsList = commentsRes.data || [];
     } catch {}
 
-    res.json({ ...basic, insights, comments_list: commentsList, insights_warning: insightsWarning });
+    res.json({ ...basic, insights, comments_list: commentsList, insights_warning: insightsWarning, _debug: { media_type: basic.media_type, raw_insights: _rawInsights } });
   } catch (e: any) {
     res.status(500).json({ error: e.message });
   }
