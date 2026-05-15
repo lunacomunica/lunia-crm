@@ -957,8 +957,9 @@ router.post('/sync-history/:clientId', async (req, res) => {
 
 // GET /meta/media/:clientId/:mediaId — fetch IG media permalink + thumbnail
 router.get('/media/:clientId/:mediaId', async (req, res) => {
-  const token = getTokenForClient(req.user.tenant_id, req.params.clientId);
-  if (!token) return res.status(400).json({ error: 'Token não configurado.' });
+  const client = db.prepare('SELECT instagram_token, facebook_page_token FROM agency_clients WHERE id=? AND tenant_id=?').get(req.params.clientId, req.user.tenant_id) as any;
+  const token = client?.instagram_token || client?.facebook_page_token;
+  if (!token) return res.status(400).json({ error: 'Cliente sem token OAuth. Reconecte o Instagram.' });
   try {
     const data = await httpsGet(`https://graph.facebook.com/v19.0/${req.params.mediaId}?fields=id,permalink,thumbnail_url,media_type,media_url,timestamp&access_token=${token}`);
     if (data.error) return res.status(400).json({ error: data.error.message });
